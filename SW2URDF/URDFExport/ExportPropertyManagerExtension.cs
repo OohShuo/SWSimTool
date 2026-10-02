@@ -315,6 +315,9 @@ namespace SW2URDF.URDFExport
         {
             if (previouslySelectedNode != null)
             {
+                if (Exporter.Simulation != null)
+                    foreach (var attachment in Exporter.Simulation.Project.attachments)
+                        if (attachment.link == previouslySelectedNode.Link.Name) attachment.link = PMTextBoxLinkName.Text;
                 previouslySelectedNode.Link.Name = PMTextBoxLinkName.Text;
                 if (!previouslySelectedNode.IsBaseNode)
                 {

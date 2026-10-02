@@ -922,6 +922,8 @@ namespace SW2URDF.URDFExport
         // coordinate systems that are embedded in subcomponents, and apply the correct transformation to return
         // it to a global transform. It assumes that the coordinate system name is formatted like:
         // "Coordinate System 1 <assy/subassy/comp>" where the full Component2.Name2 is between the <>
+        public MathTransform AttachmentCoordinateTransform(string name) => GetCoordinateSystemTransform(name);
+
         private MathTransform GetCoordinateSystemTransform(string CoordinateSystemName)
         {
             ModelDoc2 ComponentModel = ActiveSWModel;

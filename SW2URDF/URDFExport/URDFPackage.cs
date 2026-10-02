@@ -69,9 +69,9 @@ namespace SW2URDF.URDFExport
             WindowsConfigYAML = WindowsConfigDirectory + @"joint_names_" + name + ".yaml";
         }
 
-        public void CreateDirectories()
+        public void CreateDirectories(bool showLocation = true)
         {
-            MessageBox.Show("Creating URDF Package \"" +
+            if (showLocation) MessageBox.Show("Creating URDF Package \"" +
                 PackageName + "\" at:\n" + WindowsPackageDirectory);
             if (!Directory.Exists(WindowsPackageDirectory))
             {

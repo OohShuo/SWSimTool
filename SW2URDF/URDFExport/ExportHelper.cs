@@ -82,6 +82,17 @@ namespace SW2URDF.URDFExport
         public string SavePath
         { get; set; }
 
+        public Simulation.AttachmentService Simulation { get; private set; }
+        public string LastURDFPath { get; private set; }
+        public string LastSimulationPath { get; private set; }
+        public bool ShowExportLocation { get; set; } = true;
+
+        public Simulation.AttachmentService GetSimulation()
+        {
+            if (Simulation == null) Simulation = new Simulation.AttachmentService(this);
+            return Simulation;
+        }
+
         public readonly List<Link> Links;
 
         private readonly List<string> ReferenceCoordinateSystemNames;
@@ -153,11 +164,14 @@ namespace SW2URDF.URDFExport
             //Creating package directories
             logger.Info("Creating package directories with name " + PackageName + " and save path " + SavePath);
             URDFPackage package = new URDFPackage(PackageName, SavePath);
-            package.CreateDirectories();
+            package.CreateDirectories(ShowExportLocation);
             URDFRobot.Name = PackageName;
             string windowsURDFFileName = package.WindowsRobotsDirectory + URDFRobot.Name + ".urdf";
             string windowsCSVFileName = package.WindowsRobotsDirectory + URDFRobot.Name + ".csv";
             string windowsPackageXMLFileName = package.WindowsPackageDirectory + "package.xml";
+
+            // Validate and resolve CAD references before exporting meshes. Never add URDF elements.
+            var simulationData = Simulation == null ? null : Simulation.Export(windowsURDFFileName);
 
             //Create CMakeLists
             logger.Info("Creating CMakeLists.txt at " + package.WindowsCMakeLists);
@@ -231,6 +245,15 @@ namespace SW2URDF.URDFExport
             URDFRobot.WriteURDF(uWriter.writer);
 
             ImportExport.WriteRobotToCSV(URDFRobot, windowsCSVFileName);
+
+            LastURDFPath = windowsURDFFileName;
+            LastSimulationPath = Path.ChangeExtension(windowsURDFFileName, ".sim.json");
+            if (simulationData != null)
+            {
+                using (var hash = System.Security.Cryptography.SHA256.Create())
+                    simulationData["urdf_sha256"] = BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(windowsURDFFileName))).Replace("-", "").ToLowerInvariant();
+                SW2URDF.Simulation.SimulationProject.Write(LastSimulationPath, simulationData);
+            }
 
             logger.Info("Copying log file");
             CopyLogFile(package);

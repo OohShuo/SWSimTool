@@ -61,6 +61,7 @@ namespace SW2URDF.URDFExport
         private PropertyManagerPageGroup PMGroup;
         private PropertyManagerPageSelectionbox PMSelection;
         private PropertyManagerPageButton PMButtonExport;
+        private PropertyManagerPageButton PMButtonSimulation;
         private PropertyManagerPageButton PMButtonLoad;
         private PropertyManagerPageTextbox PMTextBoxLinkName;
         private PropertyManagerPageTextbox PMTextBoxJointName;
@@ -110,6 +111,7 @@ namespace SW2URDF.URDFExport
         private const int ComputeJointKinematicsID = 29;
         private const int ComputeJointLimitsID = 30;
         private const int LoadedCSVFilenameID = 31;
+        private const int SimulationConfigID = 32;
 
         #endregion class variables
 
@@ -142,6 +144,7 @@ namespace SW2URDF.URDFExport
             int alignment = 0;
 
             ActiveSWModel.ShowConfiguration2("URDF Export");
+            Exporter.GetSimulation();
 
             #region Create and instantiate components of PM page
 
@@ -383,6 +386,14 @@ namespace SW2URDF.URDFExport
 
                 case LoadConfigurationID:
                     LoadFromCSV();
+                    break;
+
+                case SimulationConfigID:
+                    SaveActiveNode();
+                    var selected = Tree.SelectedNode as LinkNode;
+                    if (selected == null) throw new InvalidOperationException("Select a link first.");
+                    using (var form = new SimulationConfigForm(Exporter.GetSimulation(), selected.Link.Name,
+                        SimulationConfigForm.JointNames(Tree.Nodes))) form.ShowDialog();
                     break;
 
                 default:
@@ -951,6 +962,11 @@ namespace SW2URDF.URDFExport
                 (short)swPropertyManagerPageControlType_e.swControlType_Button,
                 "Preview and Export...", 0, (int)options, "Preview the generated URDF and export to a URDF package");
             (PMButtonExport as IPropertyManagerPageControl).Width = 200;
+
+            PMButtonSimulation = PMGroup.AddControl2(SimulationConfigID,
+                (short)swPropertyManagerPageControlType_e.swControlType_Button,
+                "附着点 / MuJoCo 配置...", 0, (int)options, "为当前 link 添加参考点或坐标系，配置执行器、传感器和闭链");
+            (PMButtonSimulation as IPropertyManagerPageControl).Width = 200;
 
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle;
             caption = "Link Tree";

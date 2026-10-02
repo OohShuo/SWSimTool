@@ -40,6 +40,20 @@ namespace SW2URDF.UI
         private static readonly log4net.ILog logger = Logger.GetLogger();
 
         public ExportHelper Exporter;
+        private void RunMuJoCo(bool preview)
+        {
+            try
+            {
+                using (var dialog = new OpenFileDialog { Filter = "URDF|*.urdf", Title = "选择已导出、带 .sim.json 的 URDF" })
+                {
+                    if (dialog.ShowDialog() != DialogResult.OK) return;
+                    string config = Path.ChangeExtension(dialog.FileName, ".sim.json");
+                    if (!File.Exists(config)) throw new FileNotFoundException("请先保存附加配置，再导出 URDF 和网格。", config);
+                    SW2URDF.Simulation.PythonBackend.Launch(Exporter.GetSimulation().Project.python, dialog.FileName, config, preview);
+                }
+            }
+            catch (Exception error) { MessageBox.Show(error.Message, "MuJoCo"); }
+        }
         public bool AutoUpdatingForm;
         public AttributeDef saveConfigurationAttributeDef;
 
@@ -61,6 +75,14 @@ namespace SW2URDF.UI
             BaseNode = node;
             ActiveSWModel = swApp.ActiveDoc;
             Exporter = exporter;
+            // Leave room for the existing bottom-left Cancel button.
+            var simulationTools = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 36, Padding = new Padding(115, 0, 100, 0) };
+            var convert = new Button { Text = "导出 MJCF...", AutoSize = true };
+            var preview = new Button { Text = "MuJoCo 预览...", AutoSize = true };
+            simulationTools.Controls.Add(convert); simulationTools.Controls.Add(preview);
+            Controls.Add(simulationTools);
+            convert.Click += (s, e) => RunMuJoCo(false);
+            preview.Click += (s, e) => RunMuJoCo(true);
             AutoUpdatingForm = false;
 
             jointBoxes = new Control[] {
