@@ -332,3 +332,17 @@ ASALocalRun/
 *.zip
 
 SW2URDF/Versioning/VersionInfo.cs
+
+# Local SW2025 build, investigation and downloaded tools (kept on disk)
+/diagnostics/
+/dist/
+/INSTALL/tools/
+/upstream-reference/
+/upstream-master.json
+
+# Local SW2025 build, investigation and downloaded tools (kept on disk)
+/diagnostics/
+/dist/
+/INSTALL/tools/
+/upstream-reference/
+/upstream-master.json

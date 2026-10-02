@@ -365,7 +365,10 @@ namespace SW2URDF.SW
 
                 PartExportForm exportForm = new PartExportForm((SldWorks)SwApp);
                 logger.Info("Showing part");
+                // Show is modeless. Do not Dispose here: that immediately destroys the window.
+                // A modeless Form disposes itself when the user closes it.
                 exportForm.Show();
+                logger.Info($"PartExportForm Show returned: Visible={exportForm.Visible}, IsDisposed={exportForm.IsDisposed}");
             }
         }
 

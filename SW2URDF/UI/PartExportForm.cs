@@ -30,12 +30,49 @@ namespace SW2URDF.UI
 {
     public partial class PartExportForm : Form
     {
+        private static readonly log4net.ILog logger = Utilities.Logger.GetLogger();
+
         public ExportHelper Exporter;
 
         public PartExportForm(SldWorks iSwApp)
         {
             InitializeComponent();
             Exporter = new ExportHelper(iSwApp);
+            Disposed += (sender, args) => logger.Info("PartExportForm Disposed");
+            logger.Info("PartExportForm constructed");
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            logger.Info("PartExportForm Load begin");
+            try
+            {
+                base.OnLoad(e);
+                logger.Info("PartExportForm Load complete");
+            }
+            catch (Exception ex)
+            {
+                logger.Error("PartExportForm Load failed", ex);
+                throw;
+            }
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            logger.Info("PartExportForm Shown");
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            logger.Info($"PartExportForm FormClosing: Reason={e.CloseReason}, Cancel={e.Cancel}");
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+            logger.Info($"PartExportForm FormClosed: Reason={e.CloseReason}");
         }
 
         #region Basic event handelers
