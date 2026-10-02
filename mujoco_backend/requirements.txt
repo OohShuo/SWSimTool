@@ -1,0 +1,3 @@
+# Dependencies are supplied by the user's configured local Python environment.
+# No MuJoCo version is pinned and the plugin does not install packages.
+mujoco
