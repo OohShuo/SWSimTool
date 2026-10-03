@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
@@ -122,6 +123,9 @@ namespace SW2URDF.URDFExport
         {
             PMPage.Show2(0);
         }
+        Action showCollisionAfterClose;
+        bool collisionTransitionInProgress;
+        readonly PropertyManagerTransition collisionTransition=new PropertyManagerTransition();
 
         public void Close(bool ok)
         {
@@ -401,13 +405,26 @@ namespace SW2URDF.URDFExport
 
                 case CollisionConfigID:
                     SaveActiveNode();
-                    string linkName=((LinkNode)Tree.SelectedNode).Link.Name;
-                    if (!Exporter.CreateRobotFromTreeView((LinkNode)Tree.Nodes[0])) return;
-                    // Save the URDF definition first, then replace this page with the collision editor.
+                    var collisionNode=(LinkNode)Tree.SelectedNode;
+                    var expandedNodes=CollisionTreeNodes(Tree.Nodes).Where(n=>n.IsExpanded).ToArray();
+                    string linkName=collisionNode.Link.Name;
+                    Exporter.GetSimulation().SetCollisionTree((LinkNode)Tree.Nodes[0]);
+                    Exporter.GetSimulation().LinkTransforms();
                     SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
-                    collisionPage=new CollisionPropertyManager(Exporter.GetSimulation(),linkName);
+                    collisionTransitionInProgress=true;
+                    showCollisionAfterClose=()=>{
+                        try {
+                            collisionPage=new CollisionPropertyManager(Exporter.GetSimulation(),linkName);
+                            collisionPage.Closed=()=>RestoreCollisionParent(collisionNode,expandedNodes);
+                            collisionPage.Show();
+                        } catch(Exception ex) {
+                            RestoreCollisionParent(collisionNode,expandedNodes);
+                            MessageBox.Show(ex.Message,"碰撞配置无法打开");
+                        }
+                    };
                     PMPage.Close(false);
-                    collisionPage.Show();
+                    var next=showCollisionAfterClose;showCollisionAfterClose=null;
+                    collisionTransition.Post(next);
                     break;
 
                 default:
@@ -433,6 +450,9 @@ namespace SW2URDF.URDFExport
 
         void IPropertyManagerPage2Handler9.OnClose(int Reason)
         {
+            // SaveActiveNode was already called before a collision-page transition.
+            // The native close clears its selection box; saving again would erase link components.
+            if(collisionTransitionInProgress)return;
             try
             {
                 if (Reason ==
@@ -455,6 +475,24 @@ namespace SW2URDF.URDFExport
                 MessageBox.Show("There was a problem closing the property manager: \n\"" +
                     e.Message + "\"\nEmail your maintainer with the log file found at " + Logger.GetFileName());
             }
+        }
+
+        static IEnumerable<TreeNode> CollisionTreeNodes(TreeNodeCollection nodes)
+        {
+            foreach(TreeNode node in nodes){yield return node;foreach(var child in CollisionTreeNodes(node.Nodes))yield return child;}
+        }
+
+        void RestoreCollisionParent(LinkNode selectedNode,TreeNode[] expandedNodes)
+        {
+            try {
+                Exporter.GetSimulation().SetCollisionTree(null);
+                previouslySelectedNode=null;
+                PMTree.SetWindowHandlex64(Tree.Handle.ToInt64());
+                Show();
+                foreach(var node in expandedNodes)node.Expand();
+                automaticallySwitched=true;Tree.SelectedNode=selectedNode;automaticallySwitched=false;
+                SwitchActiveNodes(selectedNode);
+            } finally {collisionTransitionInProgress=false;}
         }
 
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id)
@@ -530,6 +568,7 @@ namespace SW2URDF.URDFExport
         // selected one is then set
         private void TreeAfterSelect(object sender, TreeViewEventArgs e)
         {
+            if(collisionTransitionInProgress)return;
             try
             {
                 if (!automaticallySwitched && e.Node != null)

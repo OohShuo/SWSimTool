@@ -319,7 +319,7 @@ namespace SW2URDF.SW
                 if(error||root==null)throw new InvalidOperationException("请先使用 Export as URDF 配置并保存 link 树。");
                 CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());
                 var helper=new ExportHelper((SldWorks)SwApp);
-                if(!helper.CreateRobotFromTreeView(root))return;
+                helper.GetSimulation().SetCollisionTree(root);
                 collisionPage=new SW2URDF.UI.CollisionPropertyManager(helper.GetSimulation(),root.Link.Name);
                 collisionPage.Show();
             }

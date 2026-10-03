@@ -8,6 +8,17 @@ using System.Windows.Forms;
 
 namespace SW2URDF.UI
 {
+    // Execute page transitions only after SolidWorks has unwound its close callbacks.
+    internal sealed class PropertyManagerTransition
+    {
+        readonly Control dispatcher=new Control();
+        public PropertyManagerTransition(){var handle=dispatcher.Handle;}
+        public void Post(Action action) {
+            if(action==null)return;
+            dispatcher.BeginInvoke((MethodInvoker)(()=>action()));
+        }
+        public void Dispose(){dispatcher.Dispose();}
+    }
     [ComVisible(true)]
     public sealed class CollisionPropertyManager : PropertyManagerPage2Handler9
     {
@@ -15,6 +26,8 @@ namespace SW2URDF.UI
         readonly PropertyManagerPageSelectionbox selection;
         readonly CollisionEditorControl editor;
         bool retry;
+        readonly PropertyManagerTransition transition=new PropertyManagerTransition();
+        public Action Closed { get; set; }
         public CollisionPropertyManager(AttachmentService service, string selectedLink)
         {
             // Export/coordinate-frame construction can leave components selected.
@@ -25,9 +38,9 @@ namespace SW2URDF.UI
             if(page==null||error!=0)throw new InvalidOperationException("无法创建左侧碰撞配置页面："+error);
             selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
             selection.SingleEntityOnly=true;
-            selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES});
+            selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES});
             var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"碰撞几何体",0,3,"");
-            window.Height=600;
+            window.Height=270;
             editor=new CollisionEditorControl(service,selectedLink);
             editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
             window.SetWindowHandlex64(editor.Handle.ToInt64());
@@ -69,7 +82,7 @@ namespace SW2URDF.UI
         void IPropertyManagerPage2Handler9.OnWhatsNew() {  }
         void IPropertyManagerPage2Handler9.OnListboxRMBUp(int Id, int PosX, int PosY) {  }
         void IPropertyManagerPage2Handler9.OnNumberBoxTrackingCompleted(int Id, double Value) {  }
-        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;page.Show2(0);}else editor.Dispose(); }
+        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;transition.Post(()=>page.Show2(0));}else {editor.Dispose();transition.Post(()=>{try{Closed?.Invoke();}finally{transition.Dispose();}});} }
         int IPropertyManagerPage2Handler9.OnActiveXControlCreated(int Id, bool Status) { return 0; }
     }
 }

@@ -26,6 +26,10 @@ namespace SW2URDF.Simulation
         public double length_input { get; set; } = .03;
         public double thickness { get; set; } = .01;
         public int extrusion { get; set; }
+        public int[] corner_signs { get; set; } = new[] { 1, 1, 1 };
+        public int axis { get; set; } = 2;
+        public int axis_sign { get; set; } = 1;
+        public Dictionary<string, CollisionReference> dimension_references { get; set; } = new Dictionary<string, CollisionReference>();
         public List<CollisionReference> references { get; set; } = new List<CollisionReference>();
         public override string ToString() => name + " [" + type + "]";
         public void Validate()
@@ -36,6 +40,8 @@ namespace SW2URDF.Simulation
             foreach (var v in new[] { xyz, rpy, offset_xyz, offset_rpy })
                 if (v == null || v.Length != 3 || v.Any(x => double.IsNaN(x) || double.IsInfinity(x))) throw new InvalidOperationException("位姿无效。");
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(link)) throw new InvalidOperationException("名称和 link 不能为空。");
+            if(corner_signs==null||corner_signs.Length!=3||corner_signs.Any(s=>s!=1&&s!=-1)||axis<0||axis>2||(axis_sign!=1&&axis_sign!=-1))
+                throw new InvalidOperationException("延伸轴或方向无效。");
         }
     }
     public sealed class CollisionPair

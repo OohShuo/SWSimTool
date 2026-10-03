@@ -12,8 +12,34 @@ namespace SW2URDF.Simulation
     {
         public ModelDoc2 Model => exporter.ActiveSWModel;
         public SldWorks App => (SldWorks)exporter.iSwApp;
+        SW2URDF.URDF.LinkNode collisionTree;
+        Dictionary<string, Matrix<double>> cachedFrames;
+        string cachedRevision;
+        public string CollisionRevision => Model.ConfigurationManager.ActiveConfiguration.Name+":"+Model.GetUpdateStamp();
+        public void SetCollisionTree(SW2URDF.URDF.LinkNode tree)
+        {
+            collisionTree=tree; cachedFrames=null; cachedRevision=null;
+        }
         public Dictionary<string, Matrix<double>> LinkTransforms()
         {
+            if(collisionTree!=null)
+            {
+                string revision=CollisionRevision;
+                if(cachedFrames!=null && revision==cachedRevision)return cachedFrames;
+                var values=new Dictionary<string,Matrix<double>>();
+                Action<SW2URDF.URDF.LinkNode> visit=null;
+                visit=node=>{
+                    string name=node.Link.Joint.CoordinateSystemName;
+                    if(string.IsNullOrWhiteSpace(name)||name=="Automatically Generate")
+                        throw new InvalidOperationException("link "+node.Link.Name+" 尚未指定坐标系。请先指定已有坐标系；碰撞编辑不会自动推断关节或创建参考特征。");
+                    var transform=exporter.AttachmentCoordinateTransform(name);
+                    if(transform==null)throw new InvalidOperationException("link "+node.Link.Name+" 的坐标系不存在："+name);
+                    if(values.ContainsKey(node.Link.Name))throw new InvalidOperationException("link 名称重复："+node.Link.Name);
+                    values.Add(node.Link.Name,MathOps.GetTransformation(transform));
+                    foreach(SW2URDF.URDF.LinkNode child in node.Nodes)visit(child);
+                };
+                visit(collisionTree);cachedFrames=values;cachedRevision=revision;return values;
+            }
             var frames = new Dictionary<string, Matrix<double>>();
             var root = exporter.URDFRobot.BaseLink;
             if (root == null) throw new InvalidOperationException("请先配置 URDF link 树。");
@@ -29,7 +55,7 @@ namespace SW2URDF.Simulation
             var pid = Model.Extension.GetPersistReference3(entity) as byte[];
             if (pid == null || pid.Length == 0) throw new InvalidOperationException("该选择不支持持久引用。");
             // Validate type before retaining a reference.
-            if (!(entity is Feature) && !(entity is Vertex) && !(entity is SketchPoint) && !(entity is RefPoint) && !(entity is Face2))
+            if (!(entity is Feature) && !(entity is Vertex) && !(entity is SketchPoint) && !(entity is RefPoint) && !(entity is Face2) && !(entity is Edge))
                 throw new InvalidOperationException("请选择参考点、顶点、草图点、坐标系或几何面。");
             var result = new CollisionReference { pid = Convert.ToBase64String(pid),
                 component_pid = component == null ? null : Convert.ToBase64String((byte[])Model.Extension.GetPersistReference3(component)),
@@ -96,8 +122,30 @@ namespace SW2URDF.Simulation
             for (int i=0;i<3;i++) { frame[i,0]=x[i]; frame[i,1]=y[i]; frame[i,2]=z[i]; }
             return frame;
         }
+        public double ReferenceEdgeLength(CollisionReference reference)
+        {
+            Matrix<double> placement;
+            var edge=ResolveReference(reference,out placement) as Edge;
+            if(edge==null||!((Curve)edge.GetCurve()).IsLine())throw new InvalidOperationException("尺寸参考必须为直边。");
+            var a=MathOps.GetXYZ(placement*MathOps.GetTranslation((double[])((Vertex)edge.GetStartVertex()).GetPoint()));
+            var b=MathOps.GetXYZ(placement*MathOps.GetTranslation((double[])((Vertex)edge.GetEndVertex()).GetPoint()));
+            double length=DenseVector.OfArray(a).Subtract(DenseVector.OfArray(b)).L2Norm();
+            if(length<=1e-9)throw new InvalidOperationException("边线长度必须大于零。");
+            return length;
+        }
         public void ResolveCollision(CollisionGeometry geometry)
         {
+            foreach(var entry in geometry.dimension_references??new Dictionary<string,CollisionReference>())
+            {
+                double length=ReferenceEdgeLength(entry.Value);
+                if(entry.Key=="total")geometry.length_input=length;
+                else if(entry.Key=="thickness")geometry.thickness=length;
+                else if(entry.Key.StartsWith("size"))
+                {
+                    int index;if(!int.TryParse(entry.Key.Substring(4),out index)||index<0||index>=geometry.size.Length)throw new InvalidOperationException("尺寸参考项无效。");
+                    geometry.size[index]=length;
+                }
+            }
             var frames = LinkTransforms();
             Matrix<double> link;
             if (!frames.TryGetValue(geometry.link, out link)) throw new InvalidOperationException("碰撞几何体所属 link 不存在：" + geometry.link);
@@ -109,6 +157,13 @@ namespace SW2URDF.Simulation
             {
                 case "manual": break;
                 case "frame": require(1); basis = ReferenceFrame(refs[0], true); break;
+                case "corner_frame":
+                    require(1);basis=ReferenceFrame(refs[0],true)*MathOps.GetTranslation(geometry.size.Select((s,i)=>s*geometry.corner_signs[i]/2).ToArray());break;
+                case "end_frame":
+                    require(1);var end=ReferenceFrame(refs[0],true);
+                    var direction=Enumerable.Range(0,3).Select(i=>end[i,geometry.axis]*geometry.axis_sign).ToArray();
+                    var center=Enumerable.Range(0,3).Select(i=>end[i,3]+direction[i]*geometry.size[1]/2).ToArray();
+                    basis=AxisFrame(center,direction);break;
                 case "center": require(1); basis = link.Clone(); var c=point(0); for(int i=0;i<3;i++) basis[i,3]=c[i]; break;
                 case "center_frame": require(2); basis = ReferenceFrame(refs[1], true); c=point(0); for(int i=0;i<3;i++) basis[i,3]=c[i]; break;
                 case "radius_points":
