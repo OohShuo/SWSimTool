@@ -323,6 +323,9 @@
     <Compile Include="Simulation\AttachmentService.cs" />
     <Compile Include="Simulation\CollisionConfiguration.cs" />
     <Compile Include="Simulation\SimulationStorage.cs" />
+    <Compile Include="Simulation\ProjectExport.cs" />
+    <Compile Include="UI\SimulationEditorControl.cs" />
+    <Compile Include="UI\SimulationPropertyManager.cs" />
     <Compile Include="Simulation\CollisionGeometryService.cs" />
     <Compile Include="Simulation\CollisionPreview.cs" />
     <Compile Include="UI\CollisionEditorControl.cs" />

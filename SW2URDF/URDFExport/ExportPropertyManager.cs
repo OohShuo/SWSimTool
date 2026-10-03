@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,9 +62,6 @@ namespace SW2URDF.URDFExport
         private PropertyManagerPageGroup PMGroup;
         private PropertyManagerPageSelectionbox PMSelection;
         private PropertyManagerPageButton PMButtonExport;
-        private PropertyManagerPageButton PMButtonSimulation;
-        private SW2URDF.UI.CollisionPropertyManager collisionPage;
-        private PropertyManagerPageButton PMButtonCollision;
         private PropertyManagerPageButton PMButtonLoad;
         private PropertyManagerPageTextbox PMTextBoxLinkName;
         private PropertyManagerPageTextbox PMTextBoxJointName;
@@ -114,8 +111,6 @@ namespace SW2URDF.URDFExport
         private const int ComputeJointKinematicsID = 29;
         private const int ComputeJointLimitsID = 30;
         private const int LoadedCSVFilenameID = 31;
-        private const int SimulationConfigID = 32;
-        private const int CollisionConfigID = 33;
 
         #endregion class variables
 
@@ -123,9 +118,6 @@ namespace SW2URDF.URDFExport
         {
             PMPage.Show2(0);
         }
-        Action showCollisionAfterClose;
-        bool collisionTransitionInProgress;
-        readonly PropertyManagerTransition collisionTransition=new PropertyManagerTransition();
 
         public void Close(bool ok)
         {
@@ -150,13 +142,13 @@ namespace SW2URDF.URDFExport
             int controlType = 0;
             int alignment = 0;
 
-            ActiveSWModel.ShowConfiguration2("URDF Export");
+
             Exporter.GetSimulation();
 
             #region Create and instantiate components of PM page
 
             //Set the variables for the page
-            string PageTitle = "URDF Exporter";
+            string PageTitle = "SW2MuJoCo — URDF 配置";
             long options = (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton +
                 (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton +
                 (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_HandleKeystrokes;
@@ -395,38 +387,6 @@ namespace SW2URDF.URDFExport
                     LoadFromCSV();
                     break;
 
-                case SimulationConfigID:
-                    SaveActiveNode();
-                    var selected = Tree.SelectedNode as LinkNode;
-                    if (selected == null) throw new InvalidOperationException("Select a link first.");
-                    using (var form = new SimulationConfigForm(Exporter.GetSimulation(), selected.Link.Name,
-                        SimulationConfigForm.JointNames(Tree.Nodes))) form.ShowDialog();
-                    break;
-
-                case CollisionConfigID:
-                    SaveActiveNode();
-                    var collisionNode=(LinkNode)Tree.SelectedNode;
-                    var expandedNodes=CollisionTreeNodes(Tree.Nodes).Where(n=>n.IsExpanded).ToArray();
-                    string linkName=collisionNode.Link.Name;
-                    Exporter.GetSimulation().SetCollisionTree((LinkNode)Tree.Nodes[0]);
-                    Exporter.GetSimulation().LinkTransforms();
-                    SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
-                    collisionTransitionInProgress=true;
-                    showCollisionAfterClose=()=>{
-                        try {
-                            collisionPage=new CollisionPropertyManager(Exporter.GetSimulation(),linkName);
-                            collisionPage.Closed=()=>RestoreCollisionParent(collisionNode,expandedNodes);
-                            collisionPage.Show();
-                        } catch(Exception ex) {
-                            RestoreCollisionParent(collisionNode,expandedNodes);
-                            MessageBox.Show(ex.Message,"碰撞配置无法打开");
-                        }
-                    };
-                    PMPage.Close(false);
-                    var next=showCollisionAfterClose;showCollisionAfterClose=null;
-                    collisionTransition.Post(next);
-                    break;
-
                 default:
                     break;
             }
@@ -450,9 +410,6 @@ namespace SW2URDF.URDFExport
 
         void IPropertyManagerPage2Handler9.OnClose(int Reason)
         {
-            // SaveActiveNode was already called before a collision-page transition.
-            // The native close clears its selection box; saving again would erase link components.
-            if(collisionTransitionInProgress)return;
             try
             {
                 if (Reason ==
@@ -475,24 +432,6 @@ namespace SW2URDF.URDFExport
                 MessageBox.Show("There was a problem closing the property manager: \n\"" +
                     e.Message + "\"\nEmail your maintainer with the log file found at " + Logger.GetFileName());
             }
-        }
-
-        static IEnumerable<TreeNode> CollisionTreeNodes(TreeNodeCollection nodes)
-        {
-            foreach(TreeNode node in nodes){yield return node;foreach(var child in CollisionTreeNodes(node.Nodes))yield return child;}
-        }
-
-        void RestoreCollisionParent(LinkNode selectedNode,TreeNode[] expandedNodes)
-        {
-            try {
-                Exporter.GetSimulation().SetCollisionTree(null);
-                previouslySelectedNode=null;
-                PMTree.SetWindowHandlex64(Tree.Handle.ToInt64());
-                Show();
-                foreach(var node in expandedNodes)node.Expand();
-                automaticallySwitched=true;Tree.SelectedNode=selectedNode;automaticallySwitched=false;
-                SwitchActiveNodes(selectedNode);
-            } finally {collisionTransitionInProgress=false;}
         }
 
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id)
@@ -568,7 +507,6 @@ namespace SW2URDF.URDFExport
         // selected one is then set
         private void TreeAfterSelect(object sender, TreeViewEventArgs e)
         {
-            if(collisionTransitionInProgress)return;
             try
             {
                 if (!automaticallySwitched && e.Node != null)
@@ -1015,15 +953,6 @@ namespace SW2URDF.URDFExport
                 (short)swPropertyManagerPageControlType_e.swControlType_Button,
                 "Preview and Export...", 0, (int)options, "Preview the generated URDF and export to a URDF package");
             (PMButtonExport as IPropertyManagerPageControl).Width = 200;
-
-            PMButtonSimulation = PMGroup.AddControl2(SimulationConfigID,
-                (short)swPropertyManagerPageControlType_e.swControlType_Button,
-                "附着点 / MuJoCo 配置...", 0, (int)options, "为当前 link 添加参考点或坐标系，配置执行器、传感器和闭链");
-            (PMButtonSimulation as IPropertyManagerPageControl).Width = 200;
-            PMButtonCollision = PMGroup.AddControl2(CollisionConfigID,
-                (short)swPropertyManagerPageControlType_e.swControlType_Button,
-                "碰撞几何体 / 碰撞对...", 0, (int)options, "在左侧编辑碰撞配置并实时预览");
-            (PMButtonCollision as IPropertyManagerPageControl).Width = 200;
 
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle;
             caption = "Link Tree";

@@ -27,11 +27,11 @@ using System.Reflection;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 //
-[assembly: AssemblyTitle("")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("SW2MuJoCo")]
+[assembly: AssemblyDescription("SolidWorks robot configuration and URDF / MuJoCo export")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("")]
+[assembly: AssemblyProduct("SW2MuJoCo")]
 [assembly: AssemblyCopyright("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -47,7 +47,7 @@ using System.Reflection;
 // You can specify all the values or you can default the Revision and Build Numbers
 // by using the '*' as shown below:
 
-[assembly: AssemblyVersion("1.6.*")]
+[assembly: AssemblyVersion("2.0.0.0")]
 //
 // In order to sign your assembly you must specify a key to use. Refer to the
 // Microsoft .NET Framework documentation for more information on assembly signing.

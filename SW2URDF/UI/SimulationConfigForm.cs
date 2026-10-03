@@ -1,4 +1,4 @@
-using SW2URDF.Simulation;
+﻿using SW2URDF.Simulation;
 using System;
 using System.Collections;
 using System.Drawing;
@@ -10,6 +10,11 @@ namespace SW2URDF.UI
 {
     public sealed class SimulationConfigForm : Form
     {
+        public static System.Collections.Generic.Dictionary<string,string> JointOwners(SW2URDF.URDF.LinkNode root){
+            var result=new System.Collections.Generic.Dictionary<string,string>();
+            Action<SW2URDF.URDF.LinkNode> visit=null;
+            visit=n=>{if(!n.IsBaseNode&&!string.IsNullOrWhiteSpace(n.Link.Joint.Name))result.Add(n.Link.Joint.Name,n.Link.Name);foreach(SW2URDF.URDF.LinkNode child in n.Nodes)visit(child);};visit(root);return result;
+        }
         public static string[] JointNames(TreeNodeCollection nodes)
         {
             var names = new System.Collections.Generic.List<string>();

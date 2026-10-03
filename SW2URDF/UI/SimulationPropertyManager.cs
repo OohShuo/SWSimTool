@@ -1,4 +1,4 @@
-using SolidWorks.Interop.sldworks;
+﻿using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Interop.swpublished;
 using SW2URDF.Simulation;
@@ -8,47 +8,36 @@ using System.Windows.Forms;
 
 namespace SW2URDF.UI
 {
-    // Execute page transitions only after SolidWorks has unwound its close callbacks.
-    internal sealed class PropertyManagerTransition
-    {
-        readonly Control dispatcher=new Control();
-        public PropertyManagerTransition(){var handle=dispatcher.Handle;}
-        public void Post(Action action) {
-            if(action==null)return;
-            dispatcher.BeginInvoke((MethodInvoker)(()=>action()));
-        }
-        public void Dispose(){dispatcher.Dispose();}
-    }
     [ComVisible(true)]
-    public sealed class CollisionPropertyManager : PropertyManagerPage2Handler9
+    public sealed class SimulationPropertyManager : PropertyManagerPage2Handler9
     {
         readonly PropertyManagerPage2 page;
         readonly PropertyManagerPageSelectionbox selection;
-        readonly CollisionEditorControl editor;
+        readonly SimulationEditorControl editor;
         bool retry;
         readonly PropertyManagerTransition transition=new PropertyManagerTransition();
         public Action Closed { get; set; }
-        public CollisionPropertyManager(AttachmentService service, string selectedLink)
+        public SimulationPropertyManager(AttachmentService service, string selectedLink, System.Collections.Generic.Dictionary<string,string> joints)
         {
             // Export/coordinate-frame construction can leave components selected.
             // Do not seed the reference picker with those unrelated selections.
             service.Model.ClearSelection2(true);
             int error=0;
-            page=(PropertyManagerPage2)service.App.CreatePropertyManagerPage("SW2MuJoCo 碰撞配置",(int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton,this,ref error);
+            page=(PropertyManagerPage2)service.App.CreatePropertyManagerPage("SW2MuJoCo 仿真配置",(int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton,this,ref error);
             if(page==null||error!=0)throw new InvalidOperationException("无法创建左侧碰撞配置页面："+error);
             selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
             selection.SingleEntityOnly=true;
             selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES});
-            var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"碰撞几何体",0,3,"");
+            var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"附着点与仿真配置",0,3,"");
             window.Height=270;
-            editor=new CollisionEditorControl(service,selectedLink);
+            editor=new SimulationEditorControl(service,selectedLink,joints);
             editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
             window.SetWindowHandlex64(editor.Handle.ToInt64());
         }
         public void Show(){page.Show2(0);}
         void IPropertyManagerPage2Handler9.AfterActivation() {  }
         void IPropertyManagerPage2Handler9.OnButtonPress(int Id) {  }
-        void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{editor.Save();}catch(Exception e){retry=true;MessageBox.Show(e.Message,"碰撞配置未保存");} }
+        void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{editor.Save();}catch(Exception e){retry=true;MessageBox.Show(e.Message,"仿真配置未保存");} }
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id) {  }
         bool IPropertyManagerPage2Handler9.OnHelp() { return true; }
         bool IPropertyManagerPage2Handler9.OnKeystroke(int Wparam, int Message, int Lparam, int Id) { return false; }

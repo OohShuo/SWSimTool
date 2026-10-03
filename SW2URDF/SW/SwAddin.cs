@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,6 +32,7 @@ using System.Collections;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using SW2URDF.Simulation;
 
 namespace SW2URDF.SW
 {
@@ -42,8 +43,8 @@ namespace SW2URDF.SW
     /// </summary>
     [Guid("65c9fc17-6a74-45a3-8f84-55185900275d"), ComVisible(true)]
     [SwAddin(
-        Description = "SolidWorks to URDF exporter",
-        Title = "SW2URDF",
+        Description = "SolidWorks robot configuration and MuJoCo / URDF export",
+        Title = "SW2MuJoCo",
         LoadAtStartup = true
         )]
     public class SwAddin : ISwAddin
@@ -249,46 +250,42 @@ namespace SW2URDF.SW
         {
             try { AddMuJoCoCommand(); }
             catch (Exception error) { logger.Error("Cannot add MuJoCo tools command", error); }
-            string[] images = {
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_20x20.png",
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_32x32.png",
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_40x40.png",
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_64x64.png",
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_96x96.png",
-                "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_128x128.png",
-            };
-            int ret = SwApp.AddMenuItem5((int)swDocumentTypes_e.swDocASSEMBLY, add_in_id_, "Export as URDF@&Tools",
-                -1, "AssemblyURDFExporter", "", "Export assembly as URDF file", images);
-            if (ret < 0)
-            {
-                logger.Error("Failure to add menu item 'Export as URDF' to menu 'Tools'");
-                return;
-            }
-            logger.Info("Adding Assembly export to file menu");
-            ret = SwApp.AddMenuItem5((int)swDocumentTypes_e.swDocPART, add_in_id_, "Export as URDF@&Tools",
-                -1, "PartURDFExporter", "", "Export part as URDF file", images);
-            if (ret < 0)
-            {
-                logger.Error("Failure to add menu item 'Export as URDF' to menu 'Tools'");
-                return;
-            }
-
-            logger.Info("Adding Part export to file menu");
         }
-
         private void AddMuJoCoCommand()
         {
-            int errors = 0;
-            var group = CmdMgr.CreateCommandGroup2(MuJoCoCommandGroupId, "MuJoCo 工具", "本地文件转换与预览", "MuJoCo 工具", -1, true, ref errors);
-            if (group == null) { logger.Error("Cannot create MuJoCo command group: " + errors); return; }
-            string directory = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location), "images");
-            string[] icons = Array.ConvertAll(new[] {20, 32, 40, 64, 96, 128}, size => System.IO.Path.Combine(directory, "ros_logo_" + size + "x" + size + ".png"));
-            group.IconList = icons; group.MainIconList = icons;
-            group.AddCommandItem2("MuJoCo 工具", -1, "读取本地 URDF / MJCF，无需打开工程", "MuJoCo 工具", 0, "OpenMuJoCoTools", "ToolbarEnableMethod", 0,
-                (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem);
-            group.AddCommandItem2("碰撞配置", -1, "编辑装配内 MuJoCo Simulation Configuration，实时预览碰撞几何体", "碰撞配置", 0, "OpenCollisionConfiguration", "CollisionEnableMethod", 1,
-                (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem);
-            group.HasMenu = true; group.HasToolbar = true; group.Activate();
+            int errors=0;
+            var group=CmdMgr.CreateCommandGroup2(MuJoCoCommandGroupId,"SW2MuJoCo","机器人配置与仿真导出","SW2MuJoCo",-1,true,ref errors);
+            if(group==null)throw new InvalidOperationException("无法创建 SW2MuJoCo 菜单："+errors);
+            string directory=System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location),"images");
+            string[] icons=Array.ConvertAll(new[]{20,32,40,64,96,128},size=>System.IO.Path.Combine(directory,"ros_logo_"+size+"x"+size+".png"));
+            group.IconList=icons;group.MainIconList=icons;
+            string[] labels={"URDF 配置","碰撞配置","仿真配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration"};
+            for(int i=0;i<labels.Length;i++)group.AddCommandItem2(labels[i],-1,labels[i],labels[i],0,callbacks[i],"CollisionEnableMethod",i,(int)swCommandItemType_e.swMenuItem|(int)swCommandItemType_e.swToolbarItem);
+            group.HasMenu=true;group.HasToolbar=true;group.Activate();
+            string[] exports={"导出 URDF","从当前工程导出 MJCF","从本地 URDF 导出 MJCF","预览已有 MJCF"};
+            string[] methods={"OpenUrdfExport","OpenProjectExport","OpenLocalExport","OpenExistingPreview"};
+            for(int doc=0;doc<=3;doc++){
+                SwApp.RemoveMenu(doc,"Export as URDF@&Tools","");
+                for(int i=0;i<exports.Length;i++)if(SwApp.AddMenuItem5(doc,add_in_id_,exports[i]+"@导出与预览@SW2MuJoCo",-1,methods[i],i==1?"CollisionEnableMethod":i==0?"UrdfEnableMethod":"ToolbarEnableMethod",","+exports[i],icons)<0)throw new InvalidOperationException("无法创建导出菜单："+exports[i]);
+            }
+        }
+        public void OpenUrdfConfiguration(){AssemblyURDFExporter();}
+        public int UrdfEnableMethod(){ModelDoc2 model=SwApp.ActiveDoc;return model!=null&&(model.GetType()==(int)swDocumentTypes_e.swDocPART||model.GetType()==(int)swDocumentTypes_e.swDocASSEMBLY)?1:0;}
+        public void OpenUrdfExport(){ModelDoc2 model=SwApp.ActiveDoc;if(model!=null&&model.GetType()==(int)swDocumentTypes_e.swDocPART)PartURDFExporter();else AssemblyURDFExporter();}
+        public void OpenLocalExport(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Local));}
+        public void OpenExistingPreview(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Preview));}
+        public void OpenProjectExport(){
+            ModelDoc2 model=SwApp.ActiveDoc;if(model==null)return;string configuration=model.ConfigurationManager.ActiveConfiguration.Name;
+            var form=new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Project,()=>new ProjectExport((SldWorks)SwApp,model,configuration));
+            form.SetProjectName(System.IO.Path.GetFileNameWithoutExtension(model.GetTitle()));ShowTools(form);
+        }
+        void ShowTools(MuJoCoToolsForm form){if(muJoCoTools!=null&&!muJoCoTools.IsDisposed){muJoCoTools.Close();if(!muJoCoTools.IsDisposed){form.Dispose();return;}}muJoCoTools=form;form.Show();form.BringToFront();}
+        private SimulationPropertyManager simulationPage;
+        public void OpenSimulationConfiguration(){
+            try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
+                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().SetCollisionTree(root);
+                simulationPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,SimulationConfigForm.JointOwners(root));simulationPage.Show();
+            }catch(Exception e){MessageBox.Show(e.Message,"SW2MuJoCo 仿真配置");}
         }
         public void OpenMuJoCoTools()
         {
@@ -316,7 +313,7 @@ namespace SW2URDF.SW
                 if(model==null)throw new InvalidOperationException("请打开已配置 URDF link 树的装配。");
                 bool error;
                 var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);
-                if(error||root==null)throw new InvalidOperationException("请先使用 Export as URDF 配置并保存 link 树。");
+                if(error||root==null)throw new InvalidOperationException("请先使用 URDF 配置并保存 link 树。");
                 CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());
                 var helper=new ExportHelper((SldWorks)SwApp);
                 helper.GetSimulation().SetCollisionTree(root);
@@ -328,6 +325,7 @@ namespace SW2URDF.SW
         public void RemoveCommandMgr()
         {
             CmdMgr.RemoveCommandGroup(MuJoCoCommandGroupId);
+            for(int doc=0;doc<=3;doc++)SwApp.RemoveMenu(doc,"导出与预览@SW2MuJoCo","");
             SwApp.RemoveMenu((int)swDocumentTypes_e.swDocASSEMBLY, "Export as URDF@&Tools", "");
             logger.Info("Removing assembly export from file menu");
             SwApp.RemoveMenu((int)swDocumentTypes_e.swDocPART, "Export as URDF@&Tools", "");

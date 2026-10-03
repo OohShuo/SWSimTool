@@ -61,6 +61,9 @@ namespace SW2URDF.UI
             BaseNode = node;
             ActiveSWModel = swApp.ActiveDoc;
             Exporter = exporter;
+            Text="SW2MuJoCo — URDF 导出";
+            var extra=new CheckBox{Text="导出附加配置 (.sim.json)",AutoSize=true,Checked=false,Location=new Point(110,603),Anchor=AnchorStyles.Left|AnchorStyles.Bottom};
+            panelLinkProperties.Controls.Add(extra);extra.BringToFront();extra.CheckedChanged+=(s,e)=>Exporter.ExportSimulationInformation=extra.Checked;
             AutoUpdatingForm = false;
 
             jointBoxes = new Control[] {
