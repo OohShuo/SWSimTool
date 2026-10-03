@@ -125,6 +125,8 @@ def validate(config, robot):
     if config.get("units") != "m,rad":
         raise ValueError("Expected units=m,rad")
     links = {link.attrib["name"] for link in robot.findall("link")}
+    from collision import validate_collision
+    validate_collision(config, links)
     joints = {joint.attrib["name"]: joint.attrib["type"] for joint in robot.findall("joint")}
     attachments = unique(config.get("attachments", []), "attachment")
     for name, attachment in attachments.items():
@@ -281,6 +283,19 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         roots = {link.attrib["name"] for link in robot.findall("link")} - child_names
         for root_name in roots:
             bodies.setdefault(root_name, mjcf.find("worldbody"))
+        if config.get('collision') is not None:
+            # Give the static root its own named body so body exclusions can refer to it.
+            world = mjcf.find('worldbody')
+            for root_name in roots:
+                if bodies[root_name] is world:
+                    root_body = ET.Element('body', name=root_name)
+                    for child in list(world):
+                        world.remove(child)
+                        root_body.append(child)
+                    world.append(root_body)
+                    bodies[root_name] = root_body
+            from collision import apply_collision
+            apply_collision(mjcf, bodies, config, quaternion, text)
         for name, attachment in attachments.items():
             if attachment["link"] not in bodies:
                 raise ValueError(f"URDF body was lost during conversion: {attachment['link']}")
