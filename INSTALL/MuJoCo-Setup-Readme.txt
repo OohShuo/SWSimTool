@@ -34,3 +34,21 @@ Save the assembly file to persist. New sidecars exclude internal collisions
 by default, with allowed pairs. Optional primitive geoms replace mesh collision.
 Original URDF/STL and inertial values remain unchanged.
 Details: docs\MuJoCo碰撞配置_使用说明.md
+
+Collision editor update (2026-10-04): Geometry / Contact pairs tabs,
+contextual scalar inputs, straight-edge length references, corner-frame boxes,
+and end-face-frame cylinders with configurable extrusion axis/direction.
+Wheel input over a drop-down scrolls the editor without changing its value.
+Real-time preview reuses unchanged bodies and transforms pose-only changes.
+Opening collision configuration does not prepare a full URDF export.
+Returning to the URDF page preserves its link tree and component ownership.
+Validated with newly generated CAD fixtures and 30 backend regression tests.
+
+Collision editor update (2026-10-04): Geometry / Contact pairs tabs,
+contextual scalar inputs, straight-edge length references, corner-frame boxes,
+and end-face-frame cylinders with configurable extrusion axis/direction.
+Wheel input over a drop-down scrolls the editor without changing its value.
+Real-time preview reuses unchanged bodies and transforms pose-only changes.
+Opening collision configuration does not prepare a full URDF export.
+Returning to the URDF page preserves its link tree and component ownership.
+Validated with newly generated CAD fixtures and 30 backend regression tests.
