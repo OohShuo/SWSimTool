@@ -15,6 +15,8 @@ namespace SW2URDF.Simulation
         [Browsable(false)] public string source_pid { get; set; }
         [Browsable(false)] public string component_pid { get; set; }
         [Browsable(false)] public string component_name { get; set; }
+        [Browsable(false)] public CollisionReference reference { get; set; }
+        public override string ToString()=>name+" ["+type+"]";
     }
 
     public sealed class ActuatorConfig

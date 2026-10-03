@@ -86,6 +86,7 @@ namespace SW2URDF.URDFExport
         public string LastURDFPath { get; private set; }
         public string LastSimulationPath { get; private set; }
         public bool ShowExportLocation { get; set; } = true;
+        public bool ExportSimulationInformation { get; set; }
 
         public Simulation.AttachmentService GetSimulation()
         {
@@ -155,6 +156,7 @@ namespace SW2URDF.URDFExport
         // Beginning method for exporting the full package
         public void ExportRobot(bool exportSTL = true, MeshExportFormat meshFormat = MeshExportFormat.STL)
         {
+            LastURDFPath=null;LastSimulationPath=null;
             //Setting up the progress bar
             logger.Info("Beginning the export process");
             int progressBarBound = CommonSwOperations.GetCount(URDFRobot.BaseLink);
@@ -171,7 +173,7 @@ namespace SW2URDF.URDFExport
             string windowsPackageXMLFileName = package.WindowsPackageDirectory + "package.xml";
 
             // Validate and resolve CAD references before exporting meshes. Never add URDF elements.
-            var simulationData = Simulation == null ? null : Simulation.Export(windowsURDFFileName);
+            var simulationData = ExportSimulationInformation ? GetSimulation().Export(windowsURDFFileName) : null;
 
             //Create CMakeLists
             logger.Info("Creating CMakeLists.txt at " + package.WindowsCMakeLists);
@@ -249,9 +251,9 @@ namespace SW2URDF.URDFExport
             ImportExport.WriteRobotToCSV(URDFRobot, windowsCSVFileName);
 
             LastURDFPath = windowsURDFFileName;
-            LastSimulationPath = Path.ChangeExtension(windowsURDFFileName, ".sim.json");
             if (simulationData != null)
             {
+                LastSimulationPath = Path.ChangeExtension(windowsURDFFileName, ".sim.json");
                 using (var hash = System.Security.Cryptography.SHA256.Create())
                     simulationData["urdf_sha256"] = BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(windowsURDFFileName))).Replace("-", "").ToLowerInvariant();
                 SW2URDF.Simulation.SimulationProject.Write(LastSimulationPath, simulationData);

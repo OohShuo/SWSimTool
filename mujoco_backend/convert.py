@@ -1,6 +1,7 @@
 """Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
 
-CLI exports a portable package with retained URDF and preprocessed mesh copies.
+CLI exports only MJCF XML and preprocessed STL copies under meshes/.
+Intermediate URDF and simulation snapshots remain in a temporary workspace.
 The original URDF, sidecar and meshes are never rewritten.
 """
 import argparse
@@ -350,15 +351,18 @@ def package_output(urdf, output):
 
 
 def export_package(urdf, config_path, output, mesh_settings=None):
-    """Prepare all meshes before MuJoCo loads a retained, portable URDF copy."""
+    """Compile in temporary storage; publish only XML and referenced STL meshes."""
     from simplify_stl import simplify, triangles
-    urdf, config_path = Path(urdf).resolve(), Path(config_path).resolve()
+    urdf = Path(urdf).resolve()
+    config_path = Path(config_path).resolve() if config_path else None
     output = package_output(urdf, output)
     root = output.parent
-    if urdf.is_relative_to(root) or config_path.is_relative_to(root):
+    if urdf.is_relative_to(root) or (config_path and config_path.is_relative_to(root)):
         raise ValueError('MJCF package directory must not contain the original input files')
     original = urdf.read_bytes()
-    config = json.loads(config_path.read_text(encoding='utf-8-sig'))
+    config = json.loads(config_path.read_text(encoding='utf-8-sig')) if config_path else dict(
+        schema_version=1, units='m,rad', urdf=urdf.name, attachments=[], actuators=[], sensors=[], equalities=[],
+        collision=dict(disable_internal=True, link_modes={}, geometries=[], allowed_pairs=[]))
     if config.get('urdf') != urdf.name or (config.get('urdf_sha256') and
         config['urdf_sha256'].lower() != hashlib.sha256(original).hexdigest()):
         raise ValueError('URDF changed since sidecar export or sidecar belongs to a different URDF; re-export the pair')
@@ -367,7 +371,9 @@ def export_package(urdf, config_path, output, mesh_settings=None):
     sources = [m.get('filename') for m in robot.findall('.//mesh')]
     # ASCII asset paths keep native Windows and MuJoCo VFS access portable.
     stem = re.sub(r'[^a-zA-Z0-9_-]', '_', urdf.stem).strip('_') or 'robot'
-    assets = resolve_meshes(robot, urdf, folder=stem + '_meshes', reject_root=root)
+    assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
+    if any(Path(name).suffix.lower() != '.stl' for name in assets):
+        raise ValueError('SW2MuJoCo export requires STL input meshes; export URDF with STL meshes first')
     aliases = [m.get('filename') for m in robot.findall('.//mesh')]
     provenance = dict(zip(aliases, sources))
     settings = mesh_settings or {}
@@ -375,21 +381,23 @@ def export_package(urdf, config_path, output, mesh_settings=None):
     maximum = int(settings.get('MaximumTriangles', 200000))
     if enabled and not 4 <= maximum <= 200000:
         raise ValueError('For MuJoCo STL export, triangle budget must be between 4 and 200000')
-    if len({output.name, urdf.name, urdf.stem + '.sim.json', 'mesh-report.json'}) != 4:
-        raise ValueError('MJCF filename conflicts with retained package files')
+    if output.suffix.lower() != '.xml':
+        raise ValueError('MJCF output filename must end with .xml')
     root.parent.mkdir(parents=True, exist_ok=True)
     # Build next to the destination, validate fully, then swap the complete directory.
     # Existing unrelated files are retained across successful updates.
     with tempfile.TemporaryDirectory(prefix='.sw2urdf-package-', dir=root.parent) as temporary:
+        workspace = Path(temporary) / 'work'
+        workspace.mkdir()
         staged_root = Path(temporary) / root.name
         if root.exists():
             shutil.copytree(root, staged_root)
         else:
             staged_root.mkdir()
-        (staged_root / (stem + '_meshes')).mkdir(exist_ok=True)
+        (workspace / 'meshes').mkdir()
         reports = []
         for name, data in assets.items():
-            destination = staged_root / name
+            destination = workspace / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
             if destination.suffix.lower() == '.stl':
@@ -404,7 +412,7 @@ def export_package(urdf, config_path, output, mesh_settings=None):
                 report = dict(changed=False)
             report.update(file=name, source=provenance[name])
             reports.append(report)
-        copy_urdf = staged_root / urdf.name
+        copy_urdf = workspace / urdf.name
         extension = robot.find('mujoco')
         if extension is None:
             extension = ET.SubElement(robot, 'mujoco')
@@ -420,11 +428,33 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         copy_urdf.write_bytes(ET.tostring(robot, encoding='utf-8', xml_declaration=True))
         config['urdf'] = copy_urdf.name
         config['urdf_sha256'] = hashlib.sha256(copy_urdf.read_bytes()).hexdigest()
-        copy_config = staged_root / (urdf.stem + '.sim.json')
+        copy_config = workspace / (urdf.stem + '.sim.json')
         copy_config.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
-        (staged_root / 'mesh-report.json').write_text(json.dumps(reports, ensure_ascii=False, indent=2), encoding='utf-8')
-        print(f'Prepared {len(assets)} meshes; loading retained URDF copy', flush=True)
-        model = convert(copy_urdf, copy_config, staged_root / output.name, preserve_mesh_paths=True)
+        for report in reports:
+            print('Mesh: ' + json.dumps(report, ensure_ascii=False), flush=True)
+        print(f'Prepared {len(assets)} meshes; loading temporary URDF copy', flush=True)
+        model = convert(copy_urdf, copy_config, workspace / output.name, preserve_mesh_paths=True)
+        # Infer managed meshes from the previous XML, never from a directory-wide glob.
+        managed = set()
+        previous = staged_root / output.name
+        if previous.exists():
+            for mesh in ET.parse(previous).findall('./asset/mesh'):
+                path = (staged_root / mesh.get('file')).resolve()
+                if path.is_relative_to(staged_root.resolve()) and path.suffix.lower() == '.stl':
+                    managed.add(path)
+        final = ET.parse(workspace / output.name)
+        wanted = {mesh.get('file') for mesh in final.findall('./asset/mesh')}
+        for name in wanted:
+            source, destination = workspace / name, staged_root / name
+            if destination.exists() and destination.resolve() not in managed and destination.read_bytes() != source.read_bytes():
+                raise ValueError(f'Refusing to overwrite an unrelated mesh: {destination}')
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+        for path in managed - {(staged_root / name).resolve() for name in wanted}:
+            if path.is_file():
+                path.unlink()
+        shutil.copyfile(workspace / output.name, staged_root / output.name)
+        load_mjcf(staged_root / output.name)
         backup = root.parent / ('.' + root.name + '.previous-' + uuid.uuid4().hex)
         existed = root.exists()
         if existed:
@@ -468,8 +498,8 @@ def main(argv=None):
         import mujoco.viewer
         mujoco.viewer.launch(model)
         return
-    if not all((args.urdf, args.config, args.output)):
-        parser.error("--urdf, --config and --output are required for conversion")
+    if not all((args.urdf, args.output)):
+        parser.error("--urdf and --output are required for conversion; --config is optional")
     if args.preview:
         load_runtime(preview=True)
     settings = json.loads(Path(args.mesh_settings).read_text(encoding="utf-8-sig")) if args.mesh_settings else {}

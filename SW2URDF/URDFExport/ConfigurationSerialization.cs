@@ -47,6 +47,11 @@ namespace SW2URDF.URDFExport
             "URDF Export Configuration (v1.3)",
             "URDF Export Configuration"
             };
+        public static void ValidateTreeData(string data,double version){
+            if(string.IsNullOrWhiteSpace(data))return;
+            if(version>SerializationVersion)throw new InvalidDataException("URDF 配置版本不支持："+version);
+            if((version>=MinDataContractVersion?DeserializeFromString(data):LoadConfigFromStringXML(data))==null)throw new InvalidDataException("URDF 树配置损坏，旧节点保持不变。");
+        }
 
         #region Public Methods
 
@@ -57,7 +62,11 @@ namespace SW2URDF.URDFExport
         /// <returns>TreeView LinkNode loaded from configuration</returns>
         public static LinkNode LoadBaseNodeFromModel(ModelDoc2 model, out bool error)
         {
-            string data = GetConfigTreeData(model, out double configVersion);
+            var saved=SW2URDF.Simulation.SimulationStorage.LoadEntry(model);
+            double configVersion;
+            string data;
+            if(saved!=null){data=saved.urdf_xml??"";configVersion=saved.urdf_version;}
+            else data=GetLegacyConfigTreeData(model,out configVersion);
 
             LinkNode basenode;
             if (configVersion > SerializationVersion)
@@ -92,7 +101,11 @@ namespace SW2URDF.URDFExport
         ///  and overwrite any existing data</param>
         public static void SaveConfigTreeXML(SldWorks swApp, ModelDoc2 model, LinkNode BaseNode, bool warnUser)
         {
-            string oldData = GetConfigTreeData(model, out double version);
+            var saved=SW2URDF.Simulation.SimulationStorage.LoadEntry(model);
+            double version;
+            string oldData;
+            if(saved!=null){oldData=saved.urdf_xml??"";version=saved.urdf_version;}
+            else oldData=GetLegacyConfigTreeData(model,out version);
             if (oldData.Length > 0 && version < SerializationVersion)
             {
                 MessageBox.Show("You have a URDF configuration with an outdated save format. It will automatically be " +
@@ -108,14 +121,14 @@ namespace SW2URDF.URDFExport
                 MessageBox.Show("Serializing this link failed. Please email your maintainer with your SW assembly.");
                 return;
             }
-            if (oldData != newData)
+            if (oldData != newData || saved==null)
             {
                 if (!warnUser ||
                     (warnUser &&
                     MessageBox.Show("The configuration has changed, would you like to save?",
                     "Save Export Configuration", MessageBoxButtons.YesNo) == DialogResult.Yes))
                 {
-                    SaveDataToModelDoc(swApp, model, newData);
+                    SW2URDF.Simulation.SimulationStorage.SaveTree(swApp,model,newData,SerializationVersion);
                 }
             }
         }
@@ -254,7 +267,7 @@ namespace SW2URDF.URDFExport
         /// <param name="model">ModelDoc model to load URDF configuration from</param>
         /// <param name="version">Output parameter of the serialization version</param>
         /// <returns>Serialized data string</returns>
-        private static string GetConfigTreeData(ModelDoc2 model, out double version)
+        public static string GetLegacyConfigTreeData(ModelDoc2 model, out double version)
         {
             string data = "";
             version = 0.0;

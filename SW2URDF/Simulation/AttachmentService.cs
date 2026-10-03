@@ -73,6 +73,7 @@ namespace SW2URDF.Simulation
         }
         private Matrix<double> Resolve(Attachment attachment)
         {
+            if(attachment.reference!=null)return ReferenceFrame(attachment.reference,attachment.type=="frame");
             ModelDoc2 model = exporter.ActiveSWModel;
             Component2 component = null;
             int error;
@@ -114,11 +115,20 @@ namespace SW2URDF.Simulation
             // Newly exported sidecars use the safe internal-collision default;
             // already exported legacy sidecars remain unchanged on disk.
             Project.collision = Project.collision ?? new CollisionConfiguration();
+            SetCollisionTree(null); // Resolve against the actual exported robot, including generated frames.
             foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
-            Save();
+            Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
             return new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
                 { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision } };
+        }
+        public Attachment CaptureSelectedAttachment(string link,string name,string type){
+            var reference=CaptureSelection();ReferenceFrame(reference,type=="frame");
+            return new Attachment{name=name,link=link,type=type,reference=reference,source_name=reference.label};
+        }
+        public Matrix<double> AttachmentPose(Attachment attachment){
+            Matrix<double> frame;if(!LinkTransforms().TryGetValue(attachment.link,out frame))throw new InvalidOperationException("附着点所属 link 已失效："+attachment.name);
+            return frame.Inverse()*Resolve(attachment);
         }
         private static void AddTransforms(Link link, Matrix<double> transform, Dictionary<string, Matrix<double>> transforms)
         {

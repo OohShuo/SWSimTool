@@ -17,7 +17,7 @@ namespace SW2URDF.Simulation
                 string script = Path.Combine(Path.GetDirectoryName(typeof(PythonBackend).Assembly.Location), "mujoco_backend", "convert.py");
                 if (!File.Exists(script)) throw new FileNotFoundException("Python backend is missing", script);
                 string arguments = Quote(script) + (existingMjcf != null ? " --mjcf " + Quote(existingMjcf) :
-                    " --urdf " + Quote(urdf) + " --config " + Quote(json) + " --output " + Quote(output));
+                    " --urdf " + Quote(urdf) + (string.IsNullOrWhiteSpace(json)?"":" --config " + Quote(json)) + " --output " + Quote(output));
                 if (existingMjcf == null) {
                     string preferences = meshSettingsPath ?? MeshExportSettings.DefaultPath;
                     if (File.Exists(preferences)) arguments += " --mesh-settings " + Quote(preferences);
@@ -39,9 +39,6 @@ namespace SW2URDF.Simulation
                     process.OutputDataReceived += receive; process.ErrorDataReceived += receive;
                     if (!process.Start()) throw new InvalidOperationException("Cannot start Python");
                     process.BeginOutputReadLine(); process.BeginErrorReadLine(); process.WaitForExit();
-                    string logPath = Path.ChangeExtension(existingMjcf ?? output, ".mujoco.log");
-                    try { File.WriteAllText(logPath, log.ToString(), Encoding.UTF8); }
-                    catch (Exception error) { if (report != null) report("日志未保存：" + error.Message); }
                     return process.ExitCode;
                 }
             });
