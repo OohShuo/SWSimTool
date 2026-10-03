@@ -279,12 +279,14 @@ namespace SW2URDF.SW
         private void AddMuJoCoCommand()
         {
             int errors = 0;
-            var group = CmdMgr.CreateCommandGroup2(MuJoCoCommandGroupId, "MuJoCo 工具", "本地文件转换与预览", "MuJoCo 工具", -1, false, ref errors);
+            var group = CmdMgr.CreateCommandGroup2(MuJoCoCommandGroupId, "MuJoCo 工具", "本地文件转换与预览", "MuJoCo 工具", -1, true, ref errors);
             if (group == null) { logger.Error("Cannot create MuJoCo command group: " + errors); return; }
             string directory = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location), "images");
             string[] icons = Array.ConvertAll(new[] {20, 32, 40, 64, 96, 128}, size => System.IO.Path.Combine(directory, "ros_logo_" + size + "x" + size + ".png"));
             group.IconList = icons; group.MainIconList = icons;
             group.AddCommandItem2("MuJoCo 工具", -1, "读取本地 URDF / MJCF，无需打开工程", "MuJoCo 工具", 0, "OpenMuJoCoTools", "ToolbarEnableMethod", 0,
+                (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem);
+            group.AddCommandItem2("碰撞配置", -1, "编辑装配内 MuJoCo Simulation Configuration，实时预览碰撞几何体", "碰撞配置", 0, "OpenCollisionConfiguration", "CollisionEnableMethod", 1,
                 (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem);
             group.HasMenu = true; group.HasToolbar = true; group.Activate();
         }
@@ -299,6 +301,29 @@ namespace SW2URDF.SW
         public int ToolbarEnableMethod()
         {
             return 1;
+        }
+        private SW2URDF.UI.CollisionPropertyManager collisionPage;
+        public int CollisionEnableMethod()
+        {
+            ModelDoc2 model=SwApp.ActiveDoc;
+            return model!=null && model.GetType()==(int)swDocumentTypes_e.swDocASSEMBLY ? 1 : 0;
+        }
+        public void OpenCollisionConfiguration()
+        {
+            try
+            {
+                ModelDoc2 model=SwApp.ActiveDoc;
+                if(model==null)throw new InvalidOperationException("请打开已配置 URDF link 树的装配。");
+                bool error;
+                var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);
+                if(error||root==null)throw new InvalidOperationException("请先使用 Export as URDF 配置并保存 link 树。");
+                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());
+                var helper=new ExportHelper((SldWorks)SwApp);
+                if(!helper.CreateRobotFromTreeView(root))return;
+                collisionPage=new SW2URDF.UI.CollisionPropertyManager(helper.GetSimulation(),root.Link.Name);
+                collisionPage.Show();
+            }
+            catch(Exception e){MessageBox.Show(e.Message,"碰撞配置",MessageBoxButtons.OK,MessageBoxIcon.Error);}
         }
         public void RemoveCommandMgr()
         {

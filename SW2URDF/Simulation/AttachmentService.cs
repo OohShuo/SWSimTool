@@ -10,8 +10,8 @@ using System.Linq;
 
 namespace SW2URDF.Simulation
 {
-    // CAD references live in the project JSON, not in the URDF object model.
-    public sealed class AttachmentService
+    // CAD references live in the assembly Attribute, not in the URDF object model.
+    public sealed partial class AttachmentService
     {
         private readonly ExportHelper exporter;
         public SimulationProject Project { get; set; }
@@ -19,16 +19,20 @@ namespace SW2URDF.Simulation
         public AttachmentService(ExportHelper exporter)
         {
             this.exporter = exporter;
-            Project = SimulationProject.Load(ProjectPath);
-            if (!string.IsNullOrEmpty(Project.configuration) && Project.configuration != exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name)
-                throw new InvalidOperationException("Simulation project belongs to configuration " + Project.configuration + "; activate that configuration before exporting.");
+            Project = SimulationStorage.Load(exporter.ActiveSWModel);
+            if (Project == null)
+            {
+                var legacy = SimulationProject.Load(ProjectPath);
+                Project = string.IsNullOrEmpty(legacy.configuration) || legacy.configuration == exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name
+                    ? legacy : new SimulationProject();
+            }
         }
         public void Save()
         {
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
             Project.assembly = exporter.ActiveSWModel.GetPathName();
             Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
-            SimulationProject.Write(ProjectPath, Project);
+            SimulationStorage.Save((SldWorks)exporter.iSwApp, exporter.ActiveSWModel, Project);
         }
         public sealed class Source
         {
@@ -107,10 +111,14 @@ namespace SW2URDF.Simulation
                 if (attachment.type == "frame") item.Add("rpy", MathOps.GetRPY(relative));
                 items.Add(item);
             }
+            // Newly exported sidecars use the safe internal-collision default;
+            // already exported legacy sidecars remain unchanged on disk.
+            Project.collision = Project.collision ?? new CollisionConfiguration();
+            foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
             Save();
             return new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
-                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities } };
+                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision } };
         }
         private static void AddTransforms(Link link, Matrix<double> transform, Dictionary<string, Matrix<double>> transforms)
         {

@@ -61,6 +61,7 @@ namespace SW2URDF.Simulation
         public List<ActuatorConfig> actuators { get; set; } = new List<ActuatorConfig>();
         public List<SensorConfig> sensors { get; set; } = new List<SensorConfig>();
         public List<EqualityConfig> equalities { get; set; } = new List<EqualityConfig>();
+        public CollisionConfiguration collision { get; set; }
 
         public static SimulationProject Load(string path)
         {

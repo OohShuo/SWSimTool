@@ -321,6 +321,12 @@
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="Simulation\SimulationProject.cs" />
     <Compile Include="Simulation\AttachmentService.cs" />
+    <Compile Include="Simulation\CollisionConfiguration.cs" />
+    <Compile Include="Simulation\SimulationStorage.cs" />
+    <Compile Include="Simulation\CollisionGeometryService.cs" />
+    <Compile Include="Simulation\CollisionPreview.cs" />
+    <Compile Include="UI\CollisionEditorControl.cs" />
+    <Compile Include="UI\CollisionPropertyManager.cs" />
     <Compile Include="Simulation\PythonBackend.cs" />
     <Compile Include="Simulation\MuJoCoSettings.cs" />
     <Compile Include="Simulation\MeshExportSettings.cs" />
@@ -526,6 +532,10 @@
     </Content>
     <Content Include="..\mujoco_backend\simplify_stl.py">
       <Link>mujoco_backend\simplify_stl.py</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\mujoco_backend\collision.py">
+      <Link>mujoco_backend\collision.py</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\mujoco_backend\requirements.txt">

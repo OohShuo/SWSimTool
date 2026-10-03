@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,6 +41,8 @@ namespace SW2URDF.URDFExport
         {
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
             ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser);
+            // Keep attachment/collision ownership synchronized with saved link renames.
+            if(Exporter.Simulation!=null)Exporter.Simulation.Save();
         }
 
         //As nodes are created and destroyed, this menu gets called a lot. It basically just
@@ -318,6 +320,14 @@ namespace SW2URDF.URDFExport
                 if (Exporter.Simulation != null)
                     foreach (var attachment in Exporter.Simulation.Project.attachments)
                         if (attachment.link == previouslySelectedNode.Link.Name) attachment.link = PMTextBoxLinkName.Text;
+                    var collision=Exporter.Simulation?.Project.collision;
+                    if(collision!=null && previouslySelectedNode.Link.Name!=PMTextBoxLinkName.Text)
+                    {
+                        string oldName=previouslySelectedNode.Link.Name,newName=PMTextBoxLinkName.Text;
+                        foreach(var geometry in collision.geometries)if(geometry.link==oldName)geometry.link=newName;
+                        foreach(var pair in collision.allowed_pairs){if(pair.link1==oldName)pair.link1=newName;if(pair.link2==oldName)pair.link2=newName;}
+                        string mode;if(collision.link_modes.TryGetValue(oldName,out mode)){collision.link_modes.Remove(oldName);collision.link_modes[newName]=mode;}
+                    }
                 previouslySelectedNode.Link.Name = PMTextBoxLinkName.Text;
                 if (!previouslySelectedNode.IsBaseNode)
                 {

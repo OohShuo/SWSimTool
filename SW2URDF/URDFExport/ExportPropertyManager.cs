@@ -62,6 +62,8 @@ namespace SW2URDF.URDFExport
         private PropertyManagerPageSelectionbox PMSelection;
         private PropertyManagerPageButton PMButtonExport;
         private PropertyManagerPageButton PMButtonSimulation;
+        private SW2URDF.UI.CollisionPropertyManager collisionPage;
+        private PropertyManagerPageButton PMButtonCollision;
         private PropertyManagerPageButton PMButtonLoad;
         private PropertyManagerPageTextbox PMTextBoxLinkName;
         private PropertyManagerPageTextbox PMTextBoxJointName;
@@ -112,6 +114,7 @@ namespace SW2URDF.URDFExport
         private const int ComputeJointLimitsID = 30;
         private const int LoadedCSVFilenameID = 31;
         private const int SimulationConfigID = 32;
+        private const int CollisionConfigID = 33;
 
         #endregion class variables
 
@@ -394,6 +397,17 @@ namespace SW2URDF.URDFExport
                     if (selected == null) throw new InvalidOperationException("Select a link first.");
                     using (var form = new SimulationConfigForm(Exporter.GetSimulation(), selected.Link.Name,
                         SimulationConfigForm.JointNames(Tree.Nodes))) form.ShowDialog();
+                    break;
+
+                case CollisionConfigID:
+                    SaveActiveNode();
+                    string linkName=((LinkNode)Tree.SelectedNode).Link.Name;
+                    if (!Exporter.CreateRobotFromTreeView((LinkNode)Tree.Nodes[0])) return;
+                    // Save the URDF definition first, then replace this page with the collision editor.
+                    SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
+                    collisionPage=new CollisionPropertyManager(Exporter.GetSimulation(),linkName);
+                    PMPage.Close(false);
+                    collisionPage.Show();
                     break;
 
                 default:
@@ -967,6 +981,10 @@ namespace SW2URDF.URDFExport
                 (short)swPropertyManagerPageControlType_e.swControlType_Button,
                 "附着点 / MuJoCo 配置...", 0, (int)options, "为当前 link 添加参考点或坐标系，配置执行器、传感器和闭链");
             (PMButtonSimulation as IPropertyManagerPageControl).Width = 200;
+            PMButtonCollision = PMGroup.AddControl2(CollisionConfigID,
+                (short)swPropertyManagerPageControlType_e.swControlType_Button,
+                "碰撞几何体 / 碰撞对...", 0, (int)options, "在左侧编辑碰撞配置并实时预览");
+            (PMButtonCollision as IPropertyManagerPageControl).Width = 200;
 
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle;
             caption = "Link Tree";
