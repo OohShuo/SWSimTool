@@ -72,7 +72,49 @@ def unique(items, label):
     return result
 
 
+def validate_urdf_tree(robot):
+    links = unique([dict(link.attrib) for link in robot.findall("link")], "link")
+    unique([dict(joint.attrib) for joint in robot.findall("joint")], "joint")
+    errors, parents = [], {}
+    for joint in robot.findall("joint"):
+        name = joint.get("name")
+        parent, child = joint.find("parent"), joint.find("child")
+        parent_name = None if parent is None else parent.get("link")
+        child_name = None if child is None else child.get("link")
+        for role, link in (("parent", parent_name), ("child", child_name)):
+            if link not in links:
+                errors.append(f"Joint '{name}' {role} references missing link '{link}'")
+        if parent_name == child_name:
+            errors.append(f"Joint '{name}' connects a link to itself")
+        if child_name in parents:
+            errors.append(f"Link '{child_name}' has multiple incoming joints")
+        parents[child_name] = parent_name
+        if joint.get("type") in ("revolute", "continuous", "prismatic", "planar"):
+            axis = joint.find("axis")
+            raw = "1 0 0" if axis is None else axis.get("xyz", "")
+            try:
+                values = vector([float(value) for value in raw.split()], 3, name + ".axis")
+                if not any(value != 0 for value in values):
+                    raise ValueError("zero axis")
+            except (ValueError, TypeError):
+                errors.append(f"Joint '{name}' has an invalid or zero axis ({raw})")
+    roots = set(links) - set(parents)
+    if len(roots) != 1:
+        errors.append(f"URDF must have one root link; found {len(roots)}")
+    for link in links:
+        visited, current = set(), link
+        while current in parents:
+            if current in visited:
+                errors.append(f"URDF contains a joint cycle at link '{current}'")
+                break
+            visited.add(current)
+            current = parents[current]
+    if errors:
+        raise ValueError("Invalid URDF tree:\n" + "\n".join(dict.fromkeys(errors)))
+
+
 def validate(config, robot):
+    validate_urdf_tree(robot)
     if config.get("schema_version") != 1:
         raise ValueError("Unsupported schema_version")
     if config.get("units") != "m,rad":

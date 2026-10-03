@@ -133,7 +133,9 @@ namespace SW2URDF.URDF
             }
 
             writer.WriteEndElement();
-            if (Joint.ElementContainsData())
+            // A root link has no incoming joint. Saved configurations may retain
+            // joint data from before the link became the root.
+            if (Parent != null && Joint != null && Joint.ElementContainsData())
             {
                 Joint.WriteURDF(writer);
             }

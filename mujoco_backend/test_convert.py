@@ -69,6 +69,29 @@ class ConversionTests(unittest.TestCase):
     def test_points_do_not_allow_orientation(self):
         self.config['attachments'][0]['rpy']=[0,0,0]
         with self.assertRaisesRegex(ValueError,'position only'): self.run_convert()
+    def test_stale_joint_and_zero_axis_reported_before_mesh_loading(self):
+        robot = ET.fromstring(URDF)
+        stale = ET.SubElement(robot, 'joint', name='stale_pitch', type='fixed')
+        ET.SubElement(stale, 'parent', link='base')
+        ET.SubElement(stale, 'child', link='missing_pitch')
+        robot.find("./joint[@name='hinge']/axis").set('xyz', '0 0 0')
+        self.urdf.write_bytes(ET.tostring(robot))
+        self.config['urdf_sha256'] = hashlib.sha256(self.urdf.read_bytes()).hexdigest()
+        self.output.write_text('previous output')
+        before = self.urdf.read_bytes()
+        with self.assertRaises(ValueError) as error: self.run_convert()
+        self.assertIn("'stale_pitch' child references missing link 'missing_pitch'", str(error.exception))
+        self.assertIn("'hinge' has an invalid or zero axis", str(error.exception))
+        self.assertEqual(self.output.read_text(), 'previous output')
+        self.assertEqual(self.urdf.read_bytes(), before)
+    def test_joint_cycle_rejected(self):
+        robot = ET.fromstring(URDF)
+        extra = ET.SubElement(robot, 'joint', name='back', type='fixed')
+        ET.SubElement(extra, 'parent', link='tool')
+        ET.SubElement(extra, 'child', link='base')
+        self.urdf.write_bytes(ET.tostring(robot))
+        self.config['urdf_sha256'] = hashlib.sha256(self.urdf.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'joint cycle'): self.run_convert()
     def test_unicode_mesh_directory_and_portable_reload(self):
         mesh_directory = self.directory / '中文路径 空格'
         mesh_directory.mkdir()
