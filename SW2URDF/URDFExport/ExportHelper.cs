@@ -214,6 +214,7 @@ namespace SW2URDF.URDFExport
             ActiveSWModel.HideComponent2();
 
             bool success = false;
+            string exportError = "";
             try
             {
                 logger.Info("Beginning individual files export");
@@ -222,6 +223,7 @@ namespace SW2URDF.URDFExport
             }
             catch (Exception e)
             {
+                exportError = e.Message;
                 logger.Error("An exception was thrown attempting to export the URDF", e);
             }
             finally
@@ -235,8 +237,8 @@ namespace SW2URDF.URDFExport
 
             if (!success)
             {
-                MessageBox.Show("Exporting the URDF failed unexpectedly. Email your maintainer " +
-                    "with the log file found at " + Logger.GetFileName());
+                progressBar.End();
+                MessageBox.Show("导出失败：" + exportError + System.Environment.NewLine + "日志：" + Logger.GetFileName());
                 return;
             }
 
@@ -484,6 +486,7 @@ namespace SW2URDF.URDFExport
                 logger.Warn("There was an issue exporting the STL for " + link.Name + ". It " +
                     "may not be readable by CAD programs that aren't SolidWorks");
             }
+            if (!success || errors != 0) throw new IOException("STL 导出失败：" + windowsMeshFilename + " (SW error " + errors + ")");
             return success;
         }
 
@@ -511,33 +514,37 @@ namespace SW2URDF.URDFExport
 
             //Customizing STL preferences to how I want them
             SaveUserPreferences();
-            SetSTLExportPreferences();
-            SetLinkSpecificSTLPreferences("", URDFRobot.BaseLink.STLQualityFine, ActiveSWModel);
-            int errors = 0;
-            int warnings = 0;
-
-            //Saving part as STL mesh
-
-            ActiveSWModel.Extension.SaveAs(windowsMeshFileName, (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, ref errors, ref warnings);
-            URDFRobot.BaseLink.Visual.Geometry.Mesh.Filename = meshFileName;
-            URDFRobot.BaseLink.Collision.Geometry.Mesh.Filename = meshFileName;
-
-            URDFRobot.BaseLink.Visual.Material.Texture.Filename =
-                package.TexturesDirectory + Path.GetFileName(URDFRobot.BaseLink.Visual.Material.Texture.wFilename);
-            string textureSavePath =
-                package.WindowsTexturesDirectory + Path.GetFileName(URDFRobot.BaseLink.Visual.Material.Texture.wFilename);
-            if (!String.IsNullOrWhiteSpace(URDFRobot.BaseLink.Visual.Material.Texture.wFilename))
+            try
             {
-                File.Copy(URDFRobot.BaseLink.Visual.Material.Texture.wFilename, textureSavePath, true);
+                SetSTLExportPreferences();
+                SetLinkSpecificSTLPreferences("", URDFRobot.BaseLink.STLQualityFine, ActiveSWModel);
+                int errors = 0;
+                int warnings = 0;
+
+                //Saving part as STL mesh
+
+                ActiveSWModel.Extension.SaveAs(windowsMeshFileName, (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
+                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, ref errors, ref warnings);
+                if (errors != 0) throw new IOException("STL 导出失败：" + windowsMeshFileName + " (SW error " + errors + ")");
+                URDFRobot.BaseLink.Visual.Geometry.Mesh.Filename = meshFileName;
+                URDFRobot.BaseLink.Collision.Geometry.Mesh.Filename = meshFileName;
+
+                URDFRobot.BaseLink.Visual.Material.Texture.Filename =
+                    package.TexturesDirectory + Path.GetFileName(URDFRobot.BaseLink.Visual.Material.Texture.wFilename);
+                string textureSavePath =
+                    package.WindowsTexturesDirectory + Path.GetFileName(URDFRobot.BaseLink.Visual.Material.Texture.wFilename);
+                if (!String.IsNullOrWhiteSpace(URDFRobot.BaseLink.Visual.Material.Texture.wFilename))
+                {
+                    File.Copy(URDFRobot.BaseLink.Visual.Material.Texture.wFilename, textureSavePath, true);
+                }
+
+                //Writing URDF to file
+                URDFWriter uWriter = new URDFWriter(windowsURDFFileName);
+                //mRobot.addLink(mLink);
+                URDFRobot.WriteURDF(uWriter.writer);
+
             }
-
-            //Writing URDF to file
-            URDFWriter uWriter = new URDFWriter(windowsURDFFileName);
-            //mRobot.addLink(mLink);
-            URDFRobot.WriteURDF(uWriter.writer);
-
-            ResetUserPreferences();
+            finally { ResetUserPreferences(); }
         }
 
         //Writes an empty header to the STL to get rid of the BS that SolidWorks adds to a binary STL file

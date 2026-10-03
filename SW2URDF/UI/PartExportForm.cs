@@ -157,8 +157,8 @@ namespace SW2URDF.UI
 
             Exporter.URDFRobot.BaseLink.STLQualityFine = radioButton_fine.Checked;
 
-            Exporter.ExportLink(checkBox_rotate.Checked);
-            Close();
+            try { Exporter.ExportLink(checkBox_rotate.Checked); Close(); }
+            catch (Exception error) { MessageBox.Show("导出失败：" + error.Message, "STL / URDF", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
 
         private void ButtonCancelClick(object sender, EventArgs e)
