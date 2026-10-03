@@ -1,4 +1,4 @@
-; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
 #define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
 #endif
@@ -6,14 +6,14 @@
 
 [Setup]
 AppId={{E43E85A9-071D-430A-91B2-84B7AB923170}
-AppName=SW2URDF for SolidWorks 2025
+AppName=SW2MuJoCo for SolidWorks 2025
 AppVersion={#BuildVersion}
-AppVerName=SW2URDF for SolidWorks 2025 ({#BuildVersion})
+AppVerName=SW2MuJoCo for SolidWorks 2025 ({#BuildVersion})
 AppPublisher=SW2URDF contributors
 AppPublisherURL=https://github.com/ros/solidworks_urdf_exporter
 VersionInfoVersion={#BuildVersion}
-VersionInfoProductName=SW2URDF for SolidWorks 2025
-VersionInfoDescription=SW2URDF SolidWorks 2025 x64 Setup
+VersionInfoProductName=SW2MuJoCo for SolidWorks 2025
+VersionInfoDescription=SW2MuJoCo SolidWorks 2025 x64 Setup
 DefaultDirName={autopf}\SolidWorks Corp\SolidWorks\URDFExporter
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -22,7 +22,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir=..\dist
-OutputBaseFilename=SW2URDF_SW2025_MuJoCo_x64_Setup
+OutputBaseFilename=SW2MuJoCo_SW2025_x64_Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -49,9 +49,8 @@ Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend";
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\collision.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "..\docs\MUJOCO扩展_使用与开发.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\STL超限减面_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\MuJoCo碰撞配置_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+
+Source: "..\docs\SW2MuJoCo_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Code]
 const
