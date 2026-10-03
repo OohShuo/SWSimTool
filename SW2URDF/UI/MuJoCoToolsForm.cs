@@ -13,10 +13,12 @@ namespace SW2URDF.UI
         private readonly TableLayoutPanel inputs = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3 };
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
         private readonly string settingsPath;
+        private readonly string meshSettingsPath;
         public MuJoCoToolsForm() : this(MuJoCoSettings.DefaultPath) { }
-        public MuJoCoToolsForm(string preferencesPath)
+        public MuJoCoToolsForm(string preferencesPath, string meshPreferencesPath = null)
         {
             settingsPath = preferencesPath;
+            meshSettingsPath = meshPreferencesPath;
             Text = "MuJoCo 工具"; ClientSize = new Size(840, 510); MinimumSize = new Size(700, 420);
             AutoScaleMode = AutoScaleMode.Dpi; StartPosition = FormStartPosition.CenterScreen;
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
@@ -25,11 +27,12 @@ namespace SW2URDF.UI
             AddPath("Python", python, "Python|python.exe|程序|*.exe", false);
             AddPath("URDF", urdf, "URDF|*.urdf", false);
             AddPath("附加配置", sidecar, "附加配置|*.sim.json|JSON|*.json", false);
-            AddPath("MJCF 保存位置", output, "MJCF|*.mjcf.xml|XML|*.xml", true);
+            AddPath("MJCF 保存位置", output, "MJCF / XML|*.xml", true);
             AddPath("已有 MJCF", existing, "MJCF / XML|*.xml", false);
             AddAction("保存 MJCF", () => Run(false, false));
             AddAction("转换并预览", () => Run(true, false));
             AddAction("预览已有 MJCF", () => Run(true, true));
+            AddAction("STL 减面设置…", () => { using (var form = new MeshExportSettingsForm(meshSettingsPath ?? MeshExportSettings.DefaultPath)) form.ShowDialog(this); });
             var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(0, 8, 0, 8) };
             footer.Controls.Add(status);
             var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12) };
@@ -38,9 +41,10 @@ namespace SW2URDF.UI
                 var settings = MuJoCoSettings.Load(settingsPath);
                 python.Text = settings.Python; urdf.Text = settings.Urdf; sidecar.Text = settings.Sidecar;
                 output.Text = settings.Output; existing.Text = settings.ExistingMjcf;
+                if (!string.IsNullOrWhiteSpace(urdf.Text) && output.Text == Path.ChangeExtension(urdf.Text, ".mjcf.xml")) output.Text = PythonBackend.DefaultOutput(urdf.Text);
             } catch (Exception error) { python.Text = "python"; Append("读取设置失败：" + error.Message); }
             urdf.TextChanged += (s, e) => {
-                try { if (!string.IsNullOrWhiteSpace(urdf.Text)) { sidecar.Text = Path.ChangeExtension(urdf.Text.Trim(), ".sim.json"); output.Text = Path.ChangeExtension(urdf.Text.Trim(), ".mjcf.xml"); } }
+                try { if (!string.IsNullOrWhiteSpace(urdf.Text)) { sidecar.Text = Path.ChangeExtension(urdf.Text.Trim(), ".sim.json"); output.Text = PythonBackend.DefaultOutput(urdf.Text.Trim()); } }
                 catch (ArgumentException) { }
             };
             FormClosing += (s, e) => SaveSettings();
@@ -84,13 +88,14 @@ namespace SW2URDF.UI
                 else {
                     RequireFile(urdf.Text); RequireFile(sidecar.Text);
                     if (string.IsNullOrWhiteSpace(output.Text)) throw new ArgumentException("请选择 MJCF 保存位置。");
+                    output.Text = PythonBackend.PackageOutput(urdf.Text.Trim(), output.Text.Trim());
                     string destination = Path.GetFullPath(output.Text.Trim());
                     foreach (string source in new[] { urdf.Text, sidecar.Text })
                         if (string.Equals(destination, Path.GetFullPath(source.Trim()), StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MJCF 保存位置不能覆盖输入文件。");
                 }
                 SaveSettings(); log.Clear(); inputs.Enabled = actions.Enabled = false;
                 status.Text = preview ? "正在启动预览；关闭 viewer 后可继续操作。" : "正在保存 MJCF…";
-                int code = await PythonBackend.RunAsync(python.Text.Trim(), urdf.Text.Trim(), sidecar.Text.Trim(), output.Text.Trim(), preview, direct ? existing.Text.Trim() : null, Append);
+                int code = await PythonBackend.RunAsync(python.Text.Trim(), urdf.Text.Trim(), sidecar.Text.Trim(), output.Text.Trim(), preview, direct ? existing.Text.Trim() : null, Append, meshSettingsPath);
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
             } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.Message); }
             finally { if (!IsDisposed) inputs.Enabled = actions.Enabled = true; }

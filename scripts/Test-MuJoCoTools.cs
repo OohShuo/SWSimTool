@@ -7,7 +7,7 @@ class TestMuJoCoTools
     static int Main(string[] args)
     {
         string folder = args[1], preferences = Path.Combine(folder, "settings-test.json");
-        var settings = new MuJoCoSettings { Python = args[0], Urdf = Path.Combine(folder, "test.urdf"), Sidecar = Path.Combine(folder, "test.sim.json"), Output = Path.Combine(folder, "custom.mjcf.xml") };
+        var settings = new MuJoCoSettings { Python = args[0], Urdf = Path.Combine(folder, "test.urdf"), Sidecar = Path.Combine(folder, "test.sim.json"), Output = PythonBackend.PackageOutput(Path.Combine(folder, "test.urdf"), Path.Combine(folder, "custom.xml")) };
         settings.Save(preferences); settings.Save(preferences);
         var loaded = MuJoCoSettings.Load(preferences);
         if (loaded.Output != settings.Output || loaded.Python != settings.Python) throw new Exception("Settings roundtrip failed");

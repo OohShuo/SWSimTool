@@ -1,6 +1,7 @@
 """Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
 
-All edits apply to an in-memory copy. The input URDF and meshes are never rewritten.
+CLI exports a portable package with retained URDF and preprocessed mesh copies.
+The original URDF, sidecar and meshes are never rewritten.
 """
 import argparse
 from contextlib import contextmanager
@@ -8,6 +9,10 @@ import hashlib
 import importlib
 import json
 import math
+import os
+import re
+import shutil
+import uuid
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
@@ -168,7 +173,7 @@ def validate(config, robot):
     return attachments
 
 
-def resolve_meshes(robot, urdf):
+def resolve_meshes(robot, urdf, folder=None, preserve_paths=False, reject_root=None):
     package_root = urdf.parent.parent
     files = {}
     for mesh in robot.findall(".//mesh"):
@@ -189,15 +194,21 @@ def resolve_meshes(robot, urdf):
         if not path.is_file():
             raise FileNotFoundError(f"Mesh not found: {path}")
         path = path.resolve()
+        if reject_root is not None and path.is_relative_to(reject_root):
+            raise ValueError(f'Output package must not contain an original input mesh: {path}')
         files.setdefault(path, path.read_bytes())
-        mesh.set("filename", str(path))
+        if not preserve_paths:
+            mesh.set("filename", str(path))
+    if preserve_paths:
+        return {mesh.attrib["filename"]: files[(urdf.parent / mesh.attrib["filename"]).resolve()]
+                for mesh in robot.findall(".//mesh")}
     # Native Windows file I/O can reject Unicode paths. Load bytes in Python,
     # use ASCII VFS names, and emit a portable copy alongside the MJCF.
     digest = hashlib.sha256()
     for data in files.values():
         digest.update(len(data).to_bytes(8, "little"))
         digest.update(data)
-    folder = "sw2urdf_assets_" + digest.hexdigest()[:20]
+    folder = folder or "sw2urdf_assets_" + digest.hexdigest()[:20]
     aliases = {path: f"{folder}/mesh_{index:04d}{path.suffix.lower()}" for index, path in enumerate(files)}
     for mesh in robot.findall(".//mesh"):
         mesh.set("filename", aliases[Path(mesh.attrib["filename"])])
@@ -228,7 +239,7 @@ def load_mjcf(path):
         return mujoco.MjModel.from_xml_string(xml, **options)
 
 
-def convert(urdf, config_path, output):
+def convert(urdf, config_path, output, preserve_mesh_paths=False):
     mujoco = load_runtime()
     urdf, config_path, output = Path(urdf).resolve(), Path(config_path).resolve(), Path(output).resolve()
     if output in (urdf, config_path):
@@ -241,7 +252,7 @@ def convert(urdf, config_path, output):
         raise ValueError("URDF changed since sidecar export; re-export the pair")
     robot = ET.fromstring(original)
     attachments = validate(config, robot)
-    assets = resolve_meshes(robot, urdf)
+    assets = resolve_meshes(robot, urdf, preserve_paths=preserve_mesh_paths)
     extension = robot.find("mujoco")
     if extension is None:
         extension = ET.SubElement(robot, "mujoco")
@@ -316,12 +327,118 @@ def convert(urdf, config_path, output):
     return final_model
 
 
+def package_output(urdf, output):
+    urdf, output = Path(urdf).resolve(), Path(output).resolve()
+    if not output.parent.name.endswith('_mjcf'):
+        output = output.parent / (urdf.stem + '_mjcf') / output.name
+    return output
+
+
+def export_package(urdf, config_path, output, mesh_settings=None):
+    """Prepare all meshes before MuJoCo loads a retained, portable URDF copy."""
+    from simplify_stl import simplify, triangles
+    urdf, config_path = Path(urdf).resolve(), Path(config_path).resolve()
+    output = package_output(urdf, output)
+    root = output.parent
+    if urdf.is_relative_to(root) or config_path.is_relative_to(root):
+        raise ValueError('MJCF package directory must not contain the original input files')
+    original = urdf.read_bytes()
+    config = json.loads(config_path.read_text(encoding='utf-8-sig'))
+    if config.get('urdf') != urdf.name or (config.get('urdf_sha256') and
+        config['urdf_sha256'].lower() != hashlib.sha256(original).hexdigest()):
+        raise ValueError('URDF changed since sidecar export or sidecar belongs to a different URDF; re-export the pair')
+    robot = ET.fromstring(original)
+    validate(config, robot)
+    sources = [m.get('filename') for m in robot.findall('.//mesh')]
+    # ASCII asset paths keep native Windows and MuJoCo VFS access portable.
+    stem = re.sub(r'[^a-zA-Z0-9_-]', '_', urdf.stem).strip('_') or 'robot'
+    assets = resolve_meshes(robot, urdf, folder=stem + '_meshes', reject_root=root)
+    aliases = [m.get('filename') for m in robot.findall('.//mesh')]
+    provenance = dict(zip(aliases, sources))
+    settings = mesh_settings or {}
+    enabled = bool(settings.get('Enabled', False))
+    maximum = int(settings.get('MaximumTriangles', 200000))
+    if enabled and not 4 <= maximum <= 200000:
+        raise ValueError('For MuJoCo STL export, triangle budget must be between 4 and 200000')
+    if len({output.name, urdf.name, urdf.stem + '.sim.json', 'mesh-report.json'}) != 4:
+        raise ValueError('MJCF filename conflicts with retained package files')
+    root.parent.mkdir(parents=True, exist_ok=True)
+    # Build next to the destination, validate fully, then swap the complete directory.
+    # Existing unrelated files are retained across successful updates.
+    with tempfile.TemporaryDirectory(prefix='.sw2urdf-package-', dir=root.parent) as temporary:
+        staged_root = Path(temporary) / root.name
+        if root.exists():
+            shutil.copytree(root, staged_root)
+        else:
+            staged_root.mkdir()
+        (staged_root / (stem + '_meshes')).mkdir(exist_ok=True)
+        reports = []
+        for name, data in assets.items():
+            destination = staged_root / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+            if destination.suffix.lower() == '.stl':
+                before = len(triangles(destination))
+                if enabled:
+                    report = simplify(destination, maximum, settings.get('Backend', 'pymeshlab'), settings.get('Blender'))
+                else:
+                    report = dict(before=before, after=before, changed=False)
+                if not 1 <= report['after'] <= 200000:
+                    raise ValueError(f"STL '{provenance[name]}' has {report['after']} triangles. Enable preprocessing with a budget <= 200000 before MuJoCo loading.")
+            else:
+                report = dict(changed=False)
+            report.update(file=name, source=provenance[name])
+            reports.append(report)
+        copy_urdf = staged_root / urdf.name
+        extension = robot.find('mujoco')
+        if extension is None:
+            extension = ET.SubElement(robot, 'mujoco')
+        compiler = extension.find('compiler')
+        if compiler is None:
+            compiler = ET.SubElement(extension, 'compiler')
+        compiler.set('fusestatic', 'false')
+        compiler.set('discardvisual', 'false')
+        compiler.set('strippath', 'false')
+        # Original package-level meshdir must not override our rewritten references.
+        compiler.attrib.pop('meshdir', None)
+        ET.indent(robot)
+        copy_urdf.write_bytes(ET.tostring(robot, encoding='utf-8', xml_declaration=True))
+        config['urdf'] = copy_urdf.name
+        config['urdf_sha256'] = hashlib.sha256(copy_urdf.read_bytes()).hexdigest()
+        copy_config = staged_root / (urdf.stem + '.sim.json')
+        copy_config.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
+        (staged_root / 'mesh-report.json').write_text(json.dumps(reports, ensure_ascii=False, indent=2), encoding='utf-8')
+        print(f'Prepared {len(assets)} meshes; loading retained URDF copy', flush=True)
+        model = convert(copy_urdf, copy_config, staged_root / output.name, preserve_mesh_paths=True)
+        backup = root.parent / ('.' + root.name + '.previous-' + uuid.uuid4().hex)
+        existed = root.exists()
+        if existed:
+            os.replace(root, backup)
+        try:
+            os.replace(staged_root, root)
+        except Exception:
+            if existed:
+                os.replace(backup, root)
+            raise
+        if existed:
+            # Backup is a verified sibling created by this invocation only.
+            try:
+                if backup.resolve().parent != root.parent or not backup.name.startswith('.' + root.name + '.previous-'):
+                    raise RuntimeError('Refusing to remove an unexpected backup directory')
+                shutil.rmtree(backup)
+            except OSError as error:
+                print(f'Previous package retained at {backup}: {error}', flush=True)
+    print(f'MJCF package saved: {output}', flush=True)
+    return model
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--mjcf", help="Preview an existing MJCF without conversion")
     parser.add_argument("--urdf")
     parser.add_argument("--config")
     parser.add_argument("--output")
+    parser.add_argument("--mesh-settings", help="User-level mesh preprocessing settings JSON")
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--check-environment", action="store_true")
     args = parser.parse_args(argv)
@@ -340,7 +457,8 @@ def main(argv=None):
         parser.error("--urdf, --config and --output are required for conversion")
     if args.preview:
         load_runtime(preview=True)
-    model = convert(args.urdf, args.config, args.output)
+    settings = json.loads(Path(args.mesh_settings).read_text(encoding="utf-8-sig")) if args.mesh_settings else {}
+    model = export_package(args.urdf, args.config, args.output, settings)
     if args.preview:
         import mujoco.viewer
         mujoco.viewer.launch(model)

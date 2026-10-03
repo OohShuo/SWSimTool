@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -9,14 +9,19 @@ namespace SW2URDF.Simulation
     public static class PythonBackend
     {
         public static Task<int> RunAsync(string python, string urdf, string json, string output,
-            bool preview, string existingMjcf, Action<string> report)
+            bool preview, string existingMjcf, Action<string> report, string meshSettingsPath = null)
         {
             return Task.Run(() =>
             {
+                if (existingMjcf == null) output = PackageOutput(urdf, output);
                 string script = Path.Combine(Path.GetDirectoryName(typeof(PythonBackend).Assembly.Location), "mujoco_backend", "convert.py");
                 if (!File.Exists(script)) throw new FileNotFoundException("Python backend is missing", script);
                 string arguments = Quote(script) + (existingMjcf != null ? " --mjcf " + Quote(existingMjcf) :
                     " --urdf " + Quote(urdf) + " --config " + Quote(json) + " --output " + Quote(output));
+                if (existingMjcf == null) {
+                    string preferences = meshSettingsPath ?? MeshExportSettings.DefaultPath;
+                    if (File.Exists(preferences)) arguments += " --mesh-settings " + Quote(preferences);
+                }
                 if (preview) arguments += " --preview";
                 var info = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true,
                     Arguments = arguments, RedirectStandardOutput = true, RedirectStandardError = true,
@@ -45,9 +50,19 @@ namespace SW2URDF.Simulation
         public static async void Launch(string python, string urdf, string json, bool preview)
         {
             string report = "";
-            try { int code = await RunAsync(python, urdf, json, Path.ChangeExtension(urdf, ".mjcf.xml"), preview, null, line => report += line + Environment.NewLine);
+            try { int code = await RunAsync(python, urdf, json, DefaultOutput(urdf), preview, null, line => report += line + Environment.NewLine);
                 MessageBox.Show(report, code == 0 ? "MuJoCo 完成" : "MuJoCo 失败"); }
             catch (Exception error) { MessageBox.Show(error.Message, "MuJoCo 失败"); }
+        }
+        public static string DefaultOutput(string urdf)
+        {
+            return Path.Combine(Path.GetDirectoryName(urdf), Path.GetFileNameWithoutExtension(urdf) + "_mjcf", Path.GetFileNameWithoutExtension(urdf) + ".xml");
+        }
+        public static string PackageOutput(string urdf, string output)
+        {
+            string full = Path.GetFullPath(output), directory = Path.GetDirectoryName(full);
+            return new DirectoryInfo(directory).Name.EndsWith("_mjcf", StringComparison.Ordinal) ? full :
+                Path.Combine(directory, Path.GetFileNameWithoutExtension(urdf) + "_mjcf", Path.GetFileName(full));
         }
         private static string Quote(string value)
         {
