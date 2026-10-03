@@ -49,18 +49,14 @@ class PackageExportTests(unittest.TestCase):
         model = export_package(self.urdf, self.sidecar, self.output, self.settings)
         self.assertEqual(model.nmesh, 2)
         self.assertEqual(self.original_bytes(), before)
-        self.assertEqual(sorted(p.name for p in self.output.parent.iterdir()), ['mesh-report.json', 'robot.sim.json', 'robot.urdf', 'robot.xml', 'robot_meshes'])
-        robot = ET.parse(self.output.parent / 'robot.urdf')
-        references = [m.get('filename') for m in robot.findall('.//mesh')]
+        self.assertEqual(sorted(p.name for p in self.output.parent.iterdir()), ['meshes', 'robot.xml'])
+        robot = ET.parse(self.output)
+        references = [m.get('file') for m in robot.findall('./asset/mesh')]
         self.assertEqual(len(set(references)), 2)
-        self.assertEqual(references[0], references[1])
         for reference in references:
-            self.assertTrue(reference.startswith('robot_meshes/'))
+            self.assertTrue(reference.startswith('meshes/'))
             self.assertLessEqual(len(triangles(self.output.parent / reference)), 128)
-        self.assertEqual((self.output.parent / references[2]).read_bytes(), before[3])
-        retained = self.output.parent / 'robot.urdf'
-        config = json.loads((self.output.parent / 'robot.sim.json').read_text())
-        self.assertEqual(config['urdf_sha256'], hashlib.sha256(retained.read_bytes()).hexdigest())
+        self.assertEqual((self.output.parent / 'meshes/mesh_0001.stl').read_bytes(), before[3])
         moved = Path(self.temp.name) / '移动后的完整包'
         shutil.copytree(self.output.parent, moved)
         self.assertEqual(load_mjcf(moved / 'robot.xml').nmesh, 2)
@@ -71,9 +67,8 @@ class PackageExportTests(unittest.TestCase):
                 if backend == 'blender' and not settings['Blender']:
                     continue
                 export_package(self.urdf, self.sidecar, self.output, settings)
-                reports = json.loads((self.output.parent / 'mesh-report.json').read_text())
-                self.assertEqual([r['changed'] for r in reports], [True, False])
-                self.assertLessEqual(reports[0]['after'], 128)
+                self.assertLessEqual(len(triangles(self.output.parent / 'meshes/mesh_0000.stl')), 128)
+                self.assertEqual((self.output.parent / 'meshes/mesh_0001.stl').read_bytes(), self.meshes[1].read_bytes())
     def test_failure_retains_previous_package_and_originals(self):
         export_package(self.urdf, self.sidecar, self.output, self.settings)
         (self.output.parent / 'notes.txt').write_text('keep unrelated files')
@@ -99,7 +94,8 @@ class PackageExportTests(unittest.TestCase):
             main(['--urdf', str(self.urdf), '--config', str(self.sidecar), '--output', str(self.output),
                   '--mesh-settings', str(preferences), '--preview'])
             self.assertEqual(viewer.call_args.args[0].nmesh, 2)
-        self.assertTrue((self.output.parent / 'robot.urdf').exists())
+        self.assertFalse((self.output.parent / 'robot.urdf').exists())
+        self.assertTrue(self.output.exists())
     def test_oversized_mesh_processed_before_mujoco_loading(self):
         # 8 * 4**8 = 524288 faces, exceeding the actual STL decoder limit.
         write_binary(self.meshes[0], *sphere(8))
@@ -110,10 +106,33 @@ class PackageExportTests(unittest.TestCase):
                 export_package(self.urdf, self.sidecar, self.output, dict(Enabled=False))
         model = export_package(self.urdf, self.sidecar, self.output, settings)
         self.assertEqual(model.nmesh, 2)
-        reports = json.loads((self.output.parent / 'mesh-report.json').read_text())
-        self.assertEqual(reports[0]['before'], 524288)
-        self.assertLessEqual(reports[0]['after'], 50000)
+        self.assertLessEqual(len(triangles(self.output.parent / 'meshes/mesh_0000.stl')), 50000)
         self.assertEqual(before, hashlib.sha256(self.meshes[0].read_bytes()).hexdigest())
+
+    def test_optional_config_and_clean_output(self):
+        model = export_package(self.urdf, None, self.output, self.settings)
+        self.assertEqual(model.nsite, 0)
+        self.assertEqual(sorted(p.name for p in self.output.parent.iterdir()), ['meshes', 'robot.xml'])
+        self.assertTrue(all(p.suffix == '.stl' for p in (self.output.parent / 'meshes').iterdir()))
+    def test_unrelated_mesh_not_overwritten(self):
+        path = self.output.parent / 'meshes' / 'mesh_0000.stl'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b'user data')
+        with self.assertRaisesRegex(ValueError, 'unrelated mesh'):
+            export_package(self.urdf, self.sidecar, self.output, self.settings)
+        self.assertEqual(path.read_bytes(), b'user data')
+    def test_obsolete_managed_mesh_removed_and_user_file_preserved(self):
+        export_package(self.urdf, self.sidecar, self.output, self.settings)
+        notes = self.output.parent / 'meshes' / 'notes.txt'
+        notes.write_text('keep')
+        robot = ET.parse(self.urdf)
+        arm = robot.find("./link[@name='arm']")
+        arm.remove(arm.find('collision'))
+        robot.write(self.urdf)
+        self.refresh_hash()
+        export_package(self.urdf, self.sidecar, self.output, self.settings)
+        self.assertFalse((notes.parent / 'mesh_0001.stl').exists())
+        self.assertEqual(notes.read_text(), 'keep')
 
 
 if __name__ == '__main__':

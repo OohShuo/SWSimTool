@@ -9,6 +9,7 @@ $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]:
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Windows.Forms;
@@ -53,7 +54,26 @@ public static class CollisionNavigationProbe {
    typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(editor,"\u6dfb\u52a0"),new object[]{EventArgs.Empty});Check(list.Items.Count==3&&name.Text.StartsWith("collision_"),"adding geometry is allowed with unfinished references");
    Check(service.Project.collision.geometries.Count==3,"editing does not modify persisted project before save");
   }
+  service.Project.attachments.AddRange(new[]{new Attachment{name="yaw_site",link="yaw",type="frame"},new Attachment{name="pitch_site",link="pitch",type="point"}});
+  using(var editor=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}})){
+   ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
+   var link=(ComboBox)Get(editor,"link");var tabs=All(editor).OfType<TabControl>().Single();
+   var sites=All(tabs.TabPages[0]).OfType<ListBox>().Single();
+   Check(sites.Items.Count==1&&((Attachment)sites.Items[0]).name=="yaw_site","simulation page filters attachments by link");
+   link.SelectedItem="pitch";
+   Check(sites.Items.Count==1&&((Attachment)sites.Items[0]).name=="pitch_site","simulation link change refreshes its own attachment");
+   link.SelectedItem="base";Check(sites.Items.Count==0,"empty simulation link clears attachment list");
+   link.SelectedItem="yaw";tabs.SelectedIndex=2;
+   typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(tabs.TabPages[2],"\u6dfb\u52a0"),new object[]{EventArgs.Empty});
+   var joints=All(tabs.TabPages[2]).OfType<ComboBox>().Single(c=>c.Items.Contains("yaw_joint"));
+   Check(joints.Items.Count==1&&joints.SelectedItem.ToString()=="yaw_joint","actuator choices belong to selected link");
+   Check(!All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")||c.Text.Contains("kv")),"motor hides position and velocity gain fields");
+   var kind=All(tabs.TabPages[2]).OfType<ComboBox>().Single(c=>c.Items.Contains("position"));kind.SelectedItem="position";
+   Check(All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")),"position actuator displays its gain field");
+   Check(service.Project.actuators.Count==0,"simulation edits remain a draft until save");
+  }
  }
+ static IEnumerable<Control> All(Control root){foreach(Control c in root.Controls){yield return c;foreach(var child in All(c))yield return child;}}
  static Button Find(Control root,string text){foreach(Control c in root.Controls){var b=c as Button;if(b!=null&&b.Text==text)return b;var found=Find(c,text);if(found!=null)return found;}return null;}
 }
 '@
