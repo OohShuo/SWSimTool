@@ -1,10 +1,11 @@
+param([string]$Payload='collision-final',[switch]$NoUI)
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path -Parent $PSScriptRoot
 $testDirectory = Join-Path $workspacePath ('build\collision-validation-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $testDirectory | Out-Null
 $testDirectory | Set-Content (Join-Path $workspacePath 'build\isolated-validation-directory.txt')
 $interopDirectory = 'D:\sw\sw2025\SOLIDWORKS'
-$references = @("$interopDirectory\SolidWorks.Interop.sldworks.dll", "$interopDirectory\SolidWorks.Interop.swconst.dll", "$interopDirectory\SolidWorks.Interop.swpublished.dll", "$workspacePath\build\collision-final\SW2URDF.dll", "$workspacePath\build\collision-final\MathNet.Numerics.dll", 'System.Windows.Forms', 'System.Drawing', 'System.Runtime.Serialization', 'System.Web.Extensions', 'System.Xml', 'System.Core')
+$references = @("$interopDirectory\SolidWorks.Interop.sldworks.dll", "$interopDirectory\SolidWorks.Interop.swconst.dll", "$interopDirectory\SolidWorks.Interop.swpublished.dll", "$workspacePath\build\$Payload\SW2URDF.dll", "$workspacePath\build\$Payload\MathNet.Numerics.dll", 'System.Windows.Forms', 'System.Drawing', 'System.Runtime.Serialization', 'System.Web.Extensions', 'System.Xml', 'System.Core')
 $references | Where-Object { $_ -like '*.dll' } | ForEach-Object { [Reflection.Assembly]::LoadFrom($_) | Out-Null }
 Add-Type -ReferencedAssemblies $references -TypeDefinition @'
 using System;
@@ -13,7 +14,7 @@ using SolidWorks.Interop.sldworks;
 using SW2URDF.URDF;
 using SW2URDF.URDFExport;
 public static class IsolatedSimulationFixture {
- public static void Build(string directory) {
+ public static void Build(string directory,bool noUI) {
   var sw=(SldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
   File.WriteAllText(Path.Combine(directory,"solidworks-process.txt"),sw.GetProcessID().ToString());
   // A fresh COM server must contain no document. Never inspect existing documents.
@@ -57,6 +58,8 @@ public static class IsolatedSimulationFixture {
   var helper=new ExportHelper(sw);
   Console.WriteLine("STEP: build link tree");
   if(!helper.CreateRobotFromTreeView(root))throw new Exception("Fixture link conversion failed");
+  CommonSwOperations.RetrieveSWComponentPIDs(model,root);
+  ConfigurationSerialization.SaveConfigTreeXML(sw,model,root,false);
   Console.WriteLine("STEP: load simulation");
   var service=helper.GetSimulation();
   service.Project.collision=new SW2URDF.Simulation.CollisionConfiguration();
@@ -88,6 +91,7 @@ public static class IsolatedSimulationFixture {
   CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());
   Console.WriteLine("STEP: build link tree");
   if(!helper.CreateRobotFromTreeView(root))throw new Exception("Reopened tree conversion failed");
+  if(noUI){Console.WriteLine("CREATED entirely new fixture: "+directory+"; PID="+sw.GetProcessID());return;}
   Console.WriteLine("STEP: create PropertyManager");
   var page=new SW2URDF.UI.CollisionPropertyManager(helper.GetSimulation(),"arm");
   model.ViewZoomtofit2(); page.Show();
@@ -96,4 +100,4 @@ public static class IsolatedSimulationFixture {
  }
 }
 '@
-[IsolatedSimulationFixture]::Build($testDirectory)
+[IsolatedSimulationFixture]::Build($testDirectory,$NoUI.IsPresent)

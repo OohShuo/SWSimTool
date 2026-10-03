@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[switch]$NoUI)
+param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[switch]$NoUI,[string]$Payload='collision-final')
 $ErrorActionPreference='Stop'
 $workspacePath=Split-Path -Parent $PSScriptRoot
 $fixturePath=(Resolve-Path -LiteralPath $FixtureDirectory).Path
@@ -6,7 +6,7 @@ $ownedRoot=[IO.Path]::GetFullPath((Join-Path $workspacePath 'build'))+[IO.Path]:
 if(-not $fixturePath.StartsWith($ownedRoot,[StringComparison]::OrdinalIgnoreCase)){throw 'Only newly generated workspace fixtures are permitted'}
 if([int](Get-Content -LiteralPath (Join-Path $fixturePath 'solidworks-process.txt')) -ne $ProcessId){throw 'Fixture process marker mismatch'}
 $interopDirectory='D:\sw\sw2025\SOLIDWORKS'
-$payloadDirectory=Join-Path $workspacePath 'build\collision-final'
+$payloadDirectory=Join-Path $workspacePath ('build\'+$Payload)
 $references=@("$interopDirectory\SolidWorks.Interop.sldworks.dll","$interopDirectory\SolidWorks.Interop.swconst.dll","$interopDirectory\SolidWorks.Interop.swpublished.dll","$payloadDirectory\SW2URDF.dll","$payloadDirectory\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Core')
 $references | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $references -TypeDefinition @'
@@ -35,7 +35,7 @@ public static class CollisionCADProbe {
   Console.WriteLine("STEP: build links");
   if(!helper.CreateRobotFromTreeView(root))throw new Exception("Fixture conversion failed");
   Console.WriteLine("STEP: load simulation");
-  var service=helper.GetSimulation();service.Project.collision=new CollisionConfiguration();
+  var service=helper.GetSimulation();service.SetCollisionTree(root);service.Project.collision=new CollisionConfiguration();
   string baseline=Path.Combine(directory,"collision-before.urdf");
   helper.URDFRobot.WriteURDF(new SW2URDF.URDF.URDFWriter(baseline).writer);
   foreach(string kind in new[]{"box","sphere","cylinder","capsule"}){
@@ -52,6 +52,14 @@ public static class CollisionCADProbe {
      var vertices=((object[])temporary.GetVertices()).Cast<Vertex>().Select(v=>SW2URDF.Utilities.MathOps.GetXYZ(inverse*SW2URDF.Utilities.MathOps.GetTranslation((double[])v.GetPoint()))).ToArray();
      for(int axis=0;axis<3;axis++)if(Math.Abs(vertices.Average(v=>v[axis]))>1e-9||Math.Abs(vertices.Max(v=>v[axis])-g.size[axis]/2)>1e-9||Math.Abs(vertices.Min(v=>v[axis])+g.size[axis]/2)>1e-9)throw new Exception("Temporary box centre/extents differ from MJCF");
      Console.WriteLine("PASS: transformed temporary box has the exact MJCF centre and dimensions");
+     int created=preview.CreatedBodyCount,redraw=preview.RedrawCount;
+     preview.Show(new[]{g},g.id);if(preview.CreatedBodyCount!=created||preview.RedrawCount!=redraw)throw new Exception("Unchanged preview did work");
+     g.name="renamed_box";preview.Show(new[]{g},g.id);if(preview.RedrawCount!=redraw)throw new Exception("Name edit redrew geometry");
+     g.xyz[0]+=.005;preview.Show(new[]{g},g.id);if(preview.CreatedBodyCount!=created||preview.TransformedBodyCount!=1)throw new Exception("Pose edit rebuilt geometry");
+     g.size[0]+=.001;preview.Show(new[]{g},g.id);if(preview.CreatedBodyCount!=created+1)throw new Exception("Size edit did not rebuild only one body");
+     preview.Show(new[]{g},null);if(preview.CreatedBodyCount!=created+1)throw new Exception("Highlight rebuilt geometry");
+     g.name="test_box";
+     Console.WriteLine("PASS: unchanged/name updates do no work; pose reuses body; size rebuilds one body; highlight reuses body");
     }
     if(Math.Abs(before-model.Extension.CreateMassProperty().Mass)>1e-12)throw new Exception("Preview changed mass");
    }
@@ -83,8 +91,24 @@ public static class CollisionCADProbe {
   var frameRef=service.CaptureSelection();
   var refBox=new CollisionGeometry{name="reference_box",link="arm",type="box",definition="frame",references=new List<CollisionReference>{frameRef},size=new[]{.02,.03,.04}};
   service.ResolveCollision(refBox);service.Project.collision.geometries.Add(refBox);
+  var corner=new CollisionGeometry{name="corner_probe",link="arm",type="box",definition="corner_frame",references=new List<CollisionReference>{frameRef},size=new[]{.02,.03,.04},corner_signs=new[]{1,-1,1}};
+  service.ResolveCollision(corner);
+  var basePose=service.LinkTransforms()[refBox.link]*SW2URDF.Utilities.MathOps.GetTransformation(refBox.xyz,refBox.rpy);
+  var cornerPose=service.LinkTransforms()[corner.link]*SW2URDF.Utilities.MathOps.GetTransformation(corner.xyz,corner.rpy);
+  var cornerLocal=SW2URDF.Utilities.MathOps.GetXYZ(basePose.Inverse()*cornerPose);
+  for(int i=0;i<3;i++)if(Math.Abs(cornerLocal[i]-corner.size[i]*corner.corner_signs[i]/2)>1e-9)throw new Exception("Corner centre mismatch");
+  foreach(int ax in new[]{0,1,2})foreach(int sign in new[]{-1,1}){
+   var cyl=new CollisionGeometry{name="end_probe",link="arm",type="cylinder",definition="end_frame",references=new List<CollisionReference>{frameRef},size=new[]{.01,.05},axis=ax,axis_sign=sign};service.ResolveCollision(cyl);
+   var local=basePose.Inverse()*service.LinkTransforms()[cyl.link]*SW2URDF.Utilities.MathOps.GetTransformation(cyl.xyz,cyl.rpy);
+   for(int i=0;i<3;i++)if(Math.Abs(local[i,3]-(i==ax?sign*.025:0))>1e-9||Math.Abs(local[i,2]-(i==ax?sign:0))>1e-9)throw new Exception("Cylinder end/axis mismatch");
+  }
+  Console.WriteLine("PASS: corner-frame box and all six end-frame cylinder directions");
   var part=(PartDoc)component.GetModelDoc2();var body=(Body2)((object[])part.GetBodies2(0,false))[0];
   var localFace=(Face2)((object[])body.GetFaces())[0];var assemblyFace=(Face2)component.GetCorrespondingEntity(localFace);
+  var edge=(Edge)((object[])localFace.GetEdges())[0];var assemblyEdge=(Edge)component.GetCorrespondingEntity(edge);model.ClearSelection2(true);if(!((Entity)assemblyEdge).Select4(false,null))throw new Exception("Edge selection failed");
+  var edgeRef=service.CaptureSelection();double edgeLength=service.ReferenceEdgeLength(edgeRef);
+  refBox.dimension_references["size0"]=edgeRef;service.ResolveCollision(refBox);if(Math.Abs(refBox.size[0]-edgeLength)>1e-9)throw new Exception("Referenced edge dimension mismatch");
+  Console.WriteLine("PASS: selected straight edge drives independent box dimension");
   model.ClearSelection2(true);if(!((Entity)assemblyFace).Select4(false,null))throw new Exception("Rectangle face selection failed");
   var rectangle=new CollisionGeometry{name="reference_rectangle",link="arm",type="box",definition="rectangle_face",references=new List<CollisionReference>{service.CaptureSelection()},size=new[]{.01,.01,.01},thickness=.01};
   service.ResolveCollision(rectangle);if(rectangle.size.Any(v=>v<=0))throw new Exception("Invalid rectangle dimensions");
