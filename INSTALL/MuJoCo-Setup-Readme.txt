@@ -27,3 +27,10 @@ Output: robot_mjcf/robot.xml, retained URDF/JSON, and robot_meshes/.
 Original exports are unchanged; copy or simplify meshes before compilation.
 Validation: all 23 backend tests and C# backend process tests passed.
 This is a locally built, unsigned installer based on ROS SW2URDF.
+
+Collision configuration is edited in the left SolidWorks PropertyManager.
+Configuration is stored in the assembly Attribute for each SW Configuration.
+Save the assembly file to persist. New sidecars exclude internal collisions
+by default, with allowed pairs. Optional primitive geoms replace mesh collision.
+Original URDF/STL and inertial values remain unchanged.
+Details: docs\MuJoCo碰撞配置_使用说明.md
