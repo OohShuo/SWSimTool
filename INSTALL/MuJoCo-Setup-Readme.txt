@@ -18,4 +18,12 @@ The new SolidWorks menu/toolbar has not yet been tested after installation.
 No existing user SolidWorks projects were used for these checks.
 
 Details: docs\MUJOCO扩展_使用与开发.md
+STL budget settings are available in the MuJoCo tools window.
+STL preprocessing now runs before MuJoCo loads the copied URDF.
+SW URDF/STL export no longer performs decimation. Backends: PyMeshLab,
+fast-simplification, and Blender, supplied by the user's local environment.
+Details: docs\STL超限减面_使用说明.md
+Output: robot_mjcf/robot.xml, retained URDF/JSON, and robot_meshes/.
+Original exports are unchanged; copy or simplify meshes before compilation.
+Validation: all 23 backend tests and C# backend process tests passed.
 This is a locally built, unsigned installer based on ROS SW2URDF.

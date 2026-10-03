@@ -20,7 +20,7 @@
 6. Equality 页填写 `connect` 或 `weld` 和两端附着名称。connect 可用点；weld 需要 frame。首次测试建议先只添加 site，再逐个添加约束。
 7. 保存附加配置，随后按原有流程导出 URDF 和网格。Preview and Export 窗口恢复原有布局，不包含 MuJoCo 按钮。
 8. 点击 SolidWorks 工具栏的 **MuJoCo 工具**，或 Tools → MuJoCo 工具 → MuJoCo 工具。无需打开零件或装配体，也无需再次进入导出流程。
-9. 在独立窗口填写本地 Python 命令或 python.exe 路径。选择 URDF 后自动填写同名 `.sim.json` 和 `.mjcf.xml`；附加配置及输出位置可以手动调整。
+9. 在独立窗口填写本地 Python 命令或 python.exe 路径。选择 URDF 后自动填写同名 `.sim.json` 和 `<机器人名>_mjcf/<机器人名>.xml`；附加配置及输出位置可以手动调整。
 10. 点击 **保存 MJCF** 生成文件，或 **转换并预览** 生成后启动 viewer。若已有 MJCF，选择“已有 MJCF”并点击 **预览已有 MJCF**，此时不需要 URDF 或 JSON。
 
 工具窗口以非模态方式打开，可以重复使用。运行状态与 Python 日志直接显示在窗口中，viewer 关闭后恢复操作。运行期间禁止重复启动；关闭工具窗口不会终止已经打开的 viewer。日志写入 MJCF 同目录的 `.mujoco.log`。配置自动保存到 `%LOCALAPPDATA%\SW2URDF\mujoco-tools.json`，包含 Python 路径与最近输入、输出路径，适用于所有工程。
@@ -39,7 +39,7 @@ MuJoCo 及其依赖由用户配置的本地 Python 运行环境提供。插件�
 .venv\Scripts\python.exe mujoco_backend\convert.py --mjcf D:\输出\robot\urdf\robot.mjcf.xml --preview
 ```
 
-转换器只修改内存中的 URDF 副本，解析 package:// 网格路径，关闭固定刚体合并，再使用 MjSpec 导出 MJCF 并添加附加对象。最终 MJCF 编译通过后才替换输出文件，输入 URDF、JSON 和网格保持不变。输出引用相对路径的配套 sw2urdf_assets_* 网格副本，移动到其他目录或机器时与 MJCF 一起复制。
+转换前先复制网格到独立的 *_mjcf/*_meshes 包，超限 STL 在副本上减面。全部网格处理完成后，保留改写相对网格路径的 URDF 和更新哈希的 JSON，再使用 MjSpec 编译并添加附加对象。成功后发布整个包；原 URDF、JSON 和网格保持不变。详见 STL超限减面_使用说明.md。
 
 ## 当前范围与验证
 
@@ -59,4 +59,4 @@ python -m unittest discover -s mujoco_backend -p test_convert.py -v
 
 ## 中文路径与 MJCF 网格
 
-后端通过 Python 读取 STL 字节并使用 MuJoCo 内存资源，避免 Windows 原生文件接口的中文路径问题。MJCF 使用相对路径引用旁边的 sw2urdf_assets_* 目录，移动或分享时须一起复制。原始 URDF 和网格不改写。Windows 下手动加载含中文路径的 MJCF，可使用后端的 load_mjcf(path) 函数；它通过 Python 读取 XML 和配套网格再编译。
+后端通过 Python 读取 STL 字节并使用 MuJoCo 内存资源，避免 Windows 原生文件接口的中文路径问题。新版 MJCF 使用相对路径引用包内 *_meshes 目录，移动或分享时须一起复制。原始 URDF 和网格不改写。Windows 下手动加载含中文路径的 MJCF，可使用后端的 load_mjcf(path) 函数；它通过 Python 读取 XML 和配套网格再编译。

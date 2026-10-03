@@ -46,8 +46,10 @@ Source: "..\docs\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignorever
 Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "..\docs\MUJOCO扩展_使用与开发.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\STL超限减面_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 [Code]
 const
