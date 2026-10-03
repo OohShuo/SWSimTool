@@ -1,10 +1,10 @@
-# MuJoCo 扩展第一版
+﻿# MuJoCo 扩展第一版
 
 本次新增的是初版源码与独立编译输出，未替换之前的稳定安装包。2026-10-02 已使用全新测试装配体验证完整 URDF/STL/JSON 导出、独立配置窗口保存与恢复、本地 MuJoCo 3.14.0 转换及 Viewer。PropertyManager 配置按钮显示问题已修复并编译，桌面锁屏导致最终入口复测待完成。详情见验证报告。
 
 ## 文件与配置
 
-- 装配体项目：`模型.SLDASM.sw2urdf.json`，位于装配体旁。保存 CAD 特征持久引用、所属 link、执行器、传感器、闭链及 Python 路径。
+- 装配体项目：`模型.SLDASM.sw2urdf.json`，位于装配体旁。保存 CAD 特征持久引用、所属 link、执行器、传感器、闭链配置。旧项目中的 Python 字段保留兼容，但独立工具不再读取该字段。
 - 导出结果：原有 URDF/网格，以及同目录的 `<机器人名称>.sim.json`。点仅含 `xyz`，坐标系含 `xyz` 与 `rpy`。单位是米、弧度。
 - 配套 JSON 包含 URDF SHA256，后端检查是否匹配。修改 URDF 后须重新导出配套文件。
 - 第一版一个项目文件对应一个 SolidWorks 配置，配置不匹配时拒绝复用。支持的 CAD 来源是参考几何体中的参考点、参考坐标系，以及已加载组件中的这些特征；尚未支持直接选择顶点或草图点。
@@ -18,10 +18,14 @@
 4. 在 Actuator 页添加配置，通过右侧属性表填写 joint、类型与范围。支持 `motor`、`position`、`velocity`，后两者的 gain 分别为 kp、kv；motor 使用 gear。
 5. 在 Sensor / Camera 页添加配置。支持 `imu`（加速度计和陀螺仪）、`tof`（基础射线 rangefinder）、`camera`（垂直视场角）。这些条目均需引用 frame；ToF 沿 +Z，相机朝 -Z。
 6. Equality 页填写 `connect` 或 `weld` 和两端附着名称。connect 可用点；weld 需要 frame。首次测试建议先只添加 site，再逐个添加约束。
-7. 填写 Python 可执行文件完整路径，保存配置；随后按原有流程导出 URDF 和网格。
-8. 在装配体导出预览窗口的底部使用 **导出 MJCF...** 或 **MuJoCo 预览...**，选择已经生成的 URDF；同目录须有配套 `.sim.json`。
+7. 保存附加配置，随后按原有流程导出 URDF 和网格。Preview and Export 窗口恢复原有布局，不包含 MuJoCo 按钮。
+8. 点击 SolidWorks 工具栏的 **MuJoCo 工具**，或 Tools → MuJoCo 工具 → MuJoCo 工具。无需打开零件或装配体，也无需再次进入导出流程。
+9. 在独立窗口填写本地 Python 命令或 python.exe 路径。选择 URDF 后自动填写同名 `.sim.json` 和 `.mjcf.xml`；附加配置及输出位置可以手动调整。
+10. 点击 **保存 MJCF** 生成文件，或 **转换并预览** 生成后启动 viewer。若已有 MJCF，选择“已有 MJCF”并点击 **预览已有 MJCF**，此时不需要 URDF 或 JSON。
 
-导出后原有窗口会关闭，若需要使用底部转换按钮，可重新打开导出流程。后端通过独立进程运行，结束后显示结果，并在 URDF 同目录写入 `.mujoco.log`。预览进程在 viewer 关闭后结束。
+工具窗口以非模态方式打开，可以重复使用。运行状态与 Python 日志直接显示在窗口中，viewer 关闭后恢复操作。运行期间禁止重复启动；关闭工具窗口不会终止已经打开的 viewer。日志写入 MJCF 同目录的 `.mujoco.log`。配置自动保存到 `%LOCALAPPDATA%\SW2URDF\mujoco-tools.json`，包含 Python 路径与最近输入、输出路径，适用于所有工程。
+
+工具栏采用 SolidWorks 原生 CommandGroup，支持拖动与自定义。若工具栏曾被隐藏，可在工具栏右键菜单或 Tools → Customize 中启用“MuJoCo 工具”；Tools 菜单仍提供入口。
 
 ## Python 环境与命令行
 
@@ -32,6 +36,7 @@ MuJoCo 及其依赖由用户配置的本地 Python 运行环境提供。插件�
 .venv\Scripts\python.exe mujoco_backend\convert.py --check-environment
 .venv\Scripts\python.exe mujoco_backend\convert.py --urdf D:\输出\robot\urdf\robot.urdf --config D:\输出\robot\urdf\robot.sim.json --output D:\输出\robot\urdf\robot.mjcf.xml
 # 同一命令末尾加 --preview，可打开 MuJoCo viewer。
+.venv\Scripts\python.exe mujoco_backend\convert.py --mjcf D:\输出\robot\urdf\robot.mjcf.xml --preview
 ```
 
 转换器只修改内存中的 URDF 副本，解析 package:// 网格路径，关闭固定刚体合并，再使用 MjSpec 导出 MJCF 并添加附加对象。最终 MJCF 编译通过后才替换输出文件，输入 URDF、JSON 和网格保持不变。输出引用相对路径的配套 sw2urdf_assets_* 网格副本，移动到其他目录或机器时与 MJCF 一起复制。
@@ -39,7 +44,7 @@ MuJoCo 及其依赖由用户配置的本地 Python 运行环境提供。插件�
 ## 当前范围与验证
 
 - 插件 .NET Framework 4.8 / x64 编译通过。
-- 6 个 Python 测试通过：MJCF 编译和 100 步仿真、固定子 link 上的 site 世界位置与旋转、输入 URDF 字节保持一致、输入与配套文件哈希不匹配时拒绝、错误范围时保留旧输出、无方向点不可用于需要方向的传感器、中文网格路径与移动后加载。
+- 10 个 Python 测试通过（2026-10-03），包含已有 MJCF 独立预览、非法参数组合、URDF 树错误，以及：MJCF 编译和 100 步仿真、固定子 link 上的 site 世界位置与旋转、输入 URDF 字节保持一致、输入与配套文件哈希不匹配时拒绝、错误范围时保留旧输出、无方向点不可用于需要方向的传感器、中文网格路径与移动后加载。
 - 独立 SolidWorks API 测试已验证真实参考点与坐标系的持久引用解析、局部位置、点不含方向、项目 JSON 保存，以及附加数据导出前后 URDF 字节一致。
 - 尚未完成通过实际 SolidWorks 菜单点击配置、导出配套 JSON、启动 viewer 的完整流程验收。CAD 测试脚本已改为显式接收本次从空白模板新建的测试目录，不复用已有工程；模板和 SolidWorks API 路径仍需按机器配置。
 - 第一版 noise 必须为 0。本后端没有实现采样噪声注入；cutoff 是输出裁剪值，不是 ToF 量程。真实 ToF、扫描雷达、雷达回波和可配置采样噪声需进一步增加采样后端。

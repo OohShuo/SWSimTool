@@ -1,5 +1,7 @@
 ; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+#ifndef Payload
 #define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
+#endif
 #define BuildVersion GetFileVersion(Payload + "\SW2URDF.dll")
 
 [Setup]
@@ -28,7 +30,7 @@ CloseApplications=no
 RestartApplications=no
 UninstallDisplayIcon={app}\SW2URDF.dll
 LicenseFile=..\LICENSE
-InfoBeforeFile=Setup-Readme.txt
+InfoBeforeFile=MuJoCo-Setup-Readme.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -41,7 +43,7 @@ Source: "{#Payload}\SW2URDF.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
