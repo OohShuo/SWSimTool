@@ -5,11 +5,12 @@ import struct
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import mujoco
 import numpy as np
-from convert import convert, load_mjcf, quaternion
+from convert import convert, load_mjcf, quaternion, main
 
 URDF = '''<robot name="test">
 <link name="base"><visual><geometry><box size="0.1 0.1 0.1"/></geometry></visual></link>
@@ -55,6 +56,18 @@ class ConversionTests(unittest.TestCase):
         for _ in range(100):
             mujoco.mj_step(model,data)
         self.assertTrue(np.isfinite(data.qpos).all())
+    def test_preview_existing_mjcf_without_urdf_or_sidecar(self):
+        model = self.run_convert()
+        before = self.output.read_bytes()
+        self.urdf.unlink()
+        self.sidecar.unlink()
+        with patch('mujoco.viewer.launch') as viewer:
+            main(['--mjcf', str(self.output), '--preview'])
+            self.assertEqual(viewer.call_args.args[0].nsite, model.nsite)
+        self.assertEqual(self.output.read_bytes(), before)
+    def test_existing_preview_rejects_conversion_arguments(self):
+        with self.assertRaises(SystemExit):
+            main(['--mjcf', 'model.xml', '--urdf', 'model.urdf', '--preview'])
     def test_unknown_link_and_directionless_sensor_rejected(self):
         self.config['sensors'][0]['site']='anchor_base'
         with self.assertRaisesRegex(ValueError,'oriented frame'): self.run_convert()

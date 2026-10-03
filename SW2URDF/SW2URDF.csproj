@@ -322,6 +322,8 @@
     <Compile Include="Simulation\SimulationProject.cs" />
     <Compile Include="Simulation\AttachmentService.cs" />
     <Compile Include="Simulation\PythonBackend.cs" />
+    <Compile Include="Simulation\MuJoCoSettings.cs" />
+    <Compile Include="UI\MuJoCoToolsForm.cs" />
     <Compile Include="UI\SimulationConfigForm.cs" />
     <Compile Include="Legacy\SerialNode.cs" />
     <Compile Include="UI\IMessageBox.cs" />

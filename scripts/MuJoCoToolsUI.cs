@@ -1,0 +1,13 @@
+using System;
+using System.Windows.Forms;
+using SW2URDF.UI;
+class MuJoCoToolsUI
+{
+    [STAThread]
+    static void Main(string[] args)
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        Application.Run(new MuJoCoToolsForm(args[0]));
+    }
+}

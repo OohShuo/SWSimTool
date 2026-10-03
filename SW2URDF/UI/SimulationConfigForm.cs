@@ -64,12 +64,10 @@ namespace SW2URDF.UI
             AddRules(tabs, "闭链 Equality", project.equalities, () => new EqualityConfig(),
                 "type: connect / weld；site1、site2 填附着点名称。connect 约束位置；weld 需要两个 frame。\n转换前检查两点位于预期连接位置，约束添加后再验证动态稳定性。");
             var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 70 };
-            bottom.Controls.Add(new Label { Text = "Python 路径：", AutoSize = true });
-            var python = new TextBox { Width = 400, Text = project.python }; bottom.Controls.Add(python);
             var save = new Button { Text = "保存配置", AutoSize = true }; bottom.Controls.Add(save);
             var cancel = new Button { Text = "取消", AutoSize = true }; bottom.Controls.Add(cancel);
             Controls.Add(bottom);
-            save.Click += (s, e) => Guard(() => { project.python = python.Text.Trim(); var previous = service.Project; service.Project = project; try { service.Save(); } catch { service.Project = previous; throw; } DialogResult = DialogResult.OK; Close(); });
+            save.Click += (s, e) => Guard(() => { var previous = service.Project; service.Project = project; try { service.Save(); } catch { service.Project = previous; throw; } DialogResult = DialogResult.OK; Close(); });
             cancel.Click += (s, e) => Close();
         }
         private static void AddRules(TabControl tabs, string title, IList items, Func<object> create, string help)

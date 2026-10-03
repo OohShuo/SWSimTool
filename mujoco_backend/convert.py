@@ -316,16 +316,25 @@ def convert(urdf, config_path, output):
     return final_model
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mjcf", help="Preview an existing MJCF without conversion")
     parser.add_argument("--urdf")
     parser.add_argument("--config")
     parser.add_argument("--output")
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--check-environment", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.check_environment:
         load_runtime(preview=args.preview)
+        return
+    if args.mjcf:
+        if not args.preview or any((args.urdf, args.config, args.output)):
+            parser.error("--mjcf requires --preview and cannot be combined with conversion inputs")
+        load_runtime(preview=True)
+        model = load_mjcf(args.mjcf)
+        import mujoco.viewer
+        mujoco.viewer.launch(model)
         return
     if not all((args.urdf, args.config, args.output)):
         parser.error("--urdf, --config and --output are required for conversion")

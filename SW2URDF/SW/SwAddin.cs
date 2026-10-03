@@ -58,6 +58,8 @@ namespace SW2URDF.SW
 
         private int add_in_id_ = 0;
 
+        private const int MuJoCoCommandGroupId = 3925;
+        private MuJoCoToolsForm muJoCoTools;
         public const int mainCmdGroupID = 5;
         public const int mainItemID1 = 0;
         public const int mainItemID2 = 1;
@@ -220,6 +222,7 @@ namespace SW2URDF.SW
 
         public bool DisconnectFromSW()
         {
+            if (muJoCoTools != null && !muJoCoTools.IsDisposed) muJoCoTools.Close();
             RemoveCommandMgr();
             DetachEventHandlers();
 
@@ -244,7 +247,8 @@ namespace SW2URDF.SW
 
         public void AddCommandMgr()
         {
-            // Do not use AddMenuItem5 here despite the obselete warning, AddMenuItem5 doesn't work
+            try { AddMuJoCoCommand(); }
+            catch (Exception error) { logger.Error("Cannot add MuJoCo tools command", error); }
             string[] images = {
                 "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_20x20.png",
                 "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\URDFExporter\\images\\ros_logo_32x32.png",
@@ -272,15 +276,36 @@ namespace SW2URDF.SW
             logger.Info("Adding Part export to file menu");
         }
 
+        private void AddMuJoCoCommand()
+        {
+            int errors = 0;
+            var group = CmdMgr.CreateCommandGroup2(MuJoCoCommandGroupId, "MuJoCo 工具", "本地文件转换与预览", "MuJoCo 工具", -1, false, ref errors);
+            if (group == null) { logger.Error("Cannot create MuJoCo command group: " + errors); return; }
+            string directory = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location), "images");
+            string[] icons = Array.ConvertAll(new[] {20, 32, 40, 64, 96, 128}, size => System.IO.Path.Combine(directory, "ros_logo_" + size + "x" + size + ".png"));
+            group.IconList = icons; group.MainIconList = icons;
+            group.AddCommandItem2("MuJoCo 工具", -1, "读取本地 URDF / MJCF，无需打开工程", "MuJoCo 工具", 0, "OpenMuJoCoTools", "ToolbarEnableMethod", 0,
+                (int)swCommandItemType_e.swMenuItem | (int)swCommandItemType_e.swToolbarItem);
+            group.HasMenu = true; group.HasToolbar = true; group.Activate();
+        }
+        public void OpenMuJoCoTools()
+        {
+            if (muJoCoTools == null || muJoCoTools.IsDisposed) muJoCoTools = new MuJoCoToolsForm();
+            muJoCoTools.Show();
+            if (muJoCoTools.WindowState == FormWindowState.Minimized) muJoCoTools.WindowState = FormWindowState.Normal;
+            muJoCoTools.BringToFront();
+        }
+
         public int ToolbarEnableMethod()
         {
             return 1;
         }
         public void RemoveCommandMgr()
         {
-            SwApp.RemoveMenu((int)swDocumentTypes_e.swDocASSEMBLY, "Export as URDF@&File", "");
+            CmdMgr.RemoveCommandGroup(MuJoCoCommandGroupId);
+            SwApp.RemoveMenu((int)swDocumentTypes_e.swDocASSEMBLY, "Export as URDF@&Tools", "");
             logger.Info("Removing assembly export from file menu");
-            SwApp.RemoveMenu((int)swDocumentTypes_e.swDocPART, "Export as URDF@&File", "");
+            SwApp.RemoveMenu((int)swDocumentTypes_e.swDocPART, "Export as URDF@&Tools", "");
             logger.Info("Removing part export from file menu");
         }
 
