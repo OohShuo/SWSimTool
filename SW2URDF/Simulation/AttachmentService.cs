@@ -119,10 +119,11 @@ namespace SW2URDF.Simulation
             Project.collision = Project.collision ?? new CollisionConfiguration();
             SetCollisionTree(null); // Resolve against the actual exported robot, including generated frames.
             foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
+            ResolveJointReferences(Project);
             Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
             return new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
-                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision }, { "solver", Project.solver } };
+                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision }, { "solver", Project.solver }, { "joints", Project.joints }, { "base_mode", Project.base_mode }, { "joint_force_limits", Project.joint_force_limits } };
         }
         public Attachment CaptureSelectedAttachment(string link,string name,string type){
             var reference=CaptureSelection();ReferenceFrame(reference,type=="frame");

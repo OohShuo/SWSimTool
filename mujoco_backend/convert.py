@@ -123,6 +123,8 @@ def validate(config, robot):
     validate_urdf_tree(robot)
     from solver import validate_solver
     validate_solver(config)
+    from joints import validate_joints
+    validate_joints(config, robot)
     if config.get("schema_version") != 1:
         raise ValueError("Unsupported schema_version")
     if config.get("units") != "m,rad":
@@ -280,6 +282,8 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
         mjcf = ET.fromstring(compiled_xml)
+        from joints import apply_joints, apply_base
+        apply_joints(mjcf, config)
         from solver import apply_options, effective
         apply_options(mjcf, config)
         bodies = {body.attrib["name"]: body for body in mjcf.findall(".//body") if "name" in body.attrib}
@@ -288,6 +292,7 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         roots = {link.attrib["name"] for link in robot.findall("link")} - child_names
         for root_name in roots:
             bodies.setdefault(root_name, mjcf.find("worldbody"))
+        apply_base(mjcf, config, roots, bodies)
         if config.get('collision') is not None:
             # Give the static root its own named body so body exclusions can refer to it.
             world = mjcf.find('worldbody')

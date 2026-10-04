@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Web.Script.Serialization;
 
 namespace SW2URDF.Simulation
@@ -106,10 +107,16 @@ namespace SW2URDF.Simulation
         public List<EqualityConfig> equalities { get; set; } = new List<EqualityConfig>();
         public CollisionConfiguration collision { get; set; }
         public SolverSettings solver { get; set; }
+        public List<JointConfiguration> joints { get; set; } = new List<JointConfiguration>();
+        public List<JointForceLimit> joint_force_limits { get; set; } = new List<JointForceLimit>();
+        public string base_mode { get; set; } = "inherit";
 
         public void ValidateSolver()
         {
             solver?.Validate();
+            if(joints==null||joint_force_limits==null||!new[]{"inherit","fixed","floating"}.Contains(base_mode))throw new InvalidDataException("关节配置不完整。");
+            foreach(var j in joints)j.Validate();foreach(var f in joint_force_limits)f.Validate();
+            if(joints.Select(j=>j.joint).Distinct().Count()!=joints.Count||joint_force_limits.Select(j=>j.joint).Distinct().Count()!=joint_force_limits.Count)throw new InvalidDataException("关节配置重复。");
             foreach(var equality in equalities)equality.solver?.Validate(false);
             if(collision!=null)foreach(var pair in collision.allowed_pairs)pair.solver?.Validate(true);
         }

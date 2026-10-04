@@ -77,6 +77,7 @@ def apply_options(root, config):
     settings = config.get('solver') or {}
     overrides = [e['solver'] for e in config.get('equalities', []) if e.get('solver') is not None]
     overrides += [p['solver'] for p in (config.get('collision') or {}).get('allowed_pairs', []) if p.get('solver') is not None]
+    overrides += [j[key] for j in config.get('joints') or [] for key in ('limit_solver', 'friction_solver') if j.get(key) is not None]
     active = settings.get('enabled', False)
     if not active and not overrides:
         return

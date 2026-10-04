@@ -64,6 +64,10 @@ public static class CollisionNavigationProbe {
    All(contactEditor).OfType<CheckBox>().Single().Checked=false;pairList.SelectedIndex=1;
    Check(pairList.SelectedIndex==1&&collisionDraft.collision.allowed_pairs[0].solver==null,"disabling local override restores inheritance and clears invalid draft input");
   }
+  using(var solverControl=new SolverParametersControl(null,ConstraintSettings.Contact(),true,v=>{},new HashSet<TextBox>())){
+   var toggle=All(solverControl).OfType<CheckBox>().Single();var values=All(solverControl).OfType<TextBox>().First().Parent;
+   Check(!values.Visible,"inherited solver fields are hidden");toggle.Checked=true;Check(values.Visible,"local override displays solver fields");toggle.Checked=false;Check(!values.Visible,"disabling override hides solver fields again");
+  }
   service.Project.attachments.AddRange(new[]{new Attachment{name="yaw_site",link="yaw",type="frame"},new Attachment{name="pitch_site",link="pitch",type="point"}});
   using(var editor=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}})){
    ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
@@ -80,7 +84,27 @@ public static class CollisionNavigationProbe {
    Check(!All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")||c.Text.Contains("kv")),"motor hides position and velocity gain fields");
    var kind=All(tabs.TabPages[2]).OfType<ComboBox>().Single(c=>c.Items.Contains("position"));kind.SelectedItem="position";
    Check(All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")),"position actuator displays its gain field");
+   kind=All(tabs.TabPages[2]).OfType<ComboBox>().Single(c=>c.Items.Contains("velocity"));kind.SelectedItem="velocity";
+   Check(All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kv"))&&!All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")),"velocity displays kv only");
+   tabs.SelectedIndex=1;
+   typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(tabs.TabPages[1],"添加"),new object[]{EventArgs.Empty});
+   var sensorType=All(tabs.TabPages[1]).OfType<ComboBox>().Single(c=>c.Items.Contains("camera"));sensorType.SelectedItem="camera";
+   Check(All(tabs.TabPages[1]).OfType<Label>().Any(c=>c.Text.Contains("视场角"))&&!All(tabs.TabPages[1]).OfType<Label>().Any(c=>c.Text.Contains("裁剪")||c.Text.Contains("noise")),"camera displays fovy without sensor cutoff or noise note");
+   sensorType=All(tabs.TabPages[1]).OfType<ComboBox>().Single(c=>c.Items.Contains("tof"));sensorType.SelectedItem="tof";
+   Check(!All(tabs.TabPages[1]).OfType<Label>().Any(c=>c.Text.Contains("视场角"))&&All(tabs.TabPages[1]).OfType<Label>().Any(c=>c.Text.Contains("裁剪")),"tof displays cutoff without camera fovy");
+   tabs.SelectedIndex=2;
+   var total=All(tabs.TabPages[2]).OfType<CheckBox>().Single(c=>c.Text.Contains("合计驱动力"));total.Checked=true;
+   var totalBoxes=All(tabs.TabPages[2]).OfType<TextBox>().Where(c=>c.Text=="").ToArray();Check(totalBoxes.Length==2,"joint total force limit requires explicit lower and upper values");totalBoxes[0].Text="-7";totalBoxes[1].Text="7";
+   var forceDraft=(SimulationProject)Get(editor,"draft");Check(forceDraft.joint_force_limits.Count==1&&forceDraft.joint_force_limits[0].joint=="yaw_joint","joint total force limit is keyed by joint");
+   typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(tabs.TabPages[2],"添加"),new object[]{EventArgs.Empty});
+   Check(All(tabs.TabPages[2]).OfType<CheckBox>().Single(c=>c.Text.Contains("合计驱动力")).Checked&&forceDraft.joint_force_limits.Count==1,"two actuators on the same joint share one total force limit");
    Check(service.Project.actuators.Count==0,"simulation edits remain a draft until save");
+   tabs.SelectedIndex=4;
+   var globalFields=All(tabs.TabPages[4]).OfType<TextBox>().First().Parent.Parent;
+   Check(!(bool)typeof(Control).GetMethod("GetState",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(globalFields,new object[]{2}),"disabled global solver fields are hidden");
+   All(tabs.TabPages[4]).OfType<CheckBox>().Single().Checked=true;
+   globalFields=All(tabs.TabPages[4]).OfType<TextBox>().First().Parent.Parent;
+   Check((bool)typeof(Control).GetMethod("GetState",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(globalFields,new object[]{2}),"enabled global solver fields are displayed");
    typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(editor,"应用刚性机器人预设"),new object[]{EventArgs.Empty});
    var simulationDraft=(SimulationProject)Get(editor,"draft");
    Check(simulationDraft.solver.enabled&&simulationDraft.solver.timestep==.001&&simulationDraft.solver.contact.timeconst==.003,"rigid preset sets global and contact defaults");
@@ -91,7 +115,31 @@ public static class CollisionNavigationProbe {
    var invalidSettings=new ConstraintSettings{timeconst=-1};bool invalidSolver=false;try{invalidSettings.Validate(false);}catch{invalidSolver=true;}Check(invalidSolver,"invalid solver range rejected");
 
   }
+  var jointDescriptors=new List<JointDescriptor>{new JointDescriptor{name="yaw_joint",parent="base",child="yaw",type="revolute",axis=new[]{0.0,0,1},lower=-1,upper=1},new JointDescriptor{name="pitch_joint",parent="yaw",child="pitch",type="continuous",axis=new[]{1.0,0,0}}};
+  using(var editor=new JointEditorControl(service,jointDescriptors)){
+   ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
+   var selector=(ComboBox)Get(editor,"joint");var current=(JointConfiguration)Get(editor,"current");
+   Check(current.damping==null&&current.armature==null&&current.limit_solver==null,"new joint settings preserve inherited physical properties");
+   Check(!All(editor).OfType<CheckBox>().Any(c=>c.Text.StartsWith("覆盖")),"ordinary joint fields have no override checkboxes");
+   var dampingBox=All(editor).OfType<TextBox>().Single(c=>(c.Tag as string??"").StartsWith("阻尼 damping"));dampingBox.Text=".02";
+   selector.SelectedItem="pitch_joint";var pitch=(JointConfiguration)Get(editor,"current");Check(pitch.damping==null,"different joints do not share damping values");
+   selector.SelectedItem="yaw_joint";Check(((JointConfiguration)Get(editor,"current")).damping==.02,"returning to a joint restores its own draft");
+   dampingBox=All(editor).OfType<TextBox>().Single(c=>(c.Tag as string??"").StartsWith("阻尼 damping"));dampingBox.Text="invalid";selector.SelectedItem="pitch_joint";Check(selector.SelectedItem.ToString()=="yaw_joint","invalid joint numbers prevent switching joint");
+   dampingBox.Text=".02";
+   var mode=All(editor).OfType<ComboBox>().Single(c=>c.Items.Contains("none"));mode.SelectedItem="custom";
+   Check(All(editor).OfType<TextBox>().Count(c=>(c.Tag as string??"").StartsWith("限位下限")||(c.Tag as string??"").StartsWith("限位上限"))==2,"custom limits display separate lower and upper inputs");
+   var advanced=All(editor).OfType<CheckBox>().Single(c=>c.Text=="自定义限位求解参数");advanced.Checked=true;current=(JointConfiguration)Get(editor,"current");Check(current.limit_solver.timeconst==.003&&current.limit_solver.dmin==.99&&current.limit_solver.dmax==.995,"joint limit override uses harder defaults");
+   mode.SelectedItem="none";Check(!LocalVisible(advanced.Parent.Parent.Parent),"no-limit mode hides limit solver controls");
+   var spring=All(editor).OfType<ComboBox>().Single(c=>c.Items.Contains("off"));spring.SelectedItem="custom";current=(JointConfiguration)Get(editor,"current");Check(current.stiffness==0&&All(editor).OfType<TextBox>().Any(c=>(c.Tag as string??"").StartsWith("弹簧刚度")),"spring fields appear only when enabled with zero initial stiffness");
+   spring=All(editor).OfType<ComboBox>().Single(c=>c.Items.Contains("off"));spring.SelectedItem="off";Check(!LocalVisible(All(editor).OfType<TextBox>().Single(c=>(c.Tag as string??"").StartsWith("弹簧刚度")).Parent),"disabled spring hides stiffness and equilibrium fields");
+   dampingBox.Text="";Check(((JointConfiguration)Get(editor,"current")).damping==null,"blank scalar restores inherited value");dampingBox.Text="0";Check(((JointConfiguration)Get(editor,"current")).damping==0,"explicit zero is an override");dampingBox.Text=".02";
+   var axisBoxes=All(editor).OfType<TextBox>().Where(c=>(c.Tag as string??"").StartsWith("轴向")).ToArray();axisBoxes[0].Text="1";Check(((HashSet<TextBox>)Get(editor,"invalid")).Count==3,"partial vector is invalid");axisBoxes[1].Text="0";axisBoxes[2].Text="0";Check(((JointConfiguration)Get(editor,"current")).axis[0]==1,"complete axis vector is accepted");foreach(var b in axisBoxes)b.Text="";Check(((JointConfiguration)Get(editor,"current")).axis==null,"blank vector restores inherited axis");
+   using(var form=new Form()){form.ClientSize=new System.Drawing.Size(230,400);form.Controls.Add(editor);form.Show();Application.DoEvents();((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();var scroll=(Panel)Get(editor,"details");Check(scroll.VerticalScroll.Visible,"narrow joint panel exposes scrolling");Check(!scroll.HorizontalScroll.Visible,"narrow joint panel does not require horizontal scrolling");scroll.AutoScrollPosition=new System.Drawing.Point(0,600);int before=-scroll.AutoScrollPosition.Y;mode.SelectedItem="custom";advanced.Checked=false;advanced.Checked=true;Application.DoEvents();Check(Object.ReferenceEquals(dampingBox,All(editor).OfType<TextBox>().Single(c=>(c.Tag as string??"").StartsWith("阻尼 damping"))),"conditional changes retain unrelated controls");Check(-scroll.AutoScrollPosition.Y==before,"conditional changes retain scroll position");scroll.AutoScrollPosition=new System.Drawing.Point(0,100000);Application.DoEvents();var reference=All(editor).OfType<TextBox>().Single(c=>(c.Tag as string??"").StartsWith("参考坐标"));var bottom=scroll.PointToClient(reference.PointToScreen(new System.Drawing.Point(0,reference.Height)));Check(bottom.Y<=scroll.ClientSize.Height,"reference input reachable at bottom of narrow panel");form.Controls.Remove(editor);form.Close();}
+   var serialized=new System.Web.Script.Serialization.JavaScriptSerializer();var saved=serialized.Deserialize<SimulationProject>(serialized.Serialize(Get(editor,"draft")));saved.ValidateSolver();Check(saved.joints.Single(c=>c.joint=="yaw_joint").damping==.02&&saved.joints.Single(c=>c.joint=="pitch_joint").damping==null,"per-joint overrides survive configuration serialization independently");
+   Check(service.Project.joints.Count==0,"joint edits remain a draft before save");
+  }
  }
+ static bool LocalVisible(Control c){return (bool)typeof(Control).GetMethod("GetState",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(c,new object[]{2});}
  static IEnumerable<Control> All(Control root){foreach(Control c in root.Controls){yield return c;foreach(var child in All(c))yield return child;}}
  static Button Find(Control root,string text){foreach(Control c in root.Controls){var b=c as Button;if(b!=null&&b.Text==text)return b;var found=Find(c,text);if(found!=null)return found;}return null;}
 }

@@ -259,7 +259,7 @@ namespace SW2URDF.SW
             string directory=System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location),"images");
             string[] icons=Array.ConvertAll(new[]{20,32,40,64,96,128},size=>System.IO.Path.Combine(directory,"ros_logo_"+size+"x"+size+".png"));
             group.IconList=icons;group.MainIconList=icons;
-            string[] labels={"URDF 配置","碰撞配置","仿真配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration"};
+            string[] labels={"URDF 配置","碰撞配置","仿真配置","关节配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration","OpenJointConfiguration"};
             for(int i=0;i<labels.Length;i++)group.AddCommandItem2(labels[i],-1,labels[i],labels[i],0,callbacks[i],"CollisionEnableMethod",i,(int)swCommandItemType_e.swMenuItem|(int)swCommandItemType_e.swToolbarItem);
             group.HasMenu=true;group.HasToolbar=true;group.Activate();
             string[] exports={"导出 URDF","从当前工程导出 MJCF","从本地 URDF 导出 MJCF","预览已有 MJCF"};
@@ -280,6 +280,13 @@ namespace SW2URDF.SW
             form.SetProjectName(System.IO.Path.GetFileNameWithoutExtension(model.GetTitle()));ShowTools(form);
         }
         void ShowTools(MuJoCoToolsForm form){if(muJoCoTools!=null&&!muJoCoTools.IsDisposed){muJoCoTools.Close();if(!muJoCoTools.IsDisposed){form.Dispose();return;}}muJoCoTools=form;form.Show();form.BringToFront();}
+        private JointPropertyManager jointPage;
+        public void OpenJointConfiguration(){
+            try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
+                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().SetCollisionTree(root);
+                jointPage=new JointPropertyManager(helper.GetSimulation(),JointDescriptor.FromTree(root));jointPage.Show();
+            }catch(Exception e){MessageBox.Show(e.Message,"SW2MuJoCo 关节配置");}
+        }
         private SimulationPropertyManager simulationPage;
         public void OpenSimulationConfiguration(){
             try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
