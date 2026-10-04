@@ -47,6 +47,7 @@ Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\collision.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
