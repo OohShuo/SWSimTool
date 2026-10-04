@@ -1,4 +1,4 @@
-﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
 #define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
 #endif
@@ -47,6 +47,7 @@ Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\joints.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\collision.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
