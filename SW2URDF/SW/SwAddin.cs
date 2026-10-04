@@ -29,6 +29,7 @@ using SW2URDF.URDFExport;
 using SW2URDF.Utilities;
 using System;
 using System.Collections;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
@@ -259,7 +260,7 @@ namespace SW2URDF.SW
             string directory=System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(SwAddin).Assembly.Location),"images");
             string[] icons=Array.ConvertAll(new[]{20,32,40,64,96,128},size=>System.IO.Path.Combine(directory,"ros_logo_"+size+"x"+size+".png"));
             group.IconList=icons;group.MainIconList=icons;
-            string[] labels={"URDF 配置","碰撞配置","仿真配置","关节配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration","OpenJointConfiguration"};
+            string[] labels={"URDF 配置","碰撞配置","仿真配置","约束配置","关节配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration","OpenConstraintConfiguration","OpenJointConfiguration"};
             for(int i=0;i<labels.Length;i++)group.AddCommandItem2(labels[i],-1,labels[i],labels[i],0,callbacks[i],"CollisionEnableMethod",i,(int)swCommandItemType_e.swMenuItem|(int)swCommandItemType_e.swToolbarItem);
             group.HasMenu=true;group.HasToolbar=true;group.Activate();
             string[] exports={"导出 URDF","从当前工程导出 MJCF","从本地 URDF 导出 MJCF","预览已有 MJCF"};
@@ -291,8 +292,12 @@ namespace SW2URDF.SW
         public void OpenSimulationConfiguration(){
             try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
                 CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().SetCollisionTree(root);
-                simulationPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,SimulationConfigForm.JointOwners(root));simulationPage.Show();
+                simulationPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child));simulationPage.Show();
             }catch(Exception e){MessageBox.Show(e.Message,"SW2MuJoCo 仿真配置");}
+        }
+        private SimulationPropertyManager constraintPage;
+        public void OpenConstraintConfiguration(){
+            try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().SetCollisionTree(root);constraintPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child),true);constraintPage.Show();}catch(Exception e){MessageBox.Show(e.Message,"SW2MuJoCo 约束配置");}
         }
         public void OpenMuJoCoTools()
         {

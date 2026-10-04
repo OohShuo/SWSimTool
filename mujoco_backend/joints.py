@@ -5,6 +5,8 @@ from solver import finite, constraint_attributes
 
 
 def validate_joints(config, robot):
+    if not isinstance(config.get('joint_defaults', False), bool):
+        raise ValueError('joint_defaults must be boolean')
     source = {j.get('name'): j for j in robot.findall('joint')}
     values = config.get('joints') or []
     if not isinstance(values, list):
@@ -30,14 +32,6 @@ def validate_joints(config, robot):
         for key in ('ref', 'springref'):
             if value.get(key) is not None:
                 finite(value[key], key)
-        for key in ('pos', 'axis'):
-            vector = value.get(key)
-            if vector is not None:
-                if not isinstance(vector, list) or len(vector) != 3:
-                    raise ValueError(f'Joint {key} requires three values: {name}')
-                vector = [finite(x, key) for x in vector]
-                if key == 'axis' and math.hypot(*vector) < 1e-12:
-                    raise ValueError(f'Joint axis cannot be zero: {name}')
         mode = value.get('limit_mode', 'inherit')
         if mode not in ('inherit', 'none', 'custom'):
             raise ValueError(f'Invalid joint limit mode: {name}')
@@ -69,6 +63,16 @@ def validate_joints(config, robot):
 
 def apply_joints(root, config):
     joints = {j.get('name'): j for j in root.findall('.//body/joint')}
+    if config.get('joint_defaults', False):
+        driven = {a.get('joint') for a in config.get('actuators', [])}
+        overrides = {v['joint']: v for v in config.get('joints', [])}
+        for name, joint in joints.items():
+            if joint.get('type', 'hinge') not in ('hinge', 'slide'):
+                continue
+            defaults = (.01, .01, .001) if name in driven else (.001, .001, 0)
+            for key, default in zip(('damping', 'frictionloss', 'armature'), defaults):
+                if overrides.get(name, {}).get(key) is None:
+                    joint.set(key, str(default))
     compiler = root.find('compiler')
     # MjSpec serialization uses radians. Be explicit for all new angle fields.
     if compiler is None:
@@ -90,9 +94,6 @@ def apply_joints(root, config):
         for key in ('damping', 'frictionloss', 'armature', 'stiffness', 'springref', 'ref', 'margin'):
             if value.get(key) is not None:
                 joint.set(key, f'{float(value[key]):.12g}')
-        for key in ('pos', 'axis'):
-            if value.get(key) is not None:
-                joint.set(key, ' '.join(f'{float(x):.12g}' for x in value[key]))
         mode = value.get('limit_mode', 'inherit')
         if mode == 'none':
             joint.set('limited', 'false')

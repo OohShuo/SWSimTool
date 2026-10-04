@@ -29,8 +29,6 @@ namespace SW2URDF.Simulation {
    if(string.IsNullOrWhiteSpace(joint)||!new[]{"inherit","hinge","slide"}.Contains(type)||!new[]{"inherit","none","custom"}.Contains(limit_mode)||!new[]{"inherit","off","custom"}.Contains(spring_mode))throw new InvalidDataException("关节名称、类型或限位模式无效。");
    foreach(var value in new[]{damping,frictionloss,armature,stiffness,margin})if(value.HasValue&&(!Finite(value.Value)||value<0))throw new InvalidDataException("关节阻尼、摩擦、惯量、刚度、提前量必须是非负有限数字。");
    foreach(var value in new[]{springref,@ref,lower,upper})if(value.HasValue&&!Finite(value.Value))throw new InvalidDataException("关节位置参数必须为有限数字。");
-   foreach(var vector in new[]{pos,axis})if(vector!=null&&(vector.Length!=3||vector.Any(v=>!Finite(v))))throw new InvalidDataException("关节位置与轴向需要三个有限数字。");
-   if(axis!=null&&axis.Sum(v=>v*v)<1e-24)throw new InvalidDataException("关节轴向不能为零。");
    if(limit_mode=="custom"&&(!lower.HasValue||!upper.HasValue||lower>=upper))throw new InvalidDataException("请填写关节限位上下限，且下限小于上限。");
    limit_solver?.Validate(false);friction_solver?.Validate(false);
   }

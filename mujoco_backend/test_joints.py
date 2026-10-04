@@ -31,13 +31,13 @@ class JointTests(unittest.TestCase):
         self.assertEqual(self.urdf.read_bytes(), before)
         self.assertEqual(self.config['actuators'][0]['gain'], 10)
 
-    def test_limit_defaults_axis_and_local_position(self):
+    def test_limit_defaults_and_legacy_position_axis_ignored(self):
         self.configure(pos=[.01,.02,.03], axis=[1,0,0], limit_mode='custom', lower=-.4, upper=.6,
                        margin=.01, limit_solver=dict(timeconst=.003,dmin=.99,dmax=.995))
         model = self.run_convert()
         j = mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,'hinge')
-        np.testing.assert_allclose(model.jnt_pos[j], [.01,.02,.03])
-        np.testing.assert_allclose(model.jnt_axis[j], [1,0,0])
+        np.testing.assert_allclose(model.jnt_pos[j], [0,0,0])
+        np.testing.assert_allclose(model.jnt_axis[j], [0,0,1])
         np.testing.assert_allclose(model.jnt_range[j], [-.4,.6])
         np.testing.assert_allclose(model.jnt_solref[j], [.003,1])
         np.testing.assert_allclose(model.jnt_solimp[j], [.99,.995,.001,.5,2])
@@ -90,8 +90,8 @@ class JointTests(unittest.TestCase):
         np.testing.assert_allclose(data.actuator_force,[1,1])
 
     def test_invalid_overrides_preserve_previous_output(self):
-        for settings in [dict(damping=-1),dict(armature=float('nan')),dict(axis=[0,0,0]),dict(type='ball'),
-                         dict(limit_mode='custom',lower=1,upper=0),dict(pos=[1,2]),dict(limit_solver=dict(timeconst=0))]:
+        for settings in [dict(damping=-1),dict(armature=float('nan')),dict(type='ball'),
+                         dict(limit_mode='custom',lower=1,upper=0),dict(limit_solver=dict(timeconst=0))]:
             with self.subTest(settings=settings):
                 self.output.write_text('previous');self.configure(**settings)
                 with self.assertRaises(ValueError):self.run_convert()

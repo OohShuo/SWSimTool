@@ -167,16 +167,8 @@ def validate(config, robot):
             raise ValueError("Sensor cutoff cannot be negative")
         if sensor["type"] == "camera" and not 0 < number(sensor.get("fovy", 45), "fovy") < 180:
             raise ValueError("Camera fovy must be between 0 and 180 degrees")
-    for equality in unique(config.get("equalities", []), "equality").values():
-        if equality.get("type") not in {"connect", "weld"}:
-            raise ValueError("Unsupported equality type")
-        a, b = equality.get("site1"), equality.get("site2")
-        if a not in attachments or b not in attachments or a == b:
-            raise ValueError("Equality requires two different attachment names")
-        if attachments[a]["link"] == attachments[b]["link"]:
-            raise ValueError("Equality sites must belong to different links")
-        if equality["type"] == "weld" and any(attachments[s]["type"] != "frame" for s in (a, b)):
-            raise ValueError("Weld needs two frames")
+    from equalities import validate_equalities
+    validate_equalities(config, attachments, joints, links)
     return attachments
 
 
@@ -293,7 +285,7 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         for root_name in roots:
             bodies.setdefault(root_name, mjcf.find("worldbody"))
         apply_base(mjcf, config, roots, bodies)
-        if config.get('collision') is not None:
+        if config.get('collision') is not None or any(e.get('binding') == 'body' for e in config.get('equalities', [])):
             # Give the static root its own named body so body exclusions can refer to it.
             world = mjcf.find('worldbody')
             for root_name in roots:
@@ -304,6 +296,7 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
                         root_body.append(child)
                     world.append(root_body)
                     bodies[root_name] = root_body
+        if config.get('collision') is not None:
             from collision import apply_collision
             apply_collision(mjcf, bodies, config, quaternion, text)
         for name, attachment in attachments.items():
@@ -331,10 +324,9 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
             else:
                 for kind in (["accelerometer", "gyro"] if sensor["type"] == "imu" else ["rangefinder"]):
                     ET.SubElement(sensor_group, kind, {"name": sensor["name"] + "_" + kind, "site": sensor["site"], "cutoff": str(sensor.get("cutoff", 0))})
-        if config.get("equalities"):
-            group = ET.SubElement(mjcf, "equality")
-            for equality in config["equalities"]:
-                ET.SubElement(group, equality["type"], dict(name=equality["name"], site1=equality["site1"], site2=equality["site2"], **effective(config, "equality", equality.get("solver"))))
+        from equalities import apply_equalities
+        apply_equalities(mjcf, config, effective)
+
         xml = ET.tostring(mjcf, encoding="unicode")
         with asset_options(mujoco, assets) as options:
             final_model = mujoco.MjModel.from_xml_string(xml, **options)

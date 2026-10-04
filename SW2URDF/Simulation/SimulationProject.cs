@@ -92,7 +92,25 @@ namespace SW2URDF.Simulation
         public string site2 { get; set; }
         public string type { get; set; } = "connect";
         public ConstraintSettings solver { get; set; }
-        public override string ToString() => name + " : " + site1 + " ↔ " + site2;
+        public bool active { get; set; } = true;
+        public string binding { get; set; } = "site";
+        public string body1 { get; set; }
+        public string body2 { get; set; }
+        public string joint1 { get; set; }
+        public string joint2 { get; set; }
+        public double[] polycoef { get; set; } = new double[]{0,1,0,0,0};
+        public double torquescale { get; set; } = 1;
+        public string pose_mode { get; set; } = "inherit";
+        public double[] position { get; set; } = new double[3];
+        public double[] orientation { get; set; } = new double[3];
+        public double[] anchor { get; set; } = new double[3];
+        public void ValidateParameters(){
+            if(!new[]{"connect","weld","joint"}.Contains(type)||!new[]{"site","body"}.Contains(binding)||!new[]{"inherit","custom"}.Contains(pose_mode))throw new InvalidDataException("约束类型或绑定方式无效。");
+            var arrays=type=="joint"?new[]{polycoef}:binding=="body"?(type=="connect"?new[]{anchor}:pose_mode=="custom"?new[]{position,orientation}:new double[0][]):new double[0][];
+            foreach(var array in arrays)if(array==null||array.Length!=(type=="joint"?5:3)||array.Any(v=>double.IsNaN(v)||double.IsInfinity(v)))throw new InvalidDataException("约束系数与位姿需要完整的有限数字。");
+            if(type=="weld"&&(double.IsNaN(torquescale)||double.IsInfinity(torquescale)||torquescale<0))throw new InvalidDataException("torquescale 必须为非负有限数字。");solver?.Validate(false);
+        }
+        public override string ToString() => name + " ["+type+"] : " + (type=="joint"?joint1:binding=="body"?body1:site1) + " ↔ " + (type=="joint"?joint2:binding=="body"?body2:site2);
     }
 
     public sealed class SimulationProject
@@ -110,6 +128,7 @@ namespace SW2URDF.Simulation
         public List<JointConfiguration> joints { get; set; } = new List<JointConfiguration>();
         public List<JointForceLimit> joint_force_limits { get; set; } = new List<JointForceLimit>();
         public string base_mode { get; set; } = "inherit";
+        public bool joint_defaults { get; set; } = true;
 
         public void ValidateSolver()
         {
@@ -117,7 +136,7 @@ namespace SW2URDF.Simulation
             if(joints==null||joint_force_limits==null||!new[]{"inherit","fixed","floating"}.Contains(base_mode))throw new InvalidDataException("关节配置不完整。");
             foreach(var j in joints)j.Validate();foreach(var f in joint_force_limits)f.Validate();
             if(joints.Select(j=>j.joint).Distinct().Count()!=joints.Count||joint_force_limits.Select(j=>j.joint).Distinct().Count()!=joint_force_limits.Count)throw new InvalidDataException("关节配置重复。");
-            foreach(var equality in equalities)equality.solver?.Validate(false);
+            foreach(var equality in equalities)equality.ValidateParameters();
             if(collision!=null)foreach(var pair in collision.allowed_pairs)pair.solver?.Validate(true);
         }
 

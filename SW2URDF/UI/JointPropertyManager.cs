@@ -12,7 +12,6 @@ namespace SW2URDF.UI
     public sealed class JointPropertyManager : PropertyManagerPage2Handler9
     {
         readonly PropertyManagerPage2 page;
-        readonly PropertyManagerPageSelectionbox selection;
         readonly JointEditorControl editor;
         bool retry;
         readonly PropertyManagerTransition transition=new PropertyManagerTransition();
@@ -25,13 +24,9 @@ namespace SW2URDF.UI
             int error=0;
             page=(PropertyManagerPage2)service.App.CreatePropertyManagerPage("SW2MuJoCo 关节配置",(int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton,this,ref error);
             if(page==null||error!=0)throw new InvalidOperationException("无法创建左侧关节配置页面："+error);
-            selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
-            selection.SingleEntityOnly=true;
-            selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES,(int)swSelectType_e.swSelDATUMAXES});
             var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"关节参数配置",0,3,"");
             window.Height=270;
             editor=new JointEditorControl(service,joints);
-            editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
             window.SetWindowHandlex64(editor.Handle.ToInt64());
         }
         public void Show(){page.Show2(0);}
@@ -44,7 +39,7 @@ namespace SW2URDF.UI
         void IPropertyManagerPage2Handler9.OnLostFocus(int Id) {  }
         void IPropertyManagerPage2Handler9.OnNumberboxChanged(int Id, double Value) {  }
         void IPropertyManagerPage2Handler9.OnSelectionboxFocusChanged(int Id) {  }
-        void IPropertyManagerPage2Handler9.OnSelectionboxListChanged(int Id, int Count) { if(Count>0)editor?.CaptureSelected(); }
+        void IPropertyManagerPage2Handler9.OnSelectionboxListChanged(int Id, int Count) {  }
         bool IPropertyManagerPage2Handler9.OnSubmitSelection(
             int Id, object Selection, int SelType, ref string ItemText) { return true; }
         void IPropertyManagerPage2Handler9.OnTextboxChanged(int Id, string Text) {  }
