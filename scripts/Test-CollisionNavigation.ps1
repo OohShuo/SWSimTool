@@ -1,4 +1,4 @@
-param([string]$Payload='collision-navigation-final')
+﻿param([string]$Payload='collision-navigation-final')
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $bin=Join-Path $root ('build\'+$Payload)
@@ -34,6 +34,7 @@ public static class CollisionNavigationProbe {
   var first=new CollisionGeometry{link="yaw",name="first",definition="frame",xyz=new[]{.1,.2,.3}};
   var second=new CollisionGeometry{link="yaw",name="second"};var other=new CollisionGeometry{link="pitch",name="other"};
   service.Project.collision.geometries.AddRange(new[]{first,second,other});service.Project.collision.link_modes["yaw"]="primitive";
+  service.Project.collision.allowed_pairs.AddRange(new[]{new CollisionPair{link1="yaw",link2="pitch"},new CollisionPair{link1="yaw",link2="base"}});
   Set(service,"collisionTree",FormatterServices.GetUninitializedObject(typeof(SW2URDF.URDF.LinkNode)));
   Set(service,"cachedRevision","test:0");Set(service,"cachedFrames",new Dictionary<string,Matrix<double>>{{"yaw",DenseMatrix.CreateIdentity(4)},{"pitch",DenseMatrix.CreateIdentity(4)},{"base",DenseMatrix.CreateIdentity(4)}});
   using(var editor=new CollisionEditorControl(service,"yaw")){
@@ -53,6 +54,15 @@ public static class CollisionNavigationProbe {
    Check(rejected,"strict save/preview read still rejects incomplete references");
    typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(editor,"\u6dfb\u52a0"),new object[]{EventArgs.Empty});Check(list.Items.Count==3&&name.Text.StartsWith("collision_"),"adding geometry is allowed with unfinished references");
    Check(service.Project.collision.geometries.Count==3,"editing does not modify persisted project before save");
+   var contactEditor=All(editor).OfType<SolverParametersControl>().Single();
+   All(contactEditor).OfType<CheckBox>().Single().Checked=true;
+   var margin=All(contactEditor).OfType<TextBox>().Single(b=>((PropertyInfo)b.Tag).Name=="margin");margin.Text="0.002";
+   var collisionDraft=(SimulationProject)Get(editor,"draft");
+   Check(collisionDraft.collision.allowed_pairs[0].solver.margin==.002&&service.Project.collision.allowed_pairs[0].solver==null,"pair margin override edits draft only");
+   margin.Text="invalid";var pairList=(ListBox)Get(editor,"pairs");pairList.SelectedIndex=1;
+   Check(pairList.SelectedIndex==0,"invalid contact value prevents silently switching pair");
+   All(contactEditor).OfType<CheckBox>().Single().Checked=false;pairList.SelectedIndex=1;
+   Check(pairList.SelectedIndex==1&&collisionDraft.collision.allowed_pairs[0].solver==null,"disabling local override restores inheritance and clears invalid draft input");
   }
   service.Project.attachments.AddRange(new[]{new Attachment{name="yaw_site",link="yaw",type="frame"},new Attachment{name="pitch_site",link="pitch",type="point"}});
   using(var editor=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}})){
@@ -71,6 +81,15 @@ public static class CollisionNavigationProbe {
    var kind=All(tabs.TabPages[2]).OfType<ComboBox>().Single(c=>c.Items.Contains("position"));kind.SelectedItem="position";
    Check(All(tabs.TabPages[2]).OfType<Label>().Any(c=>c.Text.Contains("kp")),"position actuator displays its gain field");
    Check(service.Project.actuators.Count==0,"simulation edits remain a draft until save");
+   typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(editor,"应用刚性机器人预设"),new object[]{EventArgs.Empty});
+   var simulationDraft=(SimulationProject)Get(editor,"draft");
+   Check(simulationDraft.solver.enabled&&simulationDraft.solver.timestep==.001&&simulationDraft.solver.contact.timeconst==.003,"rigid preset sets global and contact defaults");
+   Check(service.Project.solver==null,"preset does not change persisted project before save");
+   var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();
+   var reloaded=serializer.Deserialize<SimulationProject>(serializer.Serialize(simulationDraft));reloaded.ValidateSolver();
+   Check(reloaded.solver.contact.margin==.001&&reloaded.solver.noslip_iterations==0,"solver parameters survive configuration serialization");
+   var invalidSettings=new ConstraintSettings{timeconst=-1};bool invalidSolver=false;try{invalidSettings.Validate(false);}catch{invalidSolver=true;}Check(invalidSolver,"invalid solver range rejected");
+
   }
  }
  static IEnumerable<Control> All(Control root){foreach(Control c in root.Controls){yield return c;foreach(var child in All(c))yield return child;}}

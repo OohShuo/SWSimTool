@@ -48,6 +48,7 @@ namespace SW2URDF.Simulation
     {
         public string link1 { get; set; }
         public string link2 { get; set; }
+        public ConstraintSettings solver { get; set; }
         public override string ToString() => link1 + " ↔ " + link2;
     }
     public sealed class CollisionConfiguration

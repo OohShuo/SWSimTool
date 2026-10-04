@@ -6,6 +6,46 @@ using System.Web.Script.Serialization;
 
 namespace SW2URDF.Simulation
 {
+    public sealed class ConstraintSettings
+    {
+        public double timeconst { get; set; } = .005;
+        public double dampratio { get; set; } = 1;
+        public double dmin { get; set; } = .99;
+        public double dmax { get; set; } = .99;
+        public double width { get; set; } = .001;
+        public double midpoint { get; set; } = .5;
+        public double power { get; set; } = 2;
+        public double margin { get; set; }
+        public int condim { get; set; } = 3;
+        public static ConstraintSettings Contact() => new ConstraintSettings { timeconst=.003, dmax=.995, margin=.001 };
+        public void Validate(bool contact)
+        {
+            foreach(double x in new[]{timeconst,dampratio,dmin,dmax,width,midpoint,power,margin})
+                if(double.IsNaN(x)||double.IsInfinity(x))throw new InvalidDataException("求解参数必须为有限数字。");
+            if(timeconst<=0||dampratio<=0||dmin<=0||dmax>=1||dmin>dmax||width<=0||midpoint<=0||midpoint>=1||power<1||margin<0)
+                throw new InvalidDataException("求解参数范围无效：timeconst/阻尼/width > 0，0 < dmin ≤ dmax < 1，0 < midpoint < 1，power ≥ 1，margin ≥ 0。");
+            if(contact&&condim!=1&&condim!=3&&condim!=4&&condim!=6)throw new InvalidDataException("condim 只能为 1、3、4、6。");
+        }
+    }
+    public sealed class SolverSettings
+    {
+        public bool enabled { get; set; }
+        public double timestep { get; set; } = .001;
+        public int iterations { get; set; } = 100;
+        public double tolerance { get; set; } = 1e-9;
+        public int noslip_iterations { get; set; }
+        public double impratio { get; set; } = 10;
+        public ConstraintSettings equality { get; set; } = new ConstraintSettings();
+        public ConstraintSettings contact { get; set; } = ConstraintSettings.Contact();
+        public void Validate()
+        {
+            if(!enabled)return;
+            if(double.IsNaN(timestep)||double.IsInfinity(timestep)||timestep<=0||double.IsNaN(tolerance)||double.IsInfinity(tolerance)||tolerance<0||double.IsNaN(impratio)||double.IsInfinity(impratio)||impratio<=0||iterations<1||noslip_iterations<0)
+                throw new InvalidDataException("全局求解参数无效。");
+            if(equality==null||contact==null)throw new InvalidDataException("缺少默认约束参数。");
+            equality.Validate(false);contact.Validate(true);
+        }
+    }
     public sealed class Attachment
     {
         public string name { get; set; } = "site";
@@ -50,6 +90,7 @@ namespace SW2URDF.Simulation
         public string site1 { get; set; }
         public string site2 { get; set; }
         public string type { get; set; } = "connect";
+        public ConstraintSettings solver { get; set; }
         public override string ToString() => name + " : " + site1 + " ↔ " + site2;
     }
 
@@ -64,6 +105,14 @@ namespace SW2URDF.Simulation
         public List<SensorConfig> sensors { get; set; } = new List<SensorConfig>();
         public List<EqualityConfig> equalities { get; set; } = new List<EqualityConfig>();
         public CollisionConfiguration collision { get; set; }
+        public SolverSettings solver { get; set; }
+
+        public void ValidateSolver()
+        {
+            solver?.Validate();
+            foreach(var equality in equalities)equality.solver?.Validate(false);
+            if(collision!=null)foreach(var pair in collision.allowed_pairs)pair.solver?.Validate(true);
+        }
 
         public static SimulationProject Load(string path)
         {

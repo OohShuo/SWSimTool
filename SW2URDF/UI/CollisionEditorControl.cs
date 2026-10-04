@@ -1,4 +1,4 @@
-using SW2URDF.Simulation;
+﻿using SW2URDF.Simulation;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -44,6 +44,7 @@ namespace SW2URDF.UI
         readonly Label status=new Label(),referenceInfo=new Label();
         readonly CheckBox show=new CheckBox{Text="显示碰撞几何体",Checked=true},disable=new CheckBox{Text="默认排除内部 link 碰撞",Checked=true};
         readonly ComboBox pairA=new CollisionComboBox(),pairB=new CollisionComboBox();
+        readonly HashSet<TextBox> solverInvalid=new HashSet<TextBox>();
         readonly Timer timer=new Timer{Interval=180},cadTimer=new Timer{Interval=500};
         readonly Dictionary<Control,Control> rows=new Dictionary<Control,Control>();
         readonly Dictionary<string,Control> dimensionRows=new Dictionary<string,Control>();
@@ -82,6 +83,7 @@ namespace SW2URDF.UI
             Add(geometry,show);
             Add(contacts,disable);Field(contacts,"link 1",pairA);Field(contacts,"link 2",pairB);
             var pairButtons=new FlowLayoutPanel{AutoSize=true};var allow=new Button{Text="允许此对"};var deny=new Button{Text="删除此对"};pairButtons.Controls.Add(allow);pairButtons.Controls.Add(deny);Add(contacts,pairButtons);pairs.Height=110;Add(contacts,pairs);
+            var pairSettings=new Panel{AutoSize=true,Dock=DockStyle.Top};Add(contacts,pairSettings);CollisionPair editingPair=null;bool selectingPair=false;pairs.SelectedIndexChanged+=(s,e)=>{if(selectingPair)return;if(solverInvalid.Count>0&&editingPair!=null&&pairs.Items.Contains(editingPair)){selectingPair=true;pairs.SelectedItem=editingPair;selectingPair=false;status.Text="请先修正当前碰撞对的无效数字。";return;}foreach(Control c in pairSettings.Controls.Cast<Control>().ToArray())c.Dispose();var selected=pairs.SelectedItem as CollisionPair;editingPair=selected;if(selected!=null)pairSettings.Controls.Add(new SolverParametersControl(selected.solver,draft.solver?.contact??ConstraintSettings.Contact(),true,v=>selected.solver=v,solverInvalid));};
             Add(contacts,new Label{Text="添加后保存装配，并重新导出 MJCF。\n无碰撞模式的 link 不能加入允许列表。",AutoSize=true});
             timer.Tick+=(s,e)=>{timer.Stop();UpdatePreview(false);};
             cadTimer.Tick+=(s,e)=>{
@@ -100,7 +102,7 @@ namespace SW2URDF.UI
             definition.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;Guard(()=>ReadCurrent(true));current.definition=((Choice)definition.SelectedItem).Key;current.references.Clear();current.dimension_references.Clear();LoadCurrent();};
             create.Click+=(s,e)=>Guard(()=>{ReadCurrent(true);if(link.SelectedItem==null)return;var g=new CollisionGeometry{link=(string)link.SelectedItem,name="collision_"+Guid.NewGuid().ToString("N").Substring(0,8)};draft.collision.geometries.Add(g);draft.collision.link_modes[g.link]="primitive";RefreshList(g);});
             remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.link_modes[owner]=="primitive")draft.collision.link_modes[owner]="none";current=null;RefreshList();};
-            allow.Click+=(s,e)=>Guard(()=>{string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
+            allow.Click+=(s,e)=>Guard(()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请先修正当前碰撞对的无效数字。");string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
             pairA.SelectedIndex=links.Length>0?0:-1;pairB.SelectedIndex=links.Length>1?1:-1;
@@ -184,10 +186,10 @@ namespace SW2URDF.UI
             try{if(show.Checked)preview.Show(draft.collision.geometries,current?.id);else preview.Clear();}catch(Exception ex){error=ex.Message;}
             status.Text=error??"预览已更新；保存配置后仍需保存装配文件。";
         }
-        void RefreshPairs(){pairs.Items.Clear();foreach(var p in draft.collision.allowed_pairs)pairs.Items.Add(p);}
+        void RefreshPairs(){pairs.Items.Clear();foreach(var p in draft.collision.allowed_pairs)pairs.Items.Add(p);if(pairs.Items.Count>0)pairs.SelectedIndex=0;}
         void Guard(Action action){try{action();}catch(Exception ex){status.Text=ex.Message;}}
         public void Save(){
-            timer.Stop();if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("SW Configuration 已切换，请重新进入碰撞配置。");ReadCurrent();
+            if(solverInvalid.Count>0)throw new InvalidOperationException("请修正求解参数中的无效数字。");draft.ValidateSolver();timer.Stop();if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("SW Configuration 已切换，请重新进入碰撞配置。");ReadCurrent();
             var frames=service.LinkTransforms();var names=new HashSet<string>();foreach(var g in draft.collision.geometries){service.ResolveCollision(g);if(!names.Add(g.name))throw new InvalidOperationException("碰撞几何体名称重复："+g.name);}
             foreach(var m in draft.collision.link_modes){if(!frames.ContainsKey(m.Key))throw new InvalidOperationException("link 已失效："+m.Key);if(m.Value=="primitive"&&!draft.collision.geometries.Any(g=>g.link==m.Key))throw new InvalidOperationException("简单几何体模式至少需要一个几何体。");}
             foreach(var p in draft.collision.allowed_pairs){string a,b;if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");draft.collision.link_modes.TryGetValue(p.link1,out a);draft.collision.link_modes.TryGetValue(p.link2,out b);if(a=="none"||b=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}

@@ -47,6 +47,7 @@ def apply_collision(mjcf, bodies, config, quaternion, text):
     rules = config.get('collision')
     if rules is None:
         return  # Older sidecars retain their original collision behavior.
+    from solver import effective
     collision_geoms = {}
     existing_names = {g.get('name') for g in mjcf.findall('.//geom') if g.get('name')}
     for index, (link, body) in enumerate(bodies.items()):
@@ -64,6 +65,7 @@ def apply_collision(mjcf, bodies, config, quaternion, text):
                 geom.set('contype', '0')
                 geom.set('conaffinity', '0')
             elif is_collision:
+                geom.attrib.update(effective(config, 'contact'))
                 active.append(geom.get('name'))
         collision_geoms[link] = active
     for geom in rules.get('geometries', []):
@@ -83,6 +85,7 @@ def apply_collision(mjcf, bodies, config, quaternion, text):
         ET.SubElement(bodies[link], 'geom', dict(name=name, type=geom['type'], size=text(size),
             pos=text(geom['xyz']), quat=text(quaternion(geom['rpy'])), group='3',
             contype='1', conaffinity='1', mass='0', rgba='0.2 0.8 1 0.35'))
+        bodies[link].findall('geom')[-1].attrib.update(effective(config, 'contact'))
         collision_geoms[link].append(name)
     contact = mjcf.find('contact')
     if contact is None:
@@ -92,9 +95,10 @@ def apply_collision(mjcf, bodies, config, quaternion, text):
         for a, b in itertools.combinations(sorted(bodies), 2):
             if (a, b) not in allowed:
                 ET.SubElement(contact, 'exclude', body1=a, body2=b)
+    overrides = {tuple(sorted((p['link1'], p['link2']))): p.get('solver') for p in rules.get('allowed_pairs', [])}
     for a, b in sorted(allowed):
         if not collision_geoms[a] or not collision_geoms[b]:
             raise ValueError(f'Allowed pair has no collision geoms: {a}, {b}')
         for ga, gb in itertools.product(collision_geoms[a], collision_geoms[b]):
-            ET.SubElement(contact, 'pair', geom1=ga, geom2=gb)
+            ET.SubElement(contact, 'pair', dict(geom1=ga, geom2=gb, **effective(config, 'contact', overrides[(a, b)])))
     print(f'Collision proxies={sum(len(v) for k,v in collision_geoms.items() if rules.get("link_modes", {}).get(k) == "primitive")}; allowed link pairs={len(allowed)}')

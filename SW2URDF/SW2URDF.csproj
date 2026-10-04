@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
   <Import Project="..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.6\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.6\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props')" />
   <Import Project="..\packages\Microsoft.NetFramework.Analyzers.2.9.6\build\Microsoft.NetFramework.Analyzers.props" Condition="Exists('..\packages\Microsoft.NetFramework.Analyzers.2.9.6\build\Microsoft.NetFramework.Analyzers.props')" />
@@ -325,6 +325,7 @@
     <Compile Include="Simulation\SimulationStorage.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />
+    <Compile Include="UI\SolverParametersControl.cs" />
     <Compile Include="UI\SimulationPropertyManager.cs" />
     <Compile Include="Simulation\CollisionGeometryService.cs" />
     <Compile Include="Simulation\CollisionPreview.cs" />
@@ -536,6 +537,9 @@
     <Content Include="..\mujoco_backend\simplify_stl.py">
       <Link>mujoco_backend\simplify_stl.py</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\mujoco_backend\solver.py">
+      <Link>mujoco_backend\solver.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\mujoco_backend\collision.py">
       <Link>mujoco_backend\collision.py</Link>

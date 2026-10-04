@@ -42,13 +42,25 @@ namespace SW2URDF.UI {
     (panel,a)=>{Combo(panel,a,"joint","所属 joint",joints.Where(j=>j.Value==Owner).Select(j=>j.Key).ToArray());Numeric(panel,a,"gear","传动系数 gear");if(a.type!="motor")Numeric(panel,a,"gain",a.type=="position"?"位置增益 kp":"速度增益 kv");Numeric(panel,a,"ctrl_min","控制下限");Numeric(panel,a,"ctrl_max","控制上限");Numeric(panel,a,"force_min","执行器力 / 力矩下限");Numeric(panel,a,"force_max","执行器力 / 力矩上限");});
    Rules<EqualityConfig>(tabs,"闭链约束",draft.equalities,()=>new EqualityConfig{name=Unique("closure")},e=>true,new[]{"connect","weld"},
     "connect 约束两个 site 的位置；weld 约束两个坐标系。两端须属于不同 link。",
-    (panel,e)=>{var options=draft.attachments.Where(a=>e.type!="weld"||a.type=="frame").Select(a=>a.name).ToArray();Combo(panel,e,"site1","端点 1",options);Combo(panel,e,"site2","端点 2",options);Note(panel,string.Join("\n",draft.attachments.Select(a=>a.name+" → "+a.link)));});
+    (panel,e)=>{var options=draft.attachments.Where(a=>e.type!="weld"||a.type=="frame").Select(a=>a.name).ToArray();Combo(panel,e,"site1","端点 1",options);Combo(panel,e,"site2","端点 2",options);Note(panel,string.Join("\n",draft.attachments.Select(a=>a.name+" → "+a.link)));Add(panel,new SolverParametersControl(e.solver,draft.solver?.equality??new ConstraintSettings(),false,v=>e.solver=v,invalid));});
+   SolverTab(tabs);
    var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};var save=new Button{Text="保存配置到装配",AutoSize=true};footer.Controls.Add(show);footer.Controls.Add(save);footer.Controls.Add(status);Controls.Add(footer);
    save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
    cadTimer.Tick+=(s,e)=>Guard(()=>{if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
    Refresh();cadTimer.Start();Schedule();
+  }
+  void SolverTab(TabControl tabs){
+   var page=new CollisionTabPage("求解设置");tabs.TabPages.Add(page);var panel=Layout(page);var enable=new CheckBox{Text="启用全局求解设置",AutoSize=true,Checked=draft.solver?.enabled??false};Add(panel,enable);
+   var preset=new Button{Text="应用刚性机器人预设",AutoSize=true};Add(panel,preset);var fields=new Panel{AutoSize=true,Dock=DockStyle.Top};Add(panel,fields);
+   Note(panel,"Newton + elliptic；保留 refsafe。margin 默认 1 mm，可在碰撞对中改为 2 mm。Noslip 默认关闭。局部覆盖优先；未启用且没有局部覆盖时保留原行为。");
+   Action rebuild=()=>{foreach(Control c in fields.Controls.Cast<Control>().ToArray())c.Dispose();var settings=draft.solver=draft.solver??new SolverSettings();var p=Layout(fields);fields.Enabled=settings.enabled;
+    SolverParametersControl.AddNumber(p,settings,"timestep","步长 s",invalid);SolverParametersControl.AddNumber(p,settings,"iterations","最大迭代数",invalid);SolverParametersControl.AddNumber(p,settings,"tolerance","收敛容差",invalid);SolverParametersControl.AddNumber(p,settings,"impratio","摩擦阻抗比",invalid);SolverParametersControl.AddNumber(p,settings,"noslip_iterations","防慢滑后处理迭代数",invalid);
+    Note(p,"默认闭链参数");Add(p,new SolverParametersControl(settings.equality??(settings.equality=new ConstraintSettings()),new ConstraintSettings(),false,v=>settings.equality=v,invalid,false));
+    Note(p,"默认接触参数（环境接触及未覆盖碰撞对）");Add(p,new SolverParametersControl(settings.contact??(settings.contact=ConstraintSettings.Contact()),ConstraintSettings.Contact(),true,v=>settings.contact=v,invalid,false));};
+   enable.CheckedChanged+=(s,e)=>{draft.solver=draft.solver??new SolverSettings();draft.solver.enabled=enable.Checked;rebuild();};
+   preset.Click+=(s,e)=>{draft.solver=new SolverSettings{enabled=true};enable.Checked=true;rebuild();status.Text="已应用预设；已有局部覆盖保留。保存配置并重新导出后生效。";};rebuild();
   }
   string Owner=>(string)link.SelectedItem;
   string Unique(string prefix)=>prefix+"_"+Guid.NewGuid().ToString("N").Substring(0,8);
@@ -103,7 +115,7 @@ namespace SW2URDF.UI {
   public void Save(){
    if(invalid.Count>0)throw new InvalidOperationException("请修正无效数字。");if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("Configuration 已切换，请重新进入。");
    foreach(IEnumerable values in new IEnumerable[]{draft.attachments,draft.sensors,draft.actuators,draft.equalities}){var names=new HashSet<string>();foreach(object item in values){string name=(string)item.GetType().GetProperty("name").GetValue(item);if(string.IsNullOrWhiteSpace(name)||!names.Add(name))throw new InvalidOperationException("名称不能为空或重复："+name);}}
-   var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";
+   draft.ValidateSolver();var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";
   }
   protected override void Dispose(bool disposing){if(disposing){timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
  }

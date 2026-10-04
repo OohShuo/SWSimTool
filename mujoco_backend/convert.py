@@ -121,6 +121,8 @@ def validate_urdf_tree(robot):
 
 def validate(config, robot):
     validate_urdf_tree(robot)
+    from solver import validate_solver
+    validate_solver(config)
     if config.get("schema_version") != 1:
         raise ValueError("Unsupported schema_version")
     if config.get("units") != "m,rad":
@@ -278,6 +280,8 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
         mjcf = ET.fromstring(compiled_xml)
+        from solver import apply_options, effective
+        apply_options(mjcf, config)
         bodies = {body.attrib["name"]: body for body in mjcf.findall(".//body") if "name" in body.attrib}
         # MuJoCo may place the fixed URDF root directly in worldbody.
         child_names = {joint.find("child").attrib["link"] for joint in robot.findall("joint")}
@@ -325,7 +329,7 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         if config.get("equalities"):
             group = ET.SubElement(mjcf, "equality")
             for equality in config["equalities"]:
-                ET.SubElement(group, equality["type"], {"name": equality["name"], "site1": equality["site1"], "site2": equality["site2"]})
+                ET.SubElement(group, equality["type"], dict(name=equality["name"], site1=equality["site1"], site2=equality["site2"], **effective(config, "equality", equality.get("solver"))))
         xml = ET.tostring(mjcf, encoding="unicode")
         with asset_options(mujoco, assets) as options:
             final_model = mujoco.MjModel.from_xml_string(xml, **options)
@@ -495,8 +499,8 @@ def main(argv=None):
             parser.error("--mjcf requires --preview and cannot be combined with conversion inputs")
         load_runtime(preview=True)
         model = load_mjcf(args.mjcf)
-        import mujoco.viewer
-        mujoco.viewer.launch(model)
+        from solver import preview_model
+        preview_model(model)
         return
     if not all((args.urdf, args.output)):
         parser.error("--urdf and --output are required for conversion; --config is optional")
@@ -505,8 +509,8 @@ def main(argv=None):
     settings = json.loads(Path(args.mesh_settings).read_text(encoding="utf-8-sig")) if args.mesh_settings else {}
     model = export_package(args.urdf, args.config, args.output, settings)
     if args.preview:
-        import mujoco.viewer
-        mujoco.viewer.launch(model)
+        from solver import preview_model
+        preview_model(model)
 
 
 if __name__ == "__main__":

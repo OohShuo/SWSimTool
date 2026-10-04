@@ -1,4 +1,4 @@
-using MathNet.Numerics.LinearAlgebra;
+﻿using MathNet.Numerics.LinearAlgebra;
 using SolidWorks.Interop.sldworks;
 using SW2URDF.URDF;
 using SW2URDF.URDFExport;
@@ -29,6 +29,7 @@ namespace SW2URDF.Simulation
         }
         public void Save()
         {
+            Project.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
             Project.assembly = exporter.ActiveSWModel.GetPathName();
             Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
@@ -97,6 +98,7 @@ namespace SW2URDF.Simulation
         }
         public Dictionary<string, object> Export(string urdfPath)
         {
+            Project.ValidateSolver();
             var transforms = new Dictionary<string, Matrix<double>>();
             Link root = exporter.URDFRobot.BaseLink;
             var global = MathOps.GetTransformation(exporter.AttachmentCoordinateTransform(root.Joint.CoordinateSystemName));
@@ -120,7 +122,7 @@ namespace SW2URDF.Simulation
             Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
             return new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
-                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision } };
+                { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision }, { "solver", Project.solver } };
         }
         public Attachment CaptureSelectedAttachment(string link,string name,string type){
             var reference=CaptureSelection();ReferenceFrame(reference,type=="frame");
