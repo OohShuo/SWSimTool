@@ -39,7 +39,7 @@ namespace SW2URDF.Simulation {
     Directory.CreateDirectory(Root);string next=Path.Combine(Root,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(next);
     foreach(string dir in Directory.GetDirectories(folder,"*",SearchOption.AllDirectories))Directory.CreateDirectory(Path.Combine(next,dir.Substring(folder.Length+1)));
     foreach(string file in Directory.GetFiles(folder,"*",SearchOption.AllDirectories))File.Copy(file,Path.Combine(next,file.Substring(folder.Length+1)));
-    var entry=new Entry{source=source,geometry=geometry,folder=next,urdf=urdf.Substring(folder.Length+1),project=ExportFingerprint.Serializer().Deserialize<SimulationProject>(ExportFingerprint.Serializer().Serialize(project)),sidecar=sidecar,frames=frames,files=Directory.GetFiles(next,"*",SearchOption.AllDirectories).ToDictionary(x=>x.Substring(next.Length+1),FileHash)};
+    var entry=new Entry{source=source,geometry=geometry,folder=next,urdf=urdf==null?null:urdf.Substring(folder.Length+1),project=ExportFingerprint.Serializer().Deserialize<SimulationProject>(ExportFingerprint.Serializer().Serialize(project)),sidecar=sidecar,frames=frames,files=Directory.GetFiles(next,"*",SearchOption.AllDirectories).ToDictionary(x=>x.Substring(next.Length+1),FileHash)};
     entry.core=core?.RemapMeshPaths(path=>Path.Combine(next,path.Substring(folder.Length+1)));
     states.GetValue(model,x=>new State()).entries[model.ConfigurationManager.ActiveConfiguration.Name]=entry;
    }catch(IOException){}catch(UnauthorizedAccessException){} // Caching is optional.

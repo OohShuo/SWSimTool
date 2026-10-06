@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -51,7 +51,7 @@ namespace SW2URDF.UI
                     try { if (!string.IsNullOrWhiteSpace(urdf.Text)) { string candidate=Path.ChangeExtension(urdf.Text.Trim(), ".sim.json");sidecar.Text=File.Exists(candidate)?candidate:""; output.Text = PythonBackend.DefaultOutput(urdf.Text.Trim()); } }
                 catch (ArgumentException) { }
             };
-            status.Text=mode==MuJoCoToolMode.Project?"从当前装配生成临时 URDF，最终仅保存 XML 和 meshes/STL。":"请选择本地文件，无需打开 SolidWorks 工程。";
+            status.Text=mode==MuJoCoToolMode.Project?"从当前装配导出，最终仅保存 XML 和 meshes/STL。":"请选择本地文件，无需打开 SolidWorks 工程。";
             FormClosing += (s, e) => {if(busy){e.Cancel=true;status.Text="后端仍在运行，请关闭 viewer 或等待导出结束。";}else SaveSettings();};
         }
         public void SetProjectName(string name){output.Text=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),name+"_mjcf",name+".xml");}
@@ -101,9 +101,9 @@ namespace SW2URDF.UI
                         if (string.Equals(destination, Path.GetFullPath(source.Trim()), StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MJCF 保存位置不能覆盖输入文件。");
                 }
                 SaveSettings(); log.Clear();busy=true; inputs.Enabled = actions.Enabled = false;
-                if(toolMode==MuJoCoToolMode.Project){status.Text="正在从当前工程生成临时 URDF…";project=exportProject();Append("Export "+project.ExportId+": "+(project.Plan.RebuildSource?"重建工程源数据":"复用工程源数据")+"; "+project.Plan.Dirty);}
+                if(toolMode==MuJoCoToolMode.Project){status.Text="正在读取当前工程配置…";project=exportProject();Append("Export "+project.ExportId+": "+(project.Plan.RebuildSource?"重建工程源数据":"复用工程源数据")+"; "+project.Plan.Dirty);}
                 status.Text = preview ? "正在启动预览；关闭 viewer 后可继续操作。" : "正在保存 MJCF…";
-                int code = await PythonBackend.RunAsync(python.Text.Trim(), project?.Urdf??urdf.Text.Trim(), project?.Sidecar??sidecar.Text.Trim(), output.Text.Trim(), preview, direct ? existing.Text.Trim() : null, Append, meshSettingsPath, project?.ExportId);
+                int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId);
                 if(code==0)project?.MarkSucceeded();
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
             } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.Message); }

@@ -154,6 +154,30 @@ namespace SW2URDF.URDFExport
         #region Export Methods
 
         // Beginning method for exporting the full package
+        public Dictionary<string, SW2URDF.RobotModel.MeshSource> ExportNativeMeshes(string directory)
+        {
+            Directory.CreateDirectory(directory);
+            var meshes = new Dictionary<string, SW2URDF.RobotModel.MeshSource>();
+            var hidden = CommonSwOperations.FindHiddenComponents(((AssemblyDoc)ActiveSWModel).GetComponents(false));
+            SaveUserPreferences();
+            try
+            {
+                SetSTLExportPreferences();
+                ActiveSWModel.Extension.SelectAll(); ActiveSWModel.HideComponent2();
+                Action<Link> export = null;
+                export = link => {
+                    foreach (var child in link.Children) export(child);
+                    if (link.isFixedFrame || link.SWComponents == null || link.SWComponents.Count == 0) return;
+                    string path = Path.Combine(directory, link.StableId + ".stl");
+                    SaveSTL(link, path);
+                    meshes.Add(link.Name, new SW2URDF.RobotModel.MeshSource(link.StableId + "/mesh", path, new SW2URDF.RobotModel.Vector3d(1, 1, 1)));
+                };
+                export(URDFRobot.BaseLink);
+                return meshes;
+            }
+            finally { CommonSwOperations.ShowAllComponents(ActiveSWModel, hidden); ResetUserPreferences(); }
+        }
+
         public void ExportRobot(bool exportSTL = true, MeshExportFormat meshFormat = MeshExportFormat.STL)
         {
             LastURDFPath=null;LastSimulationPath=null;

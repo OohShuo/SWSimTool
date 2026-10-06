@@ -15,6 +15,7 @@ namespace SW2URDF.Simulation
         static readonly object publishGate=new object();
         static string Support => Path.Combine(Path.GetDirectoryName(typeof(NativeBackend).Assembly.Location),"mujoco_backend","native_support.py");
         static string Hash(string path) {using(var algorithm=SHA256.Create())using(var stream=File.OpenRead(path))return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-","").ToLowerInvariant();}
+        public static Task<int> PreviewAsync(string python,string xml,Action<string> report) => Task.Run(()=>BackendProcess.Run(python,Support,"--preview "+BackendProcess.Quote(Path.GetFullPath(xml)),report,null));
         public static SW2URDF.RobotModel.RobotModel LoadLocal(string urdf,string jsonPath)
         {
             var serializer=new JavaScriptSerializer{MaxJsonLength=64*1024*1024};

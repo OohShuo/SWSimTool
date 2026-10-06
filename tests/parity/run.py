@@ -237,6 +237,25 @@ class NativeParity(unittest.TestCase):
                 result = subprocess.run([str(EXE), str(self.urdf), str(config), str(output)], capture_output=True)
                 self.assertNotEqual(result.returncode, 0); self.assertFalse(output.exists())
 
+    def test_local_identity_registry_and_stale_pair(self):
+        self.urdf.write_text(URDF,encoding='utf-8')
+        sidecar=self.folder/'robot.sim.json'
+        settings=self.folder/'settings.json';settings.write_text('{"Enabled":false}')
+        config=dict(self.config,identities=dict(links=dict(base='L0',arm='L1',tool='L2'),joints=dict(hinge='J1',tool_fixed='J2')),actuators=[dict(name='drive',joint='hinge',joint_id='J1',type='motor',gear=2,ctrl_min=-1,ctrl_max=1,force_min=-7,force_max=7)])
+        output=self.folder/'local_mjcf'/'robot.xml'
+        def run():
+            sidecar.write_text(json.dumps(config),encoding='utf-8')
+            return subprocess.run([str(EXE),'--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],capture_output=True,text=True,encoding='utf-8')
+        result=run();self.assertEqual(result.returncode,0,result.stderr+result.stdout)
+        model=load_mjcf(output);self.assertEqual(model.nu,1);self.assertEqual(model.actuator_gear[0,0],2)
+        before=output.read_bytes()
+        config['actuators'][0]['joint_id']='deleted'
+        result=run();self.assertNotEqual(result.returncode,0);self.assertEqual(output.read_bytes(),before)
+        config['actuators'][0]['joint_id']='J1'
+        config['urdf_sha256']='0'*64
+        result=run();self.assertNotEqual(result.returncode,0);self.assertEqual(output.read_bytes(),before)
+        RESULTS.append(dict(case='local_stable_identity_and_stale_pair',preserved=True))
+
     def test_csharp_immutable_and_invariant_checks(self):
         result = subprocess.run([str(EXE), '--selftest'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

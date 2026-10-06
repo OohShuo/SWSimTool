@@ -8,7 +8,9 @@ Existing COM identity and Setup AppId are retained for upgrades.
 Tools > SW2MuJoCo:
 - URDF configuration
 - Collision configuration
-- Simulation configuration (sites, sensors, actuators, equalities)
+- Simulation configuration (sites, sensors, actuators, forces, solver)
+- Constraint configuration (connect, weld, joint)
+- Joint configuration (physical parameters)
 - Export and preview (URDF, project/local MJCF, existing MJCF)
 
 Assembly settings share one SW2MuJoCo Configuration attribute, keyed

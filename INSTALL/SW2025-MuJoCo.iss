@@ -1,4 +1,4 @@
-; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
 #define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
 #endif
@@ -45,20 +45,24 @@ Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
-Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\equalities.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\mesh_cache.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\robot_model.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\incremental.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\site_forces.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\sites.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\joints.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
-Source: "{#Payload}\mujoco_backend\collision.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
 Source: "..\docs\SW2MuJoCo_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+
+Source: "{#Payload}\mujoco_backend\native_support.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+
+[InstallDelete]
+Type: files; Name: "{app}\mujoco_backend\convert.py"
+Type: files; Name: "{app}\mujoco_backend\equalities.py"
+Type: files; Name: "{app}\mujoco_backend\robot_model.py"
+Type: files; Name: "{app}\mujoco_backend\site_forces.py"
+Type: files; Name: "{app}\mujoco_backend\sites.py"
+Type: files; Name: "{app}\mujoco_backend\joints.py"
+Type: files; Name: "{app}\mujoco_backend\collision.py"
 
 [Code]
 const

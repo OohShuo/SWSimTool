@@ -17,6 +17,17 @@ if not folder.is_relative_to((root / 'build').resolve()) or not folder.name.star
 report_path = root / 'build/native-incremental-v1.json'
 report_path.unlink(missing_ok=True)
 report = json.loads((folder / 'native-counts.json').read_text(encoding='utf-8-sig'))
+if report['stages'][0].get('nativeOnly'):
+    warm=load_mjcf(folder/'incremental_native_mjcf/robot.xml')
+    cold=load_mjcf(folder/'full_native_mjcf/robot.xml')
+    compiled_semantics(warm,cold)
+    dynamics(warm,cold,steps=(1,10,100))
+    report.update(native_incremental_cold_parity=True,no_intermediate_urdf=True)
+    report_path=root/'build/native-production-v1.json'
+    report_path.write_text(json.dumps(report,indent=2),encoding='utf-8')
+    print('Native-only production incremental semantics and dynamics: PASS')
+    sys.exit(0)
+
 a = load_mjcf(folder / 'incremental_mjcf/robot.xml')
 b = load_mjcf(folder / 'full_mjcf/robot.xml')
 compiled_semantics(a, b)

@@ -1,4 +1,4 @@
-﻿param([string]$Payload='native-candidate')
+﻿param([string]$Payload='native-candidate',[switch]$NativeOnly)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
@@ -20,11 +20,25 @@ using SW2URDF.URDF;
 using SW2URDF.URDFExport;
 using SW2URDF.Simulation;
 public static class NativeIncrementalProbe {
+ public static bool NativeOnly;
  static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
  static object Stage(SldWorks sw,ModelDoc2 model,string directory,string label,string settings){
   int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports,b=ProjectExport.SourceBuildCount;
-  using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){
+  using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name,NativeOnly)){
+   if(NativeOnly){
+    Check(export.Urdf==null,"engineering export has no intermediate URDF");
+    string directOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");var directLines=new List<string>();
+    int directCode=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.NativeModel(),directOutput,false,line=>{directLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
+    Check(directCode==0,"native production "+label+" export succeeds");export.MarkSucceeded();
+    var directMetrics=json.Deserialize<Dictionary<string,object>>(directLines.Single(x=>x.StartsWith("Native export metrics: ")).Substring("Native export metrics: ".Length));
+    var directCounts=(Dictionary<string,object>)directMetrics["counts"];
+    var directDelta=new Dictionary<string,int>{{"geometry_query",ExportInstrumentation.GeometryQueries-g},{"stl_export",ExportInstrumentation.StlExports-s},{"source_build",ProjectExport.SourceBuildCount-b}};
+    if(label=="incremental")Check(directDelta["geometry_query"]==0&&directDelta["stl_export"]==0&&directDelta["source_build"]==0&&Convert.ToInt32(directCounts["mesh_prepare"])==0&&Convert.ToInt32(directCounts["mesh_simplification"])==0&&Convert.ToInt32(directCounts["mjcf_generation"])==1&&Convert.ToInt32(directCounts["mujoco_validation"])==1,"native production zero/zero/zero/one/one counts");
+    else Check(directDelta["source_build"]==1&&directDelta["stl_export"]==4,"cold native production exports four raw STL");
+    Check(!Directory.GetFiles(directory,"*.urdf",SearchOption.AllDirectories).Any(),"native-only fixture and cache contain no URDF");
+    return new{label,nativeOutput=directOutput,cad=directDelta,nativeBackend=directMetrics,nativeOnly=true};
+   }
    string output=Path.Combine(directory,label+"_mjcf","robot.xml");var lines=new List<string>();
    int code=PythonBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.Urdf,export.Sidecar,output,false,null,line=>{lines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
    Check(code==0,"native "+label+" export succeeds");export.MarkSucceeded();
@@ -107,5 +121,6 @@ public static class NativeIncrementalProbe {
  }
 }
 '@
+[NativeIncrementalProbe]::NativeOnly=$NativeOnly.IsPresent
 [NativeIncrementalProbe]::Run($directory)
 $directory | Set-Content -LiteralPath (Join-Path $root 'build\native-incremental-directory.txt')
