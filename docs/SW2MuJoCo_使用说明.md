@@ -150,3 +150,21 @@ CAD 实时预览仅显示选中非零启用条目的两点连线示意，不运�
 后端生成两 site 的 spatial tendon 与 general actuator：gear=1，gainprm=0，affine bias 的常数项为 pull 的 -F 或 push 的 +F，长度和速度项为 0；不添加 tendon 弹簧、阻尼或长度限位。恒力与 ctrl 值无关，不需要 Python 每步回调，标准 viewer 打开 XML 后即生效。生成名称分别为 sw2mujoco_tendon_<配置名> 和 sw2mujoco_force_<配置名>。
 
 每条启用配置会新增一个 general actuator，因此 model.nu 增加；这个控制槽的输入被忽略。外部控制脚本应按 actuator 名称定位关节执行器，避免假定所有控制槽都对应电机。原 joint 执行器的配置和按 actuator 引用选择的关节默认物理参数不变。
+
+## 两 site 弹簧（2.7）
+
+入口：仿真配置 → 两点作用力，添加条目并选择类型 spring。原有 pull / push 恒力功能保留。
+
+- 端点：选择两个属于不同 link 的已有 site，point/frame 均可，只使用位置；无需额外拾取。
+- 刚度 stiffness：单位 N/m，默认 0。
+- 阻尼 damping：单位 N·s/m，默认 0。
+- 自然长度：initial 取导出模型初始姿态下两 site 的距离；custom 时才显示自然长度输入，单位 m。首次自定义字段为 0.1 m，应根据实际弹簧填写。
+- 启用：默认开启；关闭时不生成该条目。刚度和阻尼均为 0 时不施力。
+
+沿两端连线，作用于端点二的标量力为 `-k(L-L0)-c*dL/dt`，端点一受等大反向力。拉伸产生拉力，压缩产生推力，偏心安装可产生力矩。当前是双向线性弹簧，未提供仅拉伸或仅压缩模式。例如 k=1000 N/m、c=2 N·s/m 可作为演示输入，不是所有机构的通用默认值。
+
+initial 在导出时计算实际初始距离并写为数值 springlength，不受另一套关节弹簧参考姿态影响；初始弹性力为零。custom 可设置预拉伸或预压缩。有效弹簧两端初始重合会阻止导出，运动中也应避免重合。
+
+后端生成原生 spatial tendon，使用 stiffness、damping、springlength，无长度限位、干摩擦或额外 actuator。无需 Python 每步回调，标准 MuJoCo viewer 即可运行。弹簧不会增加 model.nu。MJCF 仍只输出 XML 和引用的 meshes/STL；普通 URDF/STL 不变。
+
+CAD 实时预览仍是两点连线示意，不绘制弹簧线圈或运行物理仿真。类型和自然长度方式只更新相关字段，保留输入、无关控件和滚动位置。配置存于统一装配节点及可选 sim.json，复用稳定 site ID；保存配置后仍须保存装配并重新导出 MJCF。
