@@ -9,6 +9,9 @@ namespace SW2URDF.URDF
     [DataContract(IsReference = true, Namespace = "http://schemas.datacontract.org/2004/07/SW2URDF")]
     public class Joint : URDFElement
     {
+        [DataMember(IsRequired = false)]
+        private string stableId;
+        public string StableId { get { return stableId ?? (stableId = System.Guid.NewGuid().ToString("N")); } }
         public static readonly List<string> AvailableTypes = new List<string>
         {
             "revolute", "continuous", "prismatic", "fixed", "floating", "planar"
@@ -138,6 +141,7 @@ namespace SW2URDF.URDF
 
             // The base method already performs the type check, so we don't have to for this cast
             Joint joint = (Joint)externalElement;
+            stableId = joint.StableId;
 
             // These strings aren't kept as URDFAttribute objects and so they are tracked separately
             CoordinateSystemName = joint.CoordinateSystemName;

@@ -47,6 +47,8 @@ namespace SW2URDF.URDFExport
             "URDF Export Configuration (v1.3)",
             "URDF Export Configuration"
             };
+        public static LinkNode ReadTree(string data, double version)
+        { return version >= MinDataContractVersion ? DeserializeFromString(data) : LoadConfigFromStringXML(data); }
         public static void ValidateTreeData(string data,double version){
             if(string.IsNullOrWhiteSpace(data))return;
             if(version>SerializationVersion)throw new InvalidDataException("URDF 配置版本不支持："+version);
@@ -151,6 +153,8 @@ namespace SW2URDF.URDFExport
             }
 
             node.Link.Name = node.Name;
+            var linkIdentity = node.Link.StableId;
+            if (node.Link.Joint != null) { var jointIdentity = node.Link.Joint.StableId; }
 
             foreach (LinkNode child in node.Nodes)
             {

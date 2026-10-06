@@ -49,6 +49,7 @@ namespace SW2URDF.Simulation
     }
     public sealed class Attachment
     {
+        [Browsable(false)] public string link_id { get; set; }
         [Browsable(false)] public string id { get; set; } = Guid.NewGuid().ToString("N");
         public string name { get; set; } = "site";
         public string link { get; set; }
@@ -63,6 +64,8 @@ namespace SW2URDF.Simulation
 
     public sealed class ActuatorConfig
     {
+        [Browsable(false)] public string id { get; set; }
+        [Browsable(false)] public string joint_id { get; set; }
         public string name { get; set; } = "actuator";
         public string joint { get; set; }
         public string type { get; set; } = "motor";
@@ -77,6 +80,7 @@ namespace SW2URDF.Simulation
 
     public sealed class SensorConfig
     {
+        [Browsable(false)] public string id { get; set; }
         public string name { get; set; } = "sensor";
         [Browsable(false)] public string site_id { get; set; }
         public string site { get; set; }
@@ -89,6 +93,11 @@ namespace SW2URDF.Simulation
 
     public sealed class EqualityConfig
     {
+        [Browsable(false)] public string id { get; set; }
+        [Browsable(false)] public string joint1_id { get; set; }
+        [Browsable(false)] public string joint2_id { get; set; }
+        [Browsable(false)] public string body1_id { get; set; }
+        [Browsable(false)] public string body2_id { get; set; }
         public string name { get; set; } = "closure";
         [Browsable(false)] public string site1_id { get; set; }
         [Browsable(false)] public string site2_id { get; set; }
@@ -119,6 +128,7 @@ namespace SW2URDF.Simulation
 
     public sealed class SiteForceConfig
     {
+        [Browsable(false)] public string id { get; set; }
         public string name { get; set; } = "force";
         public string type { get; set; } = "pull";
         public bool enabled { get; set; } = true;

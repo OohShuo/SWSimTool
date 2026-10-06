@@ -330,6 +330,7 @@
     <Compile Include="Simulation\AttachmentService.cs" />
     <Compile Include="Simulation\CollisionConfiguration.cs" />
     <Compile Include="Simulation\SimulationStorage.cs" />
+    <Compile Include="Simulation\StableReferences.cs" />
     <Compile Include="Utilities\PerformanceScope.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
     <Compile Include="Simulation\ExportFingerprint.cs" />

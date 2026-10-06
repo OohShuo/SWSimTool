@@ -5,6 +5,7 @@ using System.Linq;
 
 namespace SW2URDF.Simulation {
  public sealed class JointConfiguration {
+  public string joint_id {get;set;}
   public string joint {get;set;}
   public string type {get;set;}="inherit";
   public double? damping {get;set;}
@@ -35,6 +36,7 @@ namespace SW2URDF.Simulation {
   static bool Finite(double value)=>!double.IsNaN(value)&&!double.IsInfinity(value);
  }
  public sealed class JointForceLimit {
+  public string joint_id {get;set;}
   public string joint {get;set;}
   public double? lower {get;set;}
   public double? upper {get;set;}

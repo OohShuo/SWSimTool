@@ -13,6 +13,7 @@ namespace SW2URDF.Simulation
     }
     public sealed class CollisionGeometry
     {
+        [Browsable(false)] public string link_id { get; set; }
         public string id { get; set; } = Guid.NewGuid().ToString("N");
         public string name { get; set; } = "collision";
         public string link { get; set; }
@@ -46,6 +47,8 @@ namespace SW2URDF.Simulation
     }
     public sealed class CollisionPair
     {
+        public string link1_id { get; set; }
+        public string link2_id { get; set; }
         public string link1 { get; set; }
         public string link2 { get; set; }
         public ConstraintSettings solver { get; set; }

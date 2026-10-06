@@ -11,6 +11,9 @@ namespace SW2URDF.URDF
     [DataContract(IsReference = true, Namespace = "http://schemas.datacontract.org/2004/07/SW2URDF")]
     public class Link : URDFElement//, ISerializable
     {
+        [DataMember(IsRequired = false)]
+        private string stableId;
+        public string StableId { get { return stableId ?? (stableId = System.Guid.NewGuid().ToString("N")); } }
         [DataMember]
         public Link Parent;
 
@@ -159,6 +162,7 @@ namespace SW2URDF.URDF
         public override void SetElement(URDFElement externalElement)
         {
             base.SetElement(externalElement);
+            stableId = ((Link)externalElement).StableId;
             SetSWComponents((Link)externalElement);
         }
 

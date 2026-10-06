@@ -48,8 +48,8 @@ namespace SW2URDF.Simulation {
    Entry e;return Read(model,attribute).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e:new Entry();
   }
   public static SimulationProject Load(ModelDoc2 model){Entry e;return Read(model).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e.simulation:null;}
-  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);e.urdf_xml=xml;e.urdf_version=version;Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
-  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var before=Current(d,model).simulation;Current(d,model).simulation=project;Write(app,model,d);SimulationSession.Applied(model,before,project);}
+  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);StableReferences.RemapModes(e.simulation,ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version),ConfigurationSerialization.ReadTree(xml,version));e.urdf_xml=xml;e.urdf_version=version;StableReferences.Normalize(e.simulation,ConfigurationSerialization.ReadTree(xml,version));Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
+  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;StableReferences.Normalize(project,ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version));entry.simulation=project;Write(app,model,d);SimulationSession.Applied(model,before,project);}
   static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry();return e;}
   static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SW2URDF.Utilities.PerformanceScope("storage.save")){
    int cadStamp=CadRevision.BeforeConfigurationWrite(model);
