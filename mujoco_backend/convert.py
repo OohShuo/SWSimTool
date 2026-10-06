@@ -1,4 +1,4 @@
-"""Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
+﻿"""Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
 
 CLI exports only MJCF XML and preprocessed STL copies under meshes/.
 Intermediate URDF and simulation snapshots remain in a temporary workspace.
@@ -120,6 +120,8 @@ def validate_urdf_tree(robot):
 
 
 def validate(config, robot):
+    from sites import normalize_site_references
+    normalize_site_references(config)
     validate_urdf_tree(robot)
     from solver import validate_solver
     validate_solver(config)
@@ -195,7 +197,8 @@ def resolve_meshes(robot, urdf, folder=None, preserve_paths=False, reject_root=N
         path = path.resolve()
         if reject_root is not None and path.is_relative_to(reject_root):
             raise ValueError(f'Output package must not contain an original input mesh: {path}')
-        files.setdefault(path, path.read_bytes())
+        if path not in files:
+            files[path] = path.read_bytes()
         if not preserve_paths:
             mesh.set("filename", str(path))
     if preserve_paths:
@@ -353,7 +356,7 @@ def package_output(urdf, output):
 
 def export_package(urdf, config_path, output, mesh_settings=None):
     """Compile in temporary storage; publish only XML and referenced STL meshes."""
-    from simplify_stl import simplify, triangles
+    from mesh_cache import prepare_mesh, link_or_copy, same_file_content, measured
     urdf = Path(urdf).resolve()
     config_path = Path(config_path).resolve() if config_path else None
     output = package_output(urdf, output)
@@ -372,7 +375,8 @@ def export_package(urdf, config_path, output, mesh_settings=None):
     sources = [m.get('filename') for m in robot.findall('.//mesh')]
     # ASCII asset paths keep native Windows and MuJoCo VFS access portable.
     stem = re.sub(r'[^a-zA-Z0-9_-]', '_', urdf.stem).strip('_') or 'robot'
-    assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
+    with measured('mesh_read'):
+        assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
     if any(Path(name).suffix.lower() != '.stl' for name in assets):
         raise ValueError('SW2MuJoCo export requires STL input meshes; export URDF with STL meshes first')
     aliases = [m.get('filename') for m in robot.findall('.//mesh')]
@@ -392,7 +396,8 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         workspace.mkdir()
         staged_root = Path(temporary) / root.name
         if root.exists():
-            shutil.copytree(root, staged_root)
+            with measured("stage_previous_package"):
+                shutil.copytree(root, staged_root, copy_function=link_or_copy)
         else:
             staged_root.mkdir()
         (workspace / 'meshes').mkdir()
@@ -400,17 +405,10 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         for name, data in assets.items():
             destination = workspace / name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(data)
-            if destination.suffix.lower() == '.stl':
-                before = len(triangles(destination))
-                if enabled:
-                    report = simplify(destination, maximum, settings.get('Backend', 'pymeshlab'), settings.get('Blender'))
-                else:
-                    report = dict(before=before, after=before, changed=False)
-                if not 1 <= report['after'] <= 200000:
-                    raise ValueError(f"STL '{provenance[name]}' has {report['after']} triangles. Enable preprocessing with a budget <= 200000 before MuJoCo loading.")
-            else:
-                report = dict(changed=False)
+            with measured('mesh_prepare'):
+                report = prepare_mesh(data, destination, settings)
+            if not 1 <= report['after'] <= 200000:
+                raise ValueError(f"STL '{provenance[name]}' has {report['after']} triangles. Enable preprocessing with a budget <= 200000 before MuJoCo loading.")
             report.update(file=name, source=provenance[name])
             reports.append(report)
         copy_urdf = workspace / urdf.name
@@ -434,7 +432,8 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         for report in reports:
             print('Mesh: ' + json.dumps(report, ensure_ascii=False), flush=True)
         print(f'Prepared {len(assets)} meshes; loading temporary URDF copy', flush=True)
-        model = convert(copy_urdf, copy_config, workspace / output.name, preserve_mesh_paths=True)
+        with measured("mujoco_compile"):
+            model = convert(copy_urdf, copy_config, workspace / output.name, preserve_mesh_paths=True)
         # Infer managed meshes from the previous XML, never from a directory-wide glob.
         managed = set()
         previous = staged_root / output.name
@@ -447,33 +446,38 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         wanted = {mesh.get('file') for mesh in final.findall('./asset/mesh')}
         for name in wanted:
             source, destination = workspace / name, staged_root / name
-            if destination.exists() and destination.resolve() not in managed and destination.read_bytes() != source.read_bytes():
+            if destination.exists() and destination.resolve() not in managed and not same_file_content(destination, source):
                 raise ValueError(f'Refusing to overwrite an unrelated mesh: {destination}')
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination)
+            if destination.exists():
+                destination.unlink() # Break staging hardlink before any write.
+            link_or_copy(source, destination)
         for path in managed - {(staged_root / name).resolve() for name in wanted}:
             if path.is_file():
                 path.unlink()
+        (staged_root / output.name).unlink(missing_ok=True)
         shutil.copyfile(workspace / output.name, staged_root / output.name)
-        load_mjcf(staged_root / output.name)
-        backup = root.parent / ('.' + root.name + '.previous-' + uuid.uuid4().hex)
-        existed = root.exists()
-        if existed:
-            os.replace(root, backup)
-        try:
-            os.replace(staged_root, root)
-        except Exception:
+        with measured("package_validation"):
+            load_mjcf(staged_root / output.name)
+        with measured('publish'):
+            backup = root.parent / ('.' + root.name + '.previous-' + uuid.uuid4().hex)
+            existed = root.exists()
             if existed:
-                os.replace(backup, root)
-            raise
-        if existed:
-            # Backup is a verified sibling created by this invocation only.
+                os.replace(root, backup)
             try:
-                if backup.resolve().parent != root.parent or not backup.name.startswith('.' + root.name + '.previous-'):
-                    raise RuntimeError('Refusing to remove an unexpected backup directory')
-                shutil.rmtree(backup)
-            except OSError as error:
-                print(f'Previous package retained at {backup}: {error}', flush=True)
+                os.replace(staged_root, root)
+            except Exception:
+                if existed:
+                    os.replace(backup, root)
+                raise
+            if existed:
+                # Backup is a verified sibling created by this invocation only.
+                try:
+                    if backup.resolve().parent != root.parent or not backup.name.startswith('.' + root.name + '.previous-'):
+                        raise RuntimeError('Refusing to remove an unexpected backup directory')
+                    shutil.rmtree(backup)
+                except OSError as error:
+                    print(f'Previous package retained at {backup}: {error}', flush=True)
     print(f'MJCF package saved: {output}', flush=True)
     return model
 

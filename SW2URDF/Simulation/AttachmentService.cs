@@ -29,6 +29,7 @@ namespace SW2URDF.Simulation
         }
         public void Save()
         {
+            Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
             Project.assembly = exporter.ActiveSWModel.GetPathName();
@@ -43,9 +44,11 @@ namespace SW2URDF.Simulation
             public string Type;
             public override string ToString() => Feature.Name + (Component == null ? "" : " <" + Component.Name2 + ">") + " [" + Type + "]";
         }
+        List<Source> cachedSources;string sourcesRevision;
         public List<Source> Sources()
         {
-            var result = new List<Source>();
+            string revision=CollisionRevision;if(cachedSources!=null&&sourcesRevision==revision)return new List<Source>(cachedSources);
+            using(var timing=new PerformanceScope("cad.sources_scan")){var result = new List<Source>();
             AddSources(result, exporter.ActiveSWModel, null);
             var assembly = exporter.ActiveSWModel as AssemblyDoc;
             if (assembly != null)
@@ -54,7 +57,7 @@ namespace SW2URDF.Simulation
                     var model = component.GetModelDoc2() as ModelDoc2;
                     if (model != null) AddSources(result, model, component);
                 }
-            return result;
+            cachedSources=result;sourcesRevision=revision;return new List<Source>(result);}
         }
         private static void AddSources(List<Source> sources, ModelDoc2 model, Component2 component)
         {
@@ -98,6 +101,7 @@ namespace SW2URDF.Simulation
         }
         public Dictionary<string, object> Export(string urdfPath)
         {
+            Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             var transforms = new Dictionary<string, Matrix<double>>();
             Link root = exporter.URDFRobot.BaseLink;
@@ -110,7 +114,7 @@ namespace SW2URDF.Simulation
                 if (string.IsNullOrWhiteSpace(attachment.name) || !names.Add(attachment.name)) throw new InvalidOperationException("Attachment names must be nonempty and unique.");
                 if (!transforms.TryGetValue(attachment.link, out Matrix<double> transform)) throw new InvalidOperationException("Unknown attachment link: " + attachment.link);
                 var relative = transform.Inverse() * Resolve(attachment);
-                var item = new Dictionary<string, object> { { "name", attachment.name }, { "link", attachment.link }, { "type", attachment.type }, { "xyz", MathOps.GetXYZ(relative) } };
+                var item = new Dictionary<string, object> { { "id", attachment.id }, { "name", attachment.name }, { "link", attachment.link }, { "type", attachment.type }, { "xyz", MathOps.GetXYZ(relative) } };
                 if (attachment.type == "frame") item.Add("rpy", MathOps.GetRPY(relative));
                 items.Add(item);
             }

@@ -12,9 +12,9 @@ import sys
 import tempfile
 
 
-def triangles(path):
+def triangles(path, data=None):
     import numpy as np
-    data = Path(path).read_bytes()
+    data = Path(path).read_bytes() if data is None else data
     if len(data) >= 84:
         count = struct.unpack_from('<I', data, 80)[0]
         if len(data) == 84 + 50 * count:
@@ -32,9 +32,9 @@ def triangles(path):
     return np.asarray(vertices, dtype=np.float64).reshape(-1, 3, 3)
 
 
-def indexed_mesh(path):
+def indexed_mesh(path, raw=None):
     import numpy as np
-    faces = triangles(path)
+    faces = triangles(path) if raw is None else raw
     if not len(faces) or not np.isfinite(faces).all():
         raise ValueError('STL contains no triangles or non-finite coordinates')
     # STL repeats vertex positions per triangle; exact welding is essential for edge collapse.
@@ -96,14 +96,14 @@ def blender_worker(source, destination, target):
         evaluated.to_mesh_clear()
 
 
-def simplify(source, maximum, backend, blender=None, output=None):
+def simplify(source, maximum, backend, blender=None, output=None, raw=None):
     if maximum < 4:
         raise ValueError('Maximum triangle count must be at least 4')
     if backend not in ('pymeshlab', 'fast-simplification', 'blender'):
         raise ValueError('Unknown simplification backend')
     source = Path(source).resolve()
     output = source if output is None else Path(output).resolve()
-    raw = triangles(source)
+    raw = triangles(source) if raw is None else raw
     count = len(raw)
     if count == 0:
         raise ValueError('Empty STL')
@@ -114,7 +114,7 @@ def simplify(source, maximum, backend, blender=None, output=None):
         print(f'SKIP: {source.name}: {count} <= {maximum}', flush=True)
         return dict(file=str(source), backend=backend, before=count, after=count, changed=False)
     print(f'SIMPLIFY: {source.name}: {count} -> <= {maximum} ({backend})', flush=True)
-    vertices, faces = indexed_mesh(source)
+    vertices, faces = indexed_mesh(source, raw)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Temporary files are on the destination volume so replacement is atomic.
     with tempfile.TemporaryDirectory(prefix='.sw2urdf-mesh-', dir=output.parent) as directory:

@@ -49,6 +49,7 @@ namespace SW2URDF.Simulation
     }
     public sealed class Attachment
     {
+        [Browsable(false)] public string id { get; set; } = Guid.NewGuid().ToString("N");
         public string name { get; set; } = "site";
         public string link { get; set; }
         public string type { get; set; }
@@ -77,6 +78,7 @@ namespace SW2URDF.Simulation
     public sealed class SensorConfig
     {
         public string name { get; set; } = "sensor";
+        [Browsable(false)] public string site_id { get; set; }
         public string site { get; set; }
         public string type { get; set; } = "imu";
         public double noise { get; set; }
@@ -88,6 +90,8 @@ namespace SW2URDF.Simulation
     public sealed class EqualityConfig
     {
         public string name { get; set; } = "closure";
+        [Browsable(false)] public string site1_id { get; set; }
+        [Browsable(false)] public string site2_id { get; set; }
         public string site1 { get; set; }
         public string site2 { get; set; }
         public string type { get; set; } = "connect";
@@ -130,6 +134,13 @@ namespace SW2URDF.Simulation
         public string base_mode { get; set; } = "inherit";
         public bool joint_defaults { get; set; } = true;
 
+        public void NormalizeSiteReferences(){
+            var ids=new HashSet<string>();foreach(var a in attachments){if(string.IsNullOrWhiteSpace(a.id))a.id=Guid.NewGuid().ToString("N");if(!ids.Add(a.id))throw new InvalidDataException("site 内部 ID 重复。");}
+            foreach(var sensor in sensors){var a=FindSite(sensor.site_id,sensor.site);if(a!=null){sensor.site_id=a.id;sensor.site=a.name;}}
+            foreach(var e in equalities.Where(e=>e.type!="joint"&&e.binding=="site")){var a=FindSite(e.site1_id,e.site1);var b=FindSite(e.site2_id,e.site2);if(a!=null){e.site1_id=a.id;e.site1=a.name;}if(b!=null){e.site2_id=b.id;e.site2=b.name;}}
+        }
+        Attachment FindSite(string id,string name){if(!string.IsNullOrEmpty(id)){var item=attachments.FirstOrDefault(a=>a.id==id);return item;}var matches=attachments.Where(a=>a.name==name).ToArray();if(matches.Length>1)throw new InvalidDataException("site 名称重复："+name);return matches.FirstOrDefault();}
+        public void RenameSite(Attachment item,string name){name=(name??"").Trim();if(string.IsNullOrWhiteSpace(name)||attachments.Any(a=>a!=item&&a.name==name))throw new InvalidDataException("site 名称不能为空或重复。");NormalizeSiteReferences();item.name=name;NormalizeSiteReferences();}
         public void ValidateSolver()
         {
             solver?.Validate();

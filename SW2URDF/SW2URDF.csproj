@@ -323,6 +323,7 @@
     <Compile Include="Simulation\AttachmentService.cs" />
     <Compile Include="Simulation\CollisionConfiguration.cs" />
     <Compile Include="Simulation\SimulationStorage.cs" />
+    <Compile Include="Utilities\PerformanceScope.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />
     <Compile Include="UI\SolverParametersControl.cs" />
@@ -543,6 +544,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\mujoco_backend\equalities.py"><Link>mujoco_backend\equalities.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="..\mujoco_backend\mesh_cache.py"><Link>mujoco_backend\mesh_cache.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="..\mujoco_backend\sites.py"><Link>mujoco_backend\sites.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\joints.py"><Link>mujoco_backend\joints.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\solver.py">
       <Link>mujoco_backend\solver.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -1,10 +1,11 @@
-using MathNet.Numerics.LinearAlgebra;
+﻿using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using SolidWorks.Interop.sldworks;
 using SW2URDF.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web.Script.Serialization;
 
 namespace SW2URDF.Simulation
 {
@@ -15,10 +16,14 @@ namespace SW2URDF.Simulation
         SW2URDF.URDF.LinkNode collisionTree;
         Dictionary<string, Matrix<double>> cachedFrames;
         string cachedRevision;
-        public string CollisionRevision => Model.ConfigurationManager.ActiveConfiguration.Name+":"+Model.GetUpdateStamp();
+        int cadGeneration;
+        public string CollisionRevision => Model.ConfigurationManager.ActiveConfiguration.Name+":"+Model.GetUpdateStamp()+(cadGeneration==0?"":":"+cadGeneration);
+        Dictionary<string,CollisionGeometry> resolvedGeometry;string geometryRevision;
+        public int GeometryResolutionCount {get;private set;}
+        public void InvalidateCADCache(){cadGeneration++;cachedFrames=null;cachedRevision=null;cachedSources=null;sourcesRevision=null;resolvedGeometry=null;geometryRevision=null;}
         public void SetCollisionTree(SW2URDF.URDF.LinkNode tree)
         {
-            collisionTree=tree; cachedFrames=null; cachedRevision=null;
+            collisionTree=tree;InvalidateCADCache();
         }
         public Dictionary<string, Matrix<double>> LinkTransforms()
         {
@@ -133,7 +138,13 @@ namespace SW2URDF.Simulation
             if(length<=1e-9)throw new InvalidOperationException("边线长度必须大于零。");
             return length;
         }
-        public void ResolveCollision(CollisionGeometry geometry)
+        public void ResolveCollision(CollisionGeometry geometry){
+            string revision=CollisionRevision;if(resolvedGeometry==null||geometryRevision!=revision){resolvedGeometry=new Dictionary<string,CollisionGeometry>();geometryRevision=revision;}
+            var serializer=new JavaScriptSerializer();string key=serializer.Serialize(geometry);CollisionGeometry saved;
+            if(!resolvedGeometry.TryGetValue(key,out saved)){GeometryResolutionCount++;using(var timing=new PerformanceScope("cad.resolve_collision"))ResolveCollisionCore(geometry);saved=serializer.Deserialize<CollisionGeometry>(serializer.Serialize(geometry));if(resolvedGeometry.Count>512)resolvedGeometry.Clear();resolvedGeometry[key]=saved;resolvedGeometry[serializer.Serialize(geometry)]=saved;return;}
+            geometry.xyz=(double[])saved.xyz.Clone();geometry.rpy=(double[])saved.rpy.Clone();geometry.size=(double[])saved.size.Clone();geometry.length_input=saved.length_input;geometry.thickness=saved.thickness;
+        }
+        void ResolveCollisionCore(CollisionGeometry geometry)
         {
             foreach(var entry in geometry.dimension_references??new Dictionary<string,CollisionReference>())
             {

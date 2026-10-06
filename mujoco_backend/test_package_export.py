@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import json
 import os
 from pathlib import Path
@@ -36,11 +36,14 @@ class PackageExportTests(unittest.TestCase):
         ET.SubElement(ET.SubElement(root_collision, 'geometry'), 'mesh', filename='a/same.stl')
         self.urdf.write_bytes(ET.tostring(robot))
         self.refresh_hash()
+        self.cache_env = patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(Path(self.temp.name) / 'cache')})
+        self.cache_env.start()
         self.settings = dict(Enabled=True, MaximumTriangles=128, Backend='fast-simplification')
     def refresh_hash(self):
         self.sidecar.write_text(json.dumps(dict(schema_version=1, units='m,rad', urdf=self.urdf.name,
             urdf_sha256=hashlib.sha256(self.urdf.read_bytes()).hexdigest(), attachments=[], actuators=[], sensors=[], equalities=[])))
     def tearDown(self):
+        self.cache_env.stop()
         self.temp.cleanup()
     def original_bytes(self):
         return [p.read_bytes() for p in [self.urdf, self.sidecar] + self.meshes]
@@ -74,16 +77,25 @@ class PackageExportTests(unittest.TestCase):
         (self.output.parent / 'notes.txt').write_text('keep unrelated files')
         before = {str(p.relative_to(self.output.parent)): p.read_bytes() for p in self.output.parent.rglob('*') if p.is_file()}
         originals = self.original_bytes()
-        with patch('simplify_stl.simplify', side_effect=RuntimeError('failed preprocessing')):
+        with patch('mesh_cache.simplify', side_effect=RuntimeError('failed preprocessing')):
             with self.assertRaisesRegex(RuntimeError, 'failed preprocessing'):
-                export_package(self.urdf, self.sidecar, self.output, self.settings)
+                export_package(self.urdf, self.sidecar, self.output, dict(self.settings, CacheEnabled=False))
         self.assertEqual(before, {str(p.relative_to(self.output.parent)): p.read_bytes() for p in self.output.parent.rglob('*') if p.is_file()})
         self.assertEqual(originals, self.original_bytes())
         export_package(self.urdf, self.sidecar, self.output, self.settings)
         self.assertEqual((self.output.parent / 'notes.txt').read_text(), 'keep unrelated files')
+    def test_staged_validation_failure_keeps_old_hardlinked_package(self):
+        export_package(self.urdf, self.sidecar, self.output, self.settings)
+        old = {str(p.relative_to(self.output.parent)): p.read_bytes() for p in self.output.parent.rglob('*') if p.is_file()}
+        changed = dict(self.settings, MaximumTriangles=64)
+        with patch('convert.load_mjcf', side_effect=RuntimeError('staged validation failure')):
+            with self.assertRaisesRegex(RuntimeError, 'staged validation failure'):
+                export_package(self.urdf, self.sidecar, self.output, changed)
+        self.assertEqual(old, {str(p.relative_to(self.output.parent)): p.read_bytes() for p in self.output.parent.rglob('*') if p.is_file()})
+
     def test_stale_pair_fails_before_preprocessing(self):
         self.urdf.write_bytes(self.urdf.read_bytes() + b'\n')
-        with patch('simplify_stl.simplify', side_effect=AssertionError('must not process')):
+        with patch('mesh_cache.simplify', side_effect=AssertionError('must not process')):
             with self.assertRaisesRegex(ValueError, 'changed'):
                 export_package(self.urdf, self.sidecar, self.output, self.settings)
         self.assertFalse(self.output.exists())

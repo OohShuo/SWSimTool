@@ -66,7 +66,7 @@ namespace SW2URDF.UI
             var geometryTab=new CollisionTabPage("几何体");var pairTab=new CollisionTabPage("碰撞对");tabs.TabPages.Add(geometryTab);tabs.TabPages.Add(pairTab);
             var geometry=Layout(geometryTab);var contacts=Layout(pairTab);
             var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};
-            var save=new Button{Text="保存到装配配置节点",AutoSize=true};footer.Controls.Add(save);status.AutoSize=true;status.MaximumSize=new Size(350,0);status.ForeColor=Color.DarkRed;footer.Controls.Add(status);Controls.Add(footer);
+            var refreshCAD=new Button{Text="刷新 CAD 参考",AutoSize=true};refreshCAD.Click+=(s,e)=>{service.InvalidateCADCache();refreshReferences=true;Schedule();};footer.Controls.Add(refreshCAD);var save=new Button{Text="保存到装配配置节点",AutoSize=true};footer.Controls.Add(save);status.AutoSize=true;status.MaximumSize=new Size(350,0);status.ForeColor=Color.DarkRed;footer.Controls.Add(status);Controls.Add(footer);
             var links=service.LinkTransforms().Keys.ToArray();link.Items.AddRange(links);pairA.Items.AddRange(links);pairB.Items.AddRange(links);
             Field(geometry,"所属 link",link);mode.Items.AddRange(new[]{"原网格","简单几何体","无碰撞"});Field(geometry,"碰撞模式",mode);
             list.Height=65;Add(geometry,list);var buttons=new FlowLayoutPanel{AutoSize=true};var create=new Button{Text="添加"};var remove=new Button{Text="删除"};buttons.Controls.Add(create);buttons.Controls.Add(remove);Add(geometry,buttons);
@@ -122,7 +122,8 @@ namespace SW2URDF.UI
         void Visible(Control c,bool visible){rows[c].Visible=visible;}
         void RefreshNames(){loading=true;int selected=list.SelectedIndex;for(int i=0;i<list.Items.Count;i++)list.Items[i]=list.Items[i];list.SelectedIndex=selected;loading=false;}
         void RefreshList(CollisionGeometry select=null){loading=true;displayedLink=(string)link.SelectedItem;list.Items.Clear();foreach(var g in draft.collision.geometries.Where(g=>g.link==displayedLink))list.Items.Add(g);string m;draft.collision.link_modes.TryGetValue(displayedLink,out m);mode.SelectedIndex=m=="primitive"?1:m=="none"?2:0;list.SelectedItem=select??list.Items.Cast<CollisionGeometry>().FirstOrDefault();current=list.SelectedItem as CollisionGeometry;loading=false;LoadCurrent();}
-        void LoadCurrent(){
+        void LoadCurrent(){JointEditorControl.PreserveScroll(this,LoadCurrentCore);}
+  void LoadCurrentCore(){
             loading=true;armed=-1;armedDimension=null;definition.Items.Clear();
             var choices=new List<Choice>{new Choice{Key="manual",Label="手动位姿与尺寸"},new Choice{Key="frame",Label="中心坐标系 + 尺寸"},new Choice{Key="center",Label="中心点 + link 方向"},new Choice{Key="center_frame",Label="中心点 + 方向坐标系"}};
             if(current!=null){
@@ -179,11 +180,13 @@ namespace SW2URDF.UI
             current.size=candidate.size;current.xyz=candidate.xyz;current.rpy=candidate.rpy;current.offset_xyz=candidate.offset_xyz;current.offset_rpy=candidate.offset_rpy;current.length_input=candidate.length_input;current.thickness=candidate.thickness;current.extrusion=candidate.extrusion;current.axis=candidate.axis;current.axis_sign=candidate.axis_sign;current.corner_signs=candidate.corner_signs;
             loading=true;for(int i=0;i<current.size.Length;i++)if(current.dimension_references.ContainsKey("size"+i))size[i].Text=(current.size[i]*1000).ToString("G12",CultureInfo.InvariantCulture);if(current.dimension_references.ContainsKey("total"))total.Text=(current.length_input*1000).ToString("G12",CultureInfo.InvariantCulture);if(current.dimension_references.ContainsKey("thickness"))thickness.Text=(current.thickness*1000).ToString("G12",CultureInfo.InvariantCulture);loading=false;
         }
+        string previewKey;
         void UpdatePreview(bool cadChanged){
             cadChanged|=refreshReferences;refreshReferences=false;
             string error=null;try{ReadCurrent();}catch(Exception ex){error=ex.Message;}
             if(cadChanged)foreach(var g in draft.collision.geometries.Where(g=>g!=current))try{service.ResolveCollision(g);}catch(Exception ex){error=ex.Message;}
-            try{if(show.Checked)preview.Show(draft.collision.geometries,current?.id);else preview.Clear();}catch(Exception ex){error=ex.Message;}
+            string key=service.CollisionRevision+new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new{draft.collision.geometries,selected=current?.id});
+            try{if(show.Checked){if(cadChanged||key!=previewKey){preview.Show(draft.collision.geometries,current?.id);previewKey=error==null?key:null;}}else{preview.Clear();previewKey=null;}}catch(Exception ex){error=ex.Message;}
             status.Text=error??"预览已更新；保存配置后仍需保存装配文件。";
         }
         void RefreshPairs(){pairs.Items.Clear();foreach(var p in draft.collision.allowed_pairs)pairs.Items.Add(p);if(pairs.Items.Count>0)pairs.SelectedIndex=0;}

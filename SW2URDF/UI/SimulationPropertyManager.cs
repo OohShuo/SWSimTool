@@ -27,13 +27,13 @@ namespace SW2URDF.UI
             int error=0;
             page=(PropertyManagerPage2)service.App.CreatePropertyManagerPage(title,(int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton,this,ref error);
             if(page==null||error!=0)throw new InvalidOperationException("无法创建左侧配置页面："+error);
-            selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
+            if(!constraintsOnly){selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
             selection.SingleEntityOnly=true;
-            selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES});
+            selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES});}
             var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,title,0,3,"");
             window.Height=270;
             editor=new SimulationEditorControl(service,selectedLink,joints,constraintsOnly);
-            editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
+            if(!constraintsOnly)editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
             window.SetWindowHandlex64(editor.Handle.ToInt64());
         }
         public void Show(){page.Show2(0);}
