@@ -1,4 +1,4 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 using SolidWorks.Interop.sldworks;
 using SW2URDF.URDF;
 using SW2URDF.URDFExport;
@@ -38,16 +38,20 @@ namespace SW2URDF.Simulation
         }
         public sealed class Source
         {
-            public ModelDoc2 Model;
-            public Component2 Component;
-            public Feature Feature;
-            public string Type;
-            public override string ToString() => Feature.Name + (Component == null ? "" : " <" + Component.Name2 + ">") + " [" + Type + "]";
+            public string Name {get;set;}
+            public string ComponentName {get;set;}
+            public string SourceId {get;set;}
+            public string ComponentId {get;set;}
+            public string Type {get;set;}
+            public override string ToString() => Name + (string.IsNullOrEmpty(ComponentName) ? "" : " <" + ComponentName + ">") + " [" + Type + "]";
         }
         List<Source> cachedSources;string sourcesRevision;
         public List<Source> Sources()
         {
             string revision=CollisionRevision;if(cachedSources!=null&&sourcesRevision==revision)return new List<Source>(cachedSources);
+            var result=CadSnapshotCache.Get(Model).Resolve("sources",()=>ScanSources());cachedSources=result;sourcesRevision=revision;return new List<Source>(result);
+        }
+        List<Source> ScanSources(){
             using(var timing=new PerformanceScope("cad.sources_scan")){var result = new List<Source>();
             AddSources(result, exporter.ActiveSWModel, null);
             var assembly = exporter.ActiveSWModel as AssemblyDoc;
@@ -57,25 +61,32 @@ namespace SW2URDF.Simulation
                     var model = component.GetModelDoc2() as ModelDoc2;
                     if (model != null) AddSources(result, model, component);
                 }
-            cachedSources=result;sourcesRevision=revision;return new List<Source>(result);}
+            return result;}
         }
-        private static void AddSources(List<Source> sources, ModelDoc2 model, Component2 component)
+        private void AddSources(List<Source> sources, ModelDoc2 model, Component2 component)
         {
             for (Feature feature = model.FirstFeature(); feature != null; feature = feature.GetNextFeature())
             {
                 string type = feature.GetTypeName2();
                 if (type == "CoordSys" || type == "RefPoint")
-                    sources.Add(new Source { Model = model, Component = component, Feature = feature, Type = type == "CoordSys" ? "frame" : "point" });
+                    sources.Add(new Source { Name=feature.Name, ComponentName=component?.Name2,
+                        SourceId=model.Extension==null?null:PersistentId(model.Extension.GetPersistReference3(feature)),
+                        ComponentId=component==null?null:PersistentId(Model.Extension.GetPersistReference3(component)), Type = type == "CoordSys" ? "frame" : "point" });
             }
         }
+        static string PersistentId(object value){var data=value as byte[];return data==null?null:Convert.ToBase64String(data);}
         public Attachment Capture(Source source, string link, string name)
         {
-            return new Attachment { name = name, link = link, type = source.Type, source_name = source.Feature.Name,
-                source_pid = Convert.ToBase64String((byte[])source.Model.Extension.GetPersistReference3(source.Feature)),
-                component_pid = source.Component == null ? null : Convert.ToBase64String((byte[])exporter.ActiveSWModel.Extension.GetPersistReference3(source.Component)),
-                component_name = source.Component?.Name2 };
+            if(string.IsNullOrEmpty(source.SourceId))throw new InvalidOperationException("参考不支持持久引用，请重新拾取。");
+            return new Attachment { name = name, link = link, type = source.Type, source_name = source.Name,
+                source_pid = source.SourceId,component_pid = source.ComponentId,component_name = source.ComponentName };
         }
         private Matrix<double> Resolve(Attachment attachment)
+        {
+            var values=CadSnapshotCache.Get(Model).Resolve("attachment:"+ExportFingerprint.Hash(attachment),()=>ResolveCore(attachment).ToRowMajorArray());
+            return Matrix<double>.Build.DenseOfRowMajor(4,4,values);
+        }
+        private Matrix<double> ResolveCore(Attachment attachment)
         {
             if(attachment.reference!=null)return ReferenceFrame(attachment.reference,attachment.type=="frame");
             ModelDoc2 model = exporter.ActiveSWModel;
@@ -104,9 +115,11 @@ namespace SW2URDF.Simulation
             Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             var transforms = new Dictionary<string, Matrix<double>>();
-            Link root = exporter.URDFRobot.BaseLink;
-            var global = MathOps.GetTransformation(exporter.AttachmentCoordinateTransform(root.Joint.CoordinateSystemName));
-            AddTransforms(root, global, transforms);
+            if(exportFrames!=null)transforms=LinkTransforms();
+            else{SetCollisionTree(null);Link root = exporter.URDFRobot.BaseLink;
+                var global = MathOps.GetTransformation(exporter.AttachmentCoordinateTransform(root.Joint.CoordinateSystemName));
+                AddTransforms(root, global, transforms);}
+
             var items = new List<Dictionary<string, object>>();
             var names = new HashSet<string>();
             foreach (var attachment in Project.attachments)
@@ -121,7 +134,7 @@ namespace SW2URDF.Simulation
             // Newly exported sidecars use the safe internal-collision default;
             // already exported legacy sidecars remain unchanged on disk.
             Project.collision = Project.collision ?? new CollisionConfiguration();
-            SetCollisionTree(null); // Resolve against the actual exported robot, including generated frames.
+            // The caller chooses the configured tree or actual exported robot frames.
             foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
 
             Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;

@@ -1,4 +1,4 @@
-﻿"""Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
+"""Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
 
 CLI exports only MJCF XML and preprocessed STL copies under meshes/.
 Intermediate URDF and simulation snapshots remain in a temporary workspace.
@@ -243,7 +243,7 @@ def load_mjcf(path):
         return mujoco.MjModel.from_xml_string(xml, **options)
 
 
-def convert(urdf, config_path, output, preserve_mesh_paths=False):
+def convert(urdf, config_path, output, preserve_mesh_paths=False, base_xml_path=None, validate_output=True):
     mujoco = load_runtime()
     urdf, config_path, output = Path(urdf).resolve(), Path(config_path).resolve(), Path(output).resolve()
     if output in (urdf, config_path):
@@ -266,27 +266,36 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
     compiler.set("fusestatic", "false")
     compiler.set("discardvisual", "false")
     compiler.set("strippath", "false")
-    with asset_options(mujoco, assets) as options:
-        spec = mujoco.MjSpec.from_string(ET.tostring(robot, encoding="unicode"), **options)
-        if not callable(getattr(spec, "compile", None)) or not callable(getattr(spec, "to_xml", None)):
-            raise RuntimeError("The local MuJoCo lacks required MjSpec.compile / to_xml APIs")
-        spec.compile(**({"vfs": options["vfs"]} if "vfs" in options else {}))
-        # to_xml() recompiles internally without accepting a VFS argument.
-        # Keep the byte assets on the spec for that serialization pass.
-        if assets:
-            spec.assets = assets
-        compiled_xml = spec.to_xml()
+    from incremental import count
+    if base_xml_path is not None and Path(base_xml_path).is_file():
+        compiled_xml = Path(base_xml_path).read_text(encoding='utf-8')
+    else:
+        count('base_generation')
+        with asset_options(mujoco, assets) as options:
+            spec = mujoco.MjSpec.from_string(ET.tostring(robot, encoding="unicode"), **options)
+            if not callable(getattr(spec, "compile", None)) or not callable(getattr(spec, "to_xml", None)):
+                raise RuntimeError("The local MuJoCo lacks required MjSpec.compile / to_xml APIs")
+            spec.compile(**({"vfs": options["vfs"]} if "vfs" in options else {}))
+            # to_xml() recompiles internally without accepting a VFS argument.
+            # Keep the byte assets on the spec for that serialization pass.
+            if assets:
+                spec.assets = assets
+            compiled_xml = spec.to_xml()
+        if base_xml_path is not None:
+            Path(base_xml_path).write_text(compiled_xml, encoding='utf-8')
+    count('mjcf_generation')
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
-        mjcf = ET.fromstring(compiled_xml)
+        from robot_model import RobotModel
+        source_model = RobotModel.from_urdf(robot, compiled_xml)
+        mjcf = source_model.template()
         from joints import apply_joints, apply_base
         apply_joints(mjcf, config)
         from solver import apply_options, effective
         apply_options(mjcf, config)
         bodies = {body.attrib["name"]: body for body in mjcf.findall(".//body") if "name" in body.attrib}
         # MuJoCo may place the fixed URDF root directly in worldbody.
-        child_names = {joint.find("child").attrib["link"] for joint in robot.findall("joint")}
-        roots = {link.attrib["name"] for link in robot.findall("link")} - child_names
+        roots = source_model.roots
         for root_name in roots:
             bodies.setdefault(root_name, mjcf.find("worldbody"))
         apply_base(mjcf, config, roots, bodies)
@@ -335,22 +344,27 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         apply_site_forces(mjcf, config)
 
         xml = ET.tostring(mjcf, encoding="unicode")
-        with asset_options(mujoco, assets) as options:
-            final_model = mujoco.MjModel.from_xml_string(xml, **options)
-        from site_forces import resolve_initial_spring_lengths
-        resolve_initial_spring_lengths(mjcf, final_model, config)
-        validate_initial_force_directions(final_model, config)
+        final_model = None
+        if validate_output:
+            count('mujoco_validation')
+            with asset_options(mujoco, assets) as options:
+                final_model = mujoco.MjModel.from_xml_string(xml, **options)
+            from site_forces import resolve_initial_spring_lengths
+            resolve_initial_spring_lengths(mjcf, final_model, config)
+            validate_initial_force_directions(final_model, config)
         # Compile first; failed conversions leave the previous output intact.
         for name, data in assets.items():
             asset_path = output.parent / name
             asset_path.parent.mkdir(parents=True, exist_ok=True)
+            asset_path.unlink(missing_ok=True) # Never write through a prepared-cache hardlink.
             asset_path.write_bytes(data)
         staged = Path(temporary) / "final.xml"
         ET.indent(mjcf)
         staged.write_bytes(ET.tostring(mjcf, encoding="utf-8", xml_declaration=True))
         staged.replace(output)
     print(f"MJCF saved: {output}")
-    print(f"Sites={final_model.nsite}, actuators={final_model.nu}, sensors={final_model.nsensor}, equalities={final_model.neq}")
+    if final_model is not None:
+        print(f"Sites={final_model.nsite}, actuators={final_model.nu}, sensors={final_model.nsensor}, equalities={final_model.neq}")
     return final_model
 
 
@@ -362,6 +376,12 @@ def package_output(urdf, output):
 
 
 def export_package(urdf, config_path, output, mesh_settings=None):
+    from incremental import export_metrics
+    with export_metrics():
+        return _export_package(urdf, config_path, output, mesh_settings)
+
+
+def _export_package(urdf, config_path, output, mesh_settings=None):
     """Compile in temporary storage; publish only XML and referenced STL meshes."""
     from mesh_cache import prepare_mesh, link_or_copy, same_file_content, measured
     urdf = Path(urdf).resolve()
@@ -382,12 +402,6 @@ def export_package(urdf, config_path, output, mesh_settings=None):
     sources = [m.get('filename') for m in robot.findall('.//mesh')]
     # ASCII asset paths keep native Windows and MuJoCo VFS access portable.
     stem = re.sub(r'[^a-zA-Z0-9_-]', '_', urdf.stem).strip('_') or 'robot'
-    with measured('mesh_read'):
-        assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
-    if any(Path(name).suffix.lower() != '.stl' for name in assets):
-        raise ValueError('SW2MuJoCo export requires STL input meshes; export URDF with STL meshes first')
-    aliases = [m.get('filename') for m in robot.findall('.//mesh')]
-    provenance = dict(zip(aliases, sources))
     settings = mesh_settings or {}
     enabled = bool(settings.get('Enabled', False))
     maximum = int(settings.get('MaximumTriangles', 200000))
@@ -407,40 +421,68 @@ def export_package(urdf, config_path, output, mesh_settings=None):
                 shutil.copytree(root, staged_root, copy_function=link_or_copy)
         else:
             staged_root.mkdir()
-        (workspace / 'meshes').mkdir()
-        reports = []
-        for name, data in assets.items():
-            destination = workspace / name
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with measured('mesh_prepare'):
-                report = prepare_mesh(data, destination, settings)
-            if not 1 <= report['after'] <= 200000:
-                raise ValueError(f"STL '{provenance[name]}' has {report['after']} triangles. Enable preprocessing with a budget <= 200000 before MuJoCo loading.")
-            report.update(file=name, source=provenance[name])
-            reports.append(report)
+        from incremental import PreparedInputs, ProcessedMesh, count, stage
+        pending_meshes = []
+        prepared = PreparedInputs(urdf, robot, original, settings, root, config)
+        restored = prepared.restore(workspace)
+        (workspace / ".internal").mkdir(exist_ok=True)
         copy_urdf = workspace / urdf.name
-        extension = robot.find('mujoco')
-        if extension is None:
-            extension = ET.SubElement(robot, 'mujoco')
-        compiler = extension.find('compiler')
-        if compiler is None:
-            compiler = ET.SubElement(extension, 'compiler')
-        compiler.set('fusestatic', 'false')
-        compiler.set('discardvisual', 'false')
-        compiler.set('strippath', 'false')
-        # Original package-level meshdir must not override our rewritten references.
-        compiler.attrib.pop('meshdir', None)
-        ET.indent(robot)
-        copy_urdf.write_bytes(ET.tostring(robot, encoding='utf-8', xml_declaration=True))
+        if restored is not None:
+            reports = restored['reports']
+            # Preserve the original URDF filename for sidecar matching.
+            shutil.copyfile(workspace / '.internal' / 'source.urdf', copy_urdf)
+            print('Export plan: reuse prepared meshes and base model', flush=True)
+        else:
+            with measured('mesh_read'):
+                assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
+            if any(Path(name).suffix.lower() != '.stl' for name in assets):
+                raise ValueError('SW2MuJoCo export requires STL input meshes; export URDF with STL meshes first')
+            aliases = [m.get('filename') for m in robot.findall('.//mesh')]
+            provenance = dict(zip(aliases, sources))
+            (workspace / 'meshes').mkdir()
+            reports = []
+            for name, data in assets.items():
+                destination = workspace / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                processed=ProcessedMesh(data,prepared.fingerprints['mesh_process'],prepared.enabled)
+                report=processed.restore(destination)
+                if report is not None and enabled and report["after"]>maximum:
+                    destination.unlink(missing_ok=True)
+                    report=None
+                if report is None:
+                    count('mesh_prepare')
+                    with measured('mesh_prepare'):
+                        report = prepare_mesh(data, destination, settings)
+                    pending_meshes.append((processed,name,report))
+                if not 1 <= report['after'] <= 200000:
+                    raise ValueError(f"STL '{provenance[name]}' has {report['after']} triangles. Enable preprocessing with a budget <= 200000 before MuJoCo loading.")
+                report.update(file=name, source=provenance[name])
+                reports.append(report)
+            extension = robot.find('mujoco')
+            if extension is None:
+                extension = ET.SubElement(robot, 'mujoco')
+            compiler = extension.find('compiler')
+            if compiler is None:
+                compiler = ET.SubElement(extension, 'compiler')
+            compiler.set('fusestatic', 'false')
+            compiler.set('discardvisual', 'false')
+            compiler.set('strippath', 'false')
+            # Original package-level meshdir must not override our rewritten references.
+            compiler.attrib.pop('meshdir', None)
+            ET.indent(robot)
+            copy_urdf.write_bytes(ET.tostring(robot, encoding='utf-8', xml_declaration=True))
+            shutil.copyfile(copy_urdf, workspace / '.internal' / 'source.urdf')
+            print('Export plan: build prepared meshes and base model', flush=True)
         config['urdf'] = copy_urdf.name
         config['urdf_sha256'] = hashlib.sha256(copy_urdf.read_bytes()).hexdigest()
         copy_config = workspace / (urdf.stem + '.sim.json')
         copy_config.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
         for report in reports:
             print('Mesh: ' + json.dumps(report, ensure_ascii=False), flush=True)
-        print(f'Prepared {len(assets)} meshes; loading temporary URDF copy', flush=True)
+        print(f'Prepared {len(reports)} meshes; loading temporary URDF copy', flush=True)
         with measured("mujoco_compile"):
-            model = convert(copy_urdf, copy_config, workspace / output.name, preserve_mesh_paths=True)
+            model = convert(copy_urdf, copy_config, workspace / output.name, preserve_mesh_paths=True,
+                base_xml_path=workspace / ".internal" / "base.xml", validate_output=False)
         # Infer managed meshes from the previous XML, never from a directory-wide glob.
         managed = set()
         previous = staged_root / output.name
@@ -465,7 +507,16 @@ def export_package(urdf, config_path, output, mesh_settings=None):
         (staged_root / output.name).unlink(missing_ok=True)
         shutil.copyfile(workspace / output.name, staged_root / output.name)
         with measured("package_validation"):
-            load_mjcf(staged_root / output.name)
+            count('mujoco_validation')
+            model = load_mjcf(staged_root / output.name)
+            from site_forces import resolve_initial_spring_lengths, validate_initial_force_directions
+            resolved = ET.parse(staged_root / output.name)
+            resolve_initial_spring_lengths(resolved.getroot(), model, config)
+            validate_initial_force_directions(model, config)
+            resolved.write(staged_root / output.name, encoding='utf-8', xml_declaration=True)
+        prepared.verify_sources()
+        if urdf.read_bytes()!=original:
+            raise ValueError('URDF changed during export; retry from a consistent snapshot')
         with measured('publish'):
             backup = root.parent / ('.' + root.name + '.previous-' + uuid.uuid4().hex)
             existed = root.exists()
@@ -485,6 +536,9 @@ def export_package(urdf, config_path, output, mesh_settings=None):
                     shutil.rmtree(backup)
                 except OSError as error:
                     print(f'Previous package retained at {backup}: {error}', flush=True)
+        for processed,name,report in pending_meshes:
+            processed.save(workspace/name,report)
+        prepared.save(workspace, reports)
     print(f'MJCF package saved: {output}', flush=True)
     return model
 

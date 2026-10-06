@@ -1,4 +1,4 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using SolidWorks.Interop.sldworks;
 using SW2URDF.Utilities;
@@ -16,17 +16,20 @@ namespace SW2URDF.Simulation
         SW2URDF.URDF.LinkNode collisionTree;
         Dictionary<string, Matrix<double>> cachedFrames;
         string cachedRevision;
+        Dictionary<string,Matrix<double>> exportFrames;
+        public void UseExportFrames(Dictionary<string,double[]> frames){exportFrames=frames.ToDictionary(x=>x.Key,x=>Matrix<double>.Build.DenseOfRowMajor(4,4,x.Value));}
         int cadGeneration;
-        public string CollisionRevision => Model.ConfigurationManager.ActiveConfiguration.Name+":"+Model.GetUpdateStamp()+(cadGeneration==0?"":":"+cadGeneration);
+        public string CollisionRevision => CadRevision.Get(Model)+":"+cadGeneration;
         Dictionary<string,CollisionGeometry> resolvedGeometry;string geometryRevision;
         public int GeometryResolutionCount {get;private set;}
-        public void InvalidateCADCache(){cadGeneration++;cachedFrames=null;cachedRevision=null;cachedSources=null;sourcesRevision=null;resolvedGeometry=null;geometryRevision=null;}
+        public void InvalidateCADCache(bool invalidateDocument=true){if(invalidateDocument)CadRevision.Invalidate(Model);cadGeneration++;cachedFrames=null;cachedRevision=null;cachedSources=null;sourcesRevision=null;resolvedGeometry=null;geometryRevision=null;}
         public void SetCollisionTree(SW2URDF.URDF.LinkNode tree)
         {
-            collisionTree=tree;InvalidateCADCache();
+            collisionTree=tree;InvalidateCADCache(false);
         }
         public Dictionary<string, Matrix<double>> LinkTransforms()
         {
+            if(exportFrames!=null)return exportFrames;
             if(collisionTree!=null)
             {
                 string revision=CollisionRevision;
@@ -37,10 +40,9 @@ namespace SW2URDF.Simulation
                     string name=node.Link.Joint.CoordinateSystemName;
                     if(string.IsNullOrWhiteSpace(name)||name=="Automatically Generate")
                         throw new InvalidOperationException("link "+node.Link.Name+" 尚未指定坐标系。请先指定已有坐标系；碰撞编辑不会自动推断关节或创建参考特征。");
-                    var transform=exporter.AttachmentCoordinateTransform(name);
-                    if(transform==null)throw new InvalidOperationException("link "+node.Link.Name+" 的坐标系不存在："+name);
+                    var transformData=CadSnapshotCache.Get(Model).Resolve("coordinate:"+name,()=>{var transform=exporter.AttachmentCoordinateTransform(name);if(transform==null)throw new InvalidOperationException("link "+node.Link.Name+" 的坐标系不存在："+name);return MathOps.GetTransformation(transform).ToRowMajorArray();});
                     if(values.ContainsKey(node.Link.Name))throw new InvalidOperationException("link 名称重复："+node.Link.Name);
-                    values.Add(node.Link.Name,MathOps.GetTransformation(transform));
+                    values.Add(node.Link.Name,Matrix<double>.Build.DenseOfRowMajor(4,4,transformData));
                     foreach(SW2URDF.URDF.LinkNode child in node.Nodes)visit(child);
                 };
                 visit(collisionTree);cachedFrames=values;cachedRevision=revision;return values;
@@ -82,6 +84,11 @@ namespace SW2URDF.Simulation
             return value;
         }
         Matrix<double> ReferenceFrame(CollisionReference reference, bool oriented = false)
+        {
+            var values=CadSnapshotCache.Get(Model).Resolve("frame:"+ExportFingerprint.Hash(new{reference,oriented}),()=>ReferenceFrameCore(reference,oriented).ToRowMajorArray());
+            return Matrix<double>.Build.DenseOfRowMajor(4,4,values);
+        }
+        Matrix<double> ReferenceFrameCore(CollisionReference reference, bool oriented)
         {
             Matrix<double> placement;
             var value = ResolveReference(reference, out placement);
@@ -128,6 +135,8 @@ namespace SW2URDF.Simulation
             return frame;
         }
         public double ReferenceEdgeLength(CollisionReference reference)
+        {return CadSnapshotCache.Get(Model).Resolve("edge:"+ExportFingerprint.Hash(reference),()=>ReferenceEdgeLengthCore(reference));}
+        double ReferenceEdgeLengthCore(CollisionReference reference)
         {
             Matrix<double> placement;
             var edge=ResolveReference(reference,out placement) as Edge;
@@ -141,7 +150,7 @@ namespace SW2URDF.Simulation
         public void ResolveCollision(CollisionGeometry geometry){
             string revision=CollisionRevision;if(resolvedGeometry==null||geometryRevision!=revision){resolvedGeometry=new Dictionary<string,CollisionGeometry>();geometryRevision=revision;}
             var serializer=new JavaScriptSerializer();string key=serializer.Serialize(geometry);CollisionGeometry saved;
-            if(!resolvedGeometry.TryGetValue(key,out saved)){GeometryResolutionCount++;using(var timing=new PerformanceScope("cad.resolve_collision"))ResolveCollisionCore(geometry);saved=serializer.Deserialize<CollisionGeometry>(serializer.Serialize(geometry));if(resolvedGeometry.Count>512)resolvedGeometry.Clear();resolvedGeometry[key]=saved;resolvedGeometry[serializer.Serialize(geometry)]=saved;return;}
+            if(!resolvedGeometry.TryGetValue(key,out saved)){GeometryResolutionCount++;using(var timing=new PerformanceScope("cad.resolve_collision")){var frameData=LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray());saved=CadSnapshotCache.Get(Model).Resolve("collision:"+ExportFingerprint.Hash(new{geometry,frames=frameData}),()=>{var copy=serializer.Deserialize<CollisionGeometry>(serializer.Serialize(geometry));ResolveCollisionCore(copy);return copy;});geometry.xyz=(double[])saved.xyz.Clone();geometry.rpy=(double[])saved.rpy.Clone();geometry.size=(double[])saved.size.Clone();geometry.length_input=saved.length_input;geometry.thickness=saved.thickness;}if(resolvedGeometry.Count>512)resolvedGeometry.Clear();resolvedGeometry[key]=saved;resolvedGeometry[serializer.Serialize(geometry)]=saved;return;}
             geometry.xyz=(double[])saved.xyz.Clone();geometry.rpy=(double[])saved.rpy.Clone();geometry.size=(double[])saved.size.Clone();geometry.length_input=saved.length_input;geometry.thickness=saved.thickness;
         }
         void ResolveCollisionCore(CollisionGeometry geometry)

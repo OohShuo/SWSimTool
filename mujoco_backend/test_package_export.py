@@ -36,7 +36,7 @@ class PackageExportTests(unittest.TestCase):
         ET.SubElement(ET.SubElement(root_collision, 'geometry'), 'mesh', filename='a/same.stl')
         self.urdf.write_bytes(ET.tostring(robot))
         self.refresh_hash()
-        self.cache_env = patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(Path(self.temp.name) / 'cache')})
+        self.cache_env = patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(Path(self.temp.name) / 'mesh-cache'), 'SW2MUJOCO_CACHE': str(Path(self.temp.name) / 'cache')})
         self.cache_env.start()
         self.settings = dict(Enabled=True, MaximumTriangles=128, Backend='fast-simplification')
     def refresh_hash(self):

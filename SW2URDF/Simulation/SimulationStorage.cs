@@ -1,4 +1,4 @@
-﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SW2URDF.URDFExport;
 using System;
@@ -48,10 +48,11 @@ namespace SW2URDF.Simulation {
    Entry e;return Read(model,attribute).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e:new Entry();
   }
   public static SimulationProject Load(ModelDoc2 model){Entry e;return Read(model).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e.simulation:null;}
-  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);e.urdf_xml=xml;e.urdf_version=version;Write(app,model,d);}
-  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);Current(d,model).simulation=project;Write(app,model,d);}
+  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);e.urdf_xml=xml;e.urdf_version=version;Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
+  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var before=Current(d,model).simulation;Current(d,model).simulation=project;Write(app,model,d);SimulationSession.Applied(model,before,project);}
   static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry();return e;}
   static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SW2URDF.Utilities.PerformanceScope("storage.save")){
+   int cadStamp=CadRevision.BeforeConfigurationWrite(model);
    ValidateDocument(d);string data=Serializer().Serialize(d);
    var a=Find(model,NodeName);bool created=a==null;string previous=null;
    if(created){var def=(AttributeDef)app.DefineAttribute(NodeName);def.AddParameter("data",(int)swParamType_e.swParamTypeString,0,0);def.Register();a=def.CreateInstance5(model,null,NodeName,0,(int)swInConfigurationOpts_e.swAllConfiguration);if(a==null)throw new IOException("无法创建统一配置节点。");}
@@ -66,6 +67,7 @@ namespace SW2URDF.Simulation {
    foreach(string name in new[]{LegacyNodeName,ConfigurationSerialization.UrdfConfigurationSwAttributeName}.Concat(ConfigurationSerialization.PREVIOUS_URDF_CONFIGURATION_NAMES)){
     SolidWorks.Interop.sldworks.Attribute old;if(attributes.TryGetValue(name,out old)&&!old.Delete(false))throw new IOException("新配置已保存，但旧节点未移除："+name);
    }
+   CadRevision.AfterConfigurationWrite(model,cadStamp);
   }}
  }
 }

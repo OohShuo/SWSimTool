@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
   <Import Project="..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.6\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props" Condition="Exists('..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.6\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props')" />
   <Import Project="..\packages\Microsoft.NetFramework.Analyzers.2.9.6\build\Microsoft.NetFramework.Analyzers.props" Condition="Exists('..\packages\Microsoft.NetFramework.Analyzers.2.9.6\build\Microsoft.NetFramework.Analyzers.props')" />
@@ -325,6 +325,11 @@
     <Compile Include="Simulation\SimulationStorage.cs" />
     <Compile Include="Utilities\PerformanceScope.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
+    <Compile Include="Simulation\ExportFingerprint.cs" />
+    <Compile Include="Simulation\SimulationSession.cs" />
+    <Compile Include="Simulation\ExportInstrumentation.cs" />
+    <Compile Include="Simulation\CadReferenceSnapshot.cs" />
+    <Compile Include="Simulation\ProjectSourceCache.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />
     <Compile Include="UI\SolverParametersControl.cs" />
     <Compile Include="UI\JointEditorControl.cs" />
@@ -545,6 +550,8 @@
     </Content>
     <Content Include="..\mujoco_backend\equalities.py"><Link>mujoco_backend\equalities.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\mesh_cache.py"><Link>mujoco_backend\mesh_cache.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="..\mujoco_backend\robot_model.py"><Link>mujoco_backend\robot_model.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="..\mujoco_backend\incremental.py"><Link>mujoco_backend\incremental.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\site_forces.py"><Link>mujoco_backend\site_forces.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\sites.py"><Link>mujoco_backend\sites.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\joints.py"><Link>mujoco_backend\joints.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

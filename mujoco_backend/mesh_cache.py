@@ -18,6 +18,10 @@ def measured(stage):
     try:
         yield
     finally:
+        from incremental import CURRENT
+        current=CURRENT.get()
+        if current is not None:
+            current['seconds'][stage]=current['seconds'].get(stage,0)+perf_counter()-start
         if os.environ.get('SW2MUJOCO_PROFILE') == '1':
             print('PERF: ' + json.dumps(dict(stage=stage, seconds=perf_counter()-start)), flush=True)
 
@@ -109,6 +113,8 @@ def prepare_mesh(data, destination, settings):
         except (OSError, ValueError, KeyError, TypeError):
             pass
     destination.write_bytes(data)
+    from incremental import count
+    count('mesh_simplification')
     with measured('simplify'):
         result = simplify(destination, maximum, backend, settings.get('Blender'), raw=raw if raw is not None else triangles(None, data))
     report.update(result)

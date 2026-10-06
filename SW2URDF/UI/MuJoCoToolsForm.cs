@@ -101,9 +101,10 @@ namespace SW2URDF.UI
                         if (string.Equals(destination, Path.GetFullPath(source.Trim()), StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MJCF 保存位置不能覆盖输入文件。");
                 }
                 SaveSettings(); log.Clear();busy=true; inputs.Enabled = actions.Enabled = false;
-                if(toolMode==MuJoCoToolMode.Project){status.Text="正在从当前工程生成临时 URDF…";project=exportProject();}
+                if(toolMode==MuJoCoToolMode.Project){status.Text="正在从当前工程生成临时 URDF…";project=exportProject();Append("Export "+project.ExportId+": "+(project.Plan.RebuildSource?"重建工程源数据":"复用工程源数据")+"; "+project.Plan.Dirty);}
                 status.Text = preview ? "正在启动预览；关闭 viewer 后可继续操作。" : "正在保存 MJCF…";
-                int code = await PythonBackend.RunAsync(python.Text.Trim(), project?.Urdf??urdf.Text.Trim(), project?.Sidecar??sidecar.Text.Trim(), output.Text.Trim(), preview, direct ? existing.Text.Trim() : null, Append, meshSettingsPath);
+                int code = await PythonBackend.RunAsync(python.Text.Trim(), project?.Urdf??urdf.Text.Trim(), project?.Sidecar??sidecar.Text.Trim(), output.Text.Trim(), preview, direct ? existing.Text.Trim() : null, Append, meshSettingsPath, project?.ExportId);
+                if(code==0)project?.MarkSucceeded();
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
             } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.Message); }
             finally {try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}busy=false;if (!IsDisposed) inputs.Enabled = actions.Enabled = true; }

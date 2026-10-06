@@ -454,6 +454,7 @@ namespace SW2URDF.URDFExport
 
         private bool SaveSTL(Link link, string windowsMeshFilename)
         {
+            SW2URDF.Simulation.ExportInstrumentation.StlExport();
             int errors = 0;
             int warnings = 0;
 

@@ -1,4 +1,4 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 using SolidWorks.Interop.sldworks;
 using SW2URDF.Utilities;
 using System;
@@ -8,7 +8,8 @@ using System.Linq;
 namespace SW2URDF.Simulation {
  public sealed partial class AttachmentService {
   public double[] JointPosition(CollisionReference reference,string child)=>MathOps.GetXYZ(LinkTransforms()[child].Inverse()*ReferenceFrame(reference));
-  public double[] JointAxis(CollisionReference reference,string child){
+  public double[] JointAxis(CollisionReference reference,string child){return CadSnapshotCache.Get(Model).Resolve("axis:"+ExportFingerprint.Hash(new{reference,child,frames=LinkTransforms()[child].ToRowMajorArray()}),()=>JointAxisCore(reference,child));}
+  double[] JointAxisCore(CollisionReference reference,string child){
    Matrix<double> placement;var obj=ResolveReference(reference,out placement);var feature=obj as Feature;
    double[] global;
    if(feature!=null&&feature.GetTypeName2()=="CoordSys"){
@@ -24,7 +25,8 @@ namespace SW2URDF.Simulation {
    var link=LinkTransforms()[child];var result=Enumerable.Range(0,3).Select(i=>Enumerable.Range(0,3).Sum(k=>link[k,i]*global[k])).ToArray();double length=Math.Sqrt(result.Sum(x=>x*x));
    if(length<1e-12)throw new InvalidOperationException("关节轴向不能为零。");return result.Select(x=>x/length).ToArray();
   }
-  public double[] OriginalJointAxis(JointDescriptor joint){
+  public double[] OriginalJointAxis(JointDescriptor joint){return CadSnapshotCache.Get(Model).Resolve("original-axis:"+ExportFingerprint.Hash(new{joint,frame=LinkTransforms()[joint.child].ToRowMajorArray()}),()=>OriginalJointAxisCore(joint));}
+  double[] OriginalJointAxisCore(JointDescriptor joint){
    if(!string.IsNullOrWhiteSpace(joint.axis_name)&&joint.axis_name!="Automatically Generate"&&joint.axis_name!="None"){
     string name=joint.axis_name;ModelDoc2 doc=Model;Component2 component=null;int start=name.IndexOf('<'),end=name.LastIndexOf('>');
     if(start>=0&&end>start){string componentName=name.Substring(start+1,end-start-1);name=name.Substring(0,start).Trim();var assembly=Model as AssemblyDoc;if(assembly!=null)component=((object[])assembly.GetComponents(false)??new object[0]).Cast<Component2>().FirstOrDefault(c=>c.Name2==componentName);if(component==null)throw new InvalidOperationException("关节轴零部件参考失效："+joint.axis_name);doc=component.GetModelDoc2() as ModelDoc2;}

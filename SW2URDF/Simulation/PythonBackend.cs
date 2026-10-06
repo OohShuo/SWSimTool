@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -9,7 +9,7 @@ namespace SW2URDF.Simulation
     public static class PythonBackend
     {
         public static Task<int> RunAsync(string python, string urdf, string json, string output,
-            bool preview, string existingMjcf, Action<string> report, string meshSettingsPath = null)
+            bool preview, string existingMjcf, Action<string> report, string meshSettingsPath = null, string exportId = null)
         {
             return Task.Run(() =>
             {
@@ -26,6 +26,7 @@ namespace SW2URDF.Simulation
                 var info = new ProcessStartInfo(python) { UseShellExecute = false, CreateNoWindow = true,
                     Arguments = arguments, RedirectStandardOutput = true, RedirectStandardError = true,
                     StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
+                info.EnvironmentVariables["SW2MUJOCO_EXPORT_ID"] = exportId ?? Guid.NewGuid().ToString("N");
                 info.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
                 info.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
                 var log = new StringBuilder();
