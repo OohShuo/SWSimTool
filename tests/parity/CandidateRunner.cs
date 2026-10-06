@@ -12,7 +12,7 @@ public static class CandidateRunner
         try {
             if(args.Length==1&&args[0]=="--selftest"){SelfTest();return 0;}
             if(args.Length!=3)throw new ArgumentException("Usage: candidate.exe input.urdf config.json output.xml");
-            var core=UrdfRobotModelImporter.Load(args[0]);var simulation=new SimulationConfigSnapshot(File.ReadAllText(args[1]));
+            var core=UrdfRobotModelImporter.Load(args[0]);var simulation=LegacySimulationConfigImporter.Import(File.ReadAllText(args[1]),core);
             var meshes=core.Links.SelectMany(l=>l.Geometries).Where(g=>g.Mesh!=null).Select(g=>g.Mesh).GroupBy(m=>m.Id).Select(g=>g.First()).ToArray();
             var output=Path.GetFullPath(args[2]);var folder=Path.GetDirectoryName(output);Directory.CreateDirectory(folder);
             var prepared=new List<PreparedMeshAsset>();for(int i=0;i<meshes.Length;i++){
@@ -36,5 +36,11 @@ public static class CandidateRunner
         bool failed=false;try{new JointSnapshot("j","j","base","arm",JointKind.Continuous,RigidTransform.Identity,new Vector3d(),null,null,0,0);}catch(InvalidDataException){failed=true;}Check(failed,"zero axis rejected");
         failed=false;try{new SymmetricInertia(1,1,4,0,0,0).Validate(1);}catch(InvalidDataException){failed=true;}Check(failed,"unphysical inertia triangle rejected");
         failed=false;try{new PreparedMeshAsset("x","x","../escape.stl");}catch(InvalidDataException){failed=true;}Check(failed,"prepared asset traversal rejected");
+        var stableCore=new RobotCoreSnapshot("stable",new[]{new LinkSnapshot("link-uuid","renamed",null,new GeometrySnapshot[0])},new JointSnapshot[0]);
+        var stableSim=LegacySimulationConfigImporter.Import("{\"attachments\":[{\"id\":\"site-uuid\",\"name\":\"tip\",\"link\":\"old_name\",\"link_id\":\"link-uuid\",\"type\":\"frame\",\"xyz\":[0,0,0],\"rpy\":[0,0,0]}]}",stableCore);
+        Check(MjcfExporter.Generate(new RobotModel(stableCore,stableSim),assets,context).Contains("renamed"),"stable references survive names independent of IDs");
+        failed=false;try{LegacySimulationConfigImporter.Import("{\"attachments\":[{\"name\":\"tip\",\"link\":\"renamed\",\"link_id\":\"deleted-id\",\"type\":\"frame\",\"xyz\":[0,0,0],\"rpy\":[0,0,0]}]}",stableCore);}catch(InvalidDataException){failed=true;}Check(failed,"deleted identity never rebinds by name");
+        var frozen=LegacySimulationConfigImporter.Import("{\"equalities\":[{\"name\":\"couple\",\"type\":\"joint\",\"polycoef\":[0,1,0,0,0]}]}");
+        failed=false;try{((IList<double>)frozen.Equalities[0].Polycoef)[1]=4;}catch(NotSupportedException){failed=true;}Check(failed,"typed extension vectors are immutable");
     }
 }

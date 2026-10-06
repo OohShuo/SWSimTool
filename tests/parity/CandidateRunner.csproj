@@ -9,7 +9,7 @@
     <Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xml.Linq"/><Reference Include="System.Web.Extensions"/>
     <Compile Include="..\..\SW2URDF\RobotModel\Spatial.cs"/><Compile Include="..\..\SW2URDF\RobotModel\RobotCoreSnapshot.cs"/>
     <Compile Include="..\..\SW2URDF\RobotModel\UrdfRobotModelImporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationConfigSnapshot.cs"/>
-    <Compile Include="..\..\SW2URDF\RobotModel\MjcfExporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\CandidateExtensions.cs"/>
+    <Compile Include="..\..\SW2URDF\RobotModel\MjcfExporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationExtensions.cs"/><Compile Include="..\..\SW2URDF\RobotModel\LegacySimulationConfigImporter.cs"/>
     <Compile Include="CandidateRunner.cs"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>

@@ -41,7 +41,7 @@ namespace SW2URDF.RobotModel
                 var name=prepared.Name+"_"+number++;meshNames[mesh.Id+"|"+mesh.Scale.ToString()]=name;
                 group.Add(new XElement("mesh",new XAttribute("name",name),new XAttribute("file",prepared.RelativePath),new XAttribute("scale",mesh.Scale.ToString())));
             }if(group.HasElements)root.Add(group);
-            var config=model.Simulation.Configuration();var world=new XElement("worldbody");root.Add(world);var bodies=new Dictionary<string,XElement>();var joints=new Dictionary<string,XElement>();
+            var config=model.Simulation;var world=new XElement("worldbody");root.Add(world);var bodies=new Dictionary<string,XElement>();var joints=new Dictionary<string,XElement>();
             var core=model.Core;
             Action<LinkSnapshot,XElement,JointSnapshot> build=null;
             build=(link,parent,incoming)=>{
@@ -50,7 +50,7 @@ namespace SW2URDF.RobotModel
                     if(incoming!=null){Pose(body,incoming.ParentLinkFromJoint);if(incoming.Kind!=JointKind.Fixed){
                         if(incoming.Kind==JointKind.Floating)body.Add(new XElement("freejoint",new XAttribute("name",incoming.Name)));
                         else{var j=new XElement("joint",new XAttribute("name",incoming.Name),new XAttribute("type",incoming.Kind==JointKind.Prismatic?"slide":"hinge"),new XAttribute("axis",incoming.AxisInJointFrame.ToString()),new XAttribute("pos","0 0 0"),new XAttribute("damping",Numbers.Format(incoming.Damping)),new XAttribute("frictionloss",Numbers.Format(incoming.FrictionLoss)),new XAttribute("limited",incoming.Lower.HasValue?"true":"false"));
-                            if(incoming.Lower.HasValue)j.SetAttributeValue("range",Numbers.Text(new[]{incoming.Lower.Value,incoming.Upper.Value}));if(incoming.EffortLimit>0){j.SetAttributeValue("actuatorfrclimited","true");j.SetAttributeValue("actuatorfrcrange",Numbers.Text(new[]{-incoming.EffortLimit,incoming.EffortLimit}));}body.Add(j);joints[incoming.Name]=j;}
+                            if(incoming.Lower.HasValue)j.SetAttributeValue("range",Numbers.Text(new[]{incoming.Lower.Value,incoming.Upper.Value}));if(incoming.EffortLimit>0){j.SetAttributeValue("actuatorfrclimited","true");j.SetAttributeValue("actuatorfrcrange",Numbers.Text(new[]{-incoming.EffortLimit,incoming.EffortLimit}));}body.Add(j);joints[incoming.Id]=j;}
                     }}
                 }bodies[link.Id]=body;
                 if(body!=world&&link.Inertial!=null&&link.Inertial.Mass>0){var i=link.Inertial;body.Add(new XElement("inertial",new XAttribute("pos",i.LinkFromInertial.Translation.ToString()),new XAttribute("mass",Numbers.Format(i.Mass)),new XAttribute("fullinertia",i.InertiaAtComInLinkFrame.ToString())));}
@@ -61,7 +61,7 @@ namespace SW2URDF.RobotModel
                 foreach(var child in core.Joints.Where(j=>j.ParentLinkId==link.Id))build(core.Links.Single(l=>l.Id==child.ChildLinkId),body,child);
             };build(core.Root,world,null);
             foreach(var site in model.Simulation.Sites){var s=new XElement("site",new XAttribute("name",site.Name),new XAttribute("size","0.003"),new XAttribute("rgba","1 0.3 0.1 1"));Pose(s,site.LinkFromSite);bodies[site.LinkId].Add(s);}
-            CandidateExtensions.Apply(root,model,config,bodies,joints);
+            SimulationExtensions.Apply(root,model,config,bodies,joints);
             using(var stream=new MemoryStream()){
                 using(var writer=XmlWriter.Create(stream,new XmlWriterSettings{Encoding=new UTF8Encoding(false),Indent=true,CloseOutput=false}))new XDocument(root).Save(writer);
                 return Encoding.UTF8.GetString(stream.ToArray());

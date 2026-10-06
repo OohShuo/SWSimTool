@@ -19,12 +19,12 @@ namespace SW2URDF.RobotModel
                 var geometries=new List<GeometrySnapshot>();MeshSource mesh;
                 if(linkMeshes.TryGetValue(name,out mesh)){
                     if(link.Visual!=null&&!string.IsNullOrWhiteSpace(link.Visual.Material.Texture.wFilename))throw new NotSupportedException("Candidate CAD textures are not implemented");
-                    if(link.Visual!=null)geometries.Add(new GeometrySnapshot(name+"/visual/0",GeometryKind.Mesh,Pose(link.Visual.Origin),new Vector3d(),mesh,false,link.Visual.Material.Color.GetColor()));
-                    if(link.Collision!=null)geometries.Add(new GeometrySnapshot(name+"/collision/1",GeometryKind.Mesh,Pose(link.Collision.Origin),new Vector3d(),mesh,true,null));
+                    if(link.Visual!=null)geometries.Add(new GeometrySnapshot(link.StableId+"/visual/0",GeometryKind.Mesh,Pose(link.Visual.Origin),new Vector3d(),mesh,false,link.Visual.Material.Color.GetColor()));
+                    if(link.Collision!=null)geometries.Add(new GeometrySnapshot(link.StableId+"/collision/1",GeometryKind.Mesh,Pose(link.Collision.Origin),new Vector3d(),mesh,true,null));
                 }
-                links.Add(new LinkSnapshot(name,name,inertial,geometries));
+                links.Add(new LinkSnapshot(link.StableId,name,inertial,geometries));
                 if(parent!=null){var j=link.Joint;if(j==null)throw new InvalidDataException("Missing incoming joint");if(j.Mimic!=null&&j.Mimic.ElementContainsData())throw new NotSupportedException("Candidate CAD mimic is not implemented");var kind=Kind(j.Type);var limited=kind==JointKind.Revolute||kind==JointKind.Prismatic;
-                    joints.Add(new JointSnapshot(j.Name,j.Name,parent.Name,name,kind,Pose(j.Origin),V(j.Axis.GetXYZ()),limited?(double?)j.Limit.Lower:null,limited?(double?)j.Limit.Upper:null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort)));
+                    joints.Add(new JointSnapshot(j.StableId,j.Name,parent.StableId,link.StableId,kind,Pose(j.Origin),V(j.Axis.GetXYZ()),limited?(double?)j.Limit.Lower:null,limited?(double?)j.Limit.Upper:null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort)));
                 }
                 foreach(var child in link.Children)visit(child,link);
             };visit(robot.BaseLink,null);
