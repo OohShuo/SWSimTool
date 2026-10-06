@@ -48,6 +48,8 @@ Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\equalities.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\mesh_cache.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\sites.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\joints.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\collision.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
