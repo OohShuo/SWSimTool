@@ -1,4 +1,4 @@
-﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
 #define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
 #endif
@@ -49,6 +49,8 @@ Source: "{#Payload}\mujoco_backend\convert.py"; DestDir: "{app}\mujoco_backend";
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\equalities.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\mesh_cache.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\robot_model.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
+Source: "{#Payload}\mujoco_backend\incremental.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\site_forces.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\sites.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\joints.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion

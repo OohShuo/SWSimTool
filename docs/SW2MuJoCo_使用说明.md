@@ -168,3 +168,21 @@ initial 在导出时计算实际初始距离并写为数值 springlength，不�
 后端生成原生 spatial tendon，使用 stiffness、damping、springlength，无长度限位、干摩擦或额外 actuator。无需 Python 每步回调，标准 MuJoCo viewer 即可运行。弹簧不会增加 model.nu。MJCF 仍只输出 XML 和引用的 meshes/STL；普通 URDF/STL 不变。
 
 CAD 实时预览仍是两点连线示意，不绘制弹簧线圈或运行物理仿真。类型和自然长度方式只更新相关字段，保留输入、无关控件和滚动位置。配置存于统一装配节点及可选 sim.json，复用稳定 site ID；保存配置后仍须保存装配并重新导出 MJCF。
+
+## 增量导出与 CAD 快照（2.8）
+
+首次从工程导出仍按原流程构建 URDF/STL。之后，同一次文档打开期间，文档/Configuration、CAD 状态、组件依赖和 URDF 树未改变时，复用已验证的原始导出数据。仅修改 timestep、求解/接触参数、约束、执行器、传感器、恒力或弹簧参数时，不重新导出 STL；site 或简单碰撞体改变时按需重新解析参考，复用已导出的 link 坐标数据。
+
+这是跳过上游阶段的增量导出，不修改旧发布 XML。每次从不含本次仿真覆盖的基础模型重新生成完整 MJCF，并进行一次最终 MuJoCo 编译验证；删除 site/约束/作用力等条目不会留下旧节点。缓存中保留基础 URDF、纯数值坐标、处理后的 STL 和基础模型，最终发布目录仍只有 XML 与引用的 meshes/STL，更新保留原有整包暂存与失败回滚。
+
+CAD 快照按需解析，不是整个装配的镜像。参考目录、点、坐标系、轴向、边长、简单碰撞体解析结果使用统一版本标识；数值及稳定引用可复用，不长期保留 Face2/Edge/Component2 等复杂 COM 对象。原有服务中的部分纯数据缓存作为兼容层保留。刷新 CAD 参考会统一失效；配置节点的成功写入不会被误判成 CAD 几何修改。
+
+UI 的会话 Dirty 在应用/保存配置时记录，取消草稿不影响已保存工程。导出仍比较规范化内容指纹，Dirty 不是缓存正确性的唯一依据。指纹覆盖文档身份、Configuration、会话 CAD 版本、组件文件/版本元数据、URDF 树、源 STL 内容、网格处理设置、后端/生成器版本及完整仿真配置。轻量元数据检查及流式哈希仍会发生，零 CAD 几何查询不等同于零 COM 调用或零磁盘读取。
+
+新缓存位于 `%LOCALAPPDATA%\SW2MuJoCo\cache`：raw-mesh 为工程源副本，projects 为基础模型与准备结果，processed-mesh 为按内容复用的 STL。原 2.5 mesh-cache-v1 减面缓存保留。可通过 SW2MUJOCO_CACHE 指定独立的新缓存目录；测试使用隔离目录。缓存是可丢弃的性能数据，删除或损坏后自动完整重建，不影响装配保存的配置。缓存写入失败不阻止导出。
+
+重新打开文档、依赖未解析、CAD 变化无法可靠分类时，保守回退到完整 CAD 导出。当前不根据 update stamp 猜测“仅刚体移动”，也尚未实现按受影响 link 单独重导 STL；Python 侧已可按内容复用未变化的处理后网格。重新创建临时源目录不影响内容缓存复用。修改减面预算/后端不要求从未变化 CAD 重导原始 STL。
+
+渐进 RobotModel 已建立为纯数据 URDF/基础模型适配层；第一版仍使用 MuJoCo 的 URDF 导入建立基础模板，尚未替换为独立的直接 MJCF 物理模型生成器。普通 URDF 导出原实现和可选附加配置行为不变。本轮不改变 UI 布局、不引入常驻 Python。
+
+设置 SW2MUJOCO_PROFILE=1 可输出导出 ID、阶段耗时和调用计数，默认预览不增加周期诊断。工程日志显示本次重建/复用路径。设置 SW2MUJOCO_USE_INCREMENTAL_EXPORT=0 可强制回退；减面设置 CacheEnabled=false 可关闭 Python 准备结果缓存。
