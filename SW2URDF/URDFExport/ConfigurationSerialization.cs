@@ -49,6 +49,7 @@ namespace SW2URDF.URDFExport
             };
         public static LinkNode ReadTree(string data, double version)
         { return version >= MinDataContractVersion ? DeserializeFromString(data) : LoadConfigFromStringXML(data); }
+        public static string WriteTree(LinkNode tree) { return tree==null?null:SerializeToString(tree); }
         public static void ValidateTreeData(string data,double version){
             if(string.IsNullOrWhiteSpace(data))return;
             if(version>SerializationVersion)throw new InvalidDataException("URDF 配置版本不支持："+version);
