@@ -337,6 +337,8 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
         xml = ET.tostring(mjcf, encoding="unicode")
         with asset_options(mujoco, assets) as options:
             final_model = mujoco.MjModel.from_xml_string(xml, **options)
+        from site_forces import resolve_initial_spring_lengths
+        resolve_initial_spring_lengths(mjcf, final_model, config)
         validate_initial_force_directions(final_model, config)
         # Compile first; failed conversions leave the previous output intact.
         for name, data in assets.items():

@@ -89,7 +89,7 @@ class SiteForceTests(unittest.TestCase):
 
     def test_invalid_parameters_and_sites(self):
         for invalid, message in [({'magnitude': -1}, 'nonnegative'),
-            ({'magnitude': float('nan')}, 'finite'), ({'type': 'spring'}, 'pull or push'),
+            ({'magnitude': float('nan')}, 'finite'), ({'type': 'unknown'}, 'pull or push'),
             ({'enabled': 1}, 'boolean'), ({'site2': 'missing'}, 'different existing sites'),
             ({'site2': 'anchor_base'}, 'different existing sites'),
             ({'site1': 'imu_mount'}, 'different links')]:

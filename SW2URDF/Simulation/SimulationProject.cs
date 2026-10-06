@@ -122,12 +122,21 @@ namespace SW2URDF.Simulation
         public string name { get; set; } = "force";
         public string type { get; set; } = "pull";
         public bool enabled { get; set; } = true;
+        public double stiffness { get; set; }
+        public double damping { get; set; }
+        public string length_mode { get; set; } = "initial";
+        public double rest_length { get; set; } = .1;
         public double magnitude { get; set; }
         public string site1 { get; set; }
         public string site2 { get; set; }
         [Browsable(false)] public string site1_id { get; set; }
         [Browsable(false)] public string site2_id { get; set; }
-        public void Validate(){if(string.IsNullOrWhiteSpace(name)||!new[]{"pull","push"}.Contains(type)||double.IsNaN(magnitude)||double.IsInfinity(magnitude)||magnitude<0)throw new InvalidDataException("两点作用力需要名称、pull/push 类型及非负有限力值 N。");}
+        public void Validate(){
+            if(string.IsNullOrWhiteSpace(name)||!new[]{"pull","push","spring"}.Contains(type))throw new InvalidDataException("两点作用力名称或类型无效。");
+            var values=type=="spring"?new[]{stiffness,damping}:new[]{magnitude};
+            if(values.Any(v=>double.IsNaN(v)||double.IsInfinity(v)||v<0))throw new InvalidDataException("力值、弹簧刚度和阻尼须为非负有限数字。");
+            if(type=="spring"&&(!new[]{"initial","custom"}.Contains(length_mode)||(length_mode=="custom"&&(double.IsNaN(rest_length)||double.IsInfinity(rest_length)||rest_length<0))))throw new InvalidDataException("请选择自然长度方式，自定义自然长度须为非负有限数字 m。");
+        }
         public override string ToString()=>name+" ["+type+"] : "+site1+" ↔ "+site2;
     }
 
