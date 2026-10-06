@@ -10,6 +10,36 @@ namespace SW2URDF.RobotModel
     public static class LegacySimulationConfigImporter
     {
         public static SimulationConfigSnapshot Import(string json) { return new SimulationConfigSnapshot(Parse(json)); }
+        // A local URDF has names, but no persisted CAD identities. Materialize its explicit
+        // sidecar registry before resolving references; references never override that registry.
+        public static RobotCoreSnapshot IdentifyImportedCore(RobotCoreSnapshot core,string json)
+        {
+            var input=Parse(json);var registry=Config.D(input,"identities");
+            var links=core.Links.ToDictionary(l=>l.Name,l=>l.Id);var joints=core.Joints.ToDictionary(j=>j.Name,j=>j.Id);
+            Action<string,Dictionary<string,string>> apply=(kind,map)=>{
+                var declared=Config.D(registry,kind);
+                if(declared!=null)foreach(var item in declared){if(!map.ContainsKey(item.Key))throw new InvalidDataException("Identity registry refers to missing "+kind+": "+item.Key);var id=Config.S(declared,item.Key,null);if(string.IsNullOrWhiteSpace(id))throw new InvalidDataException("Empty identity");map[item.Key]=id;}
+            };
+            apply("links",links);apply("joints",joints);
+            if(registry==null) {
+                // Pre-registry sidecars may carry partial stable references. This is a one-time
+                // import of an external name-only format, never a rebind of an existing CAD core.
+                Action<Dictionary<string,object>,string,Dictionary<string,string>> infer=(item,key,map)=>{
+                    var name=String(item,key);var id=String(item,key+"_id");if(string.IsNullOrWhiteSpace(id))return;
+                    if(name==null||!map.ContainsKey(name))throw new InvalidDataException("Unknown legacy target: "+name);
+                    if(map[name]!=name&&map[name]!=id)throw new InvalidDataException("Conflicting legacy identity: "+name);map[name]=id;
+                };
+                foreach(var item in Config.Items(input,"attachments"))infer(item,"link",links);
+                foreach(var list in new[]{"actuators","joints","joint_force_limits"})foreach(var item in Config.Items(input,list))infer(item,"joint",joints);
+                foreach(var item in Config.Items(input,"equalities")){infer(item,"joint1",joints);infer(item,"joint2",joints);infer(item,"body1",links);infer(item,"body2",links);}
+                var collision=Config.D(input,"collision");if(collision!=null){foreach(var item in Config.Items(collision,"geometries"))infer(item,"link",links);foreach(var item in Config.Items(collision,"allowed_pairs")){infer(item,"link1",links);infer(item,"link2",links);}}
+            }
+            var linkSnapshots=core.Links.Select(l=>new LinkSnapshot(links[l.Name],l.Name,l.Inertial,l.Geometries));
+            var linkNames=core.Links.ToDictionary(l=>l.Id,l=>l.Name);
+            var jointNames=core.Joints.ToDictionary(j=>j.Id,j=>j.Name);
+            var jointSnapshots=core.Joints.Select(j=>new JointSnapshot(joints[j.Name],j.Name,links[linkNames[j.ParentLinkId]],links[linkNames[j.ChildLinkId]],j.Kind,j.ParentLinkFromJoint,j.AxisInJointFrame,j.Lower,j.Upper,j.Damping,j.FrictionLoss,j.EffortLimit,j.Mimic==null?null:new MimicSnapshot(joints[jointNames[j.Mimic.SourceJointId]],j.Mimic.Multiplier,j.Mimic.Offset)));
+            return new RobotCoreSnapshot(core.Name,linkSnapshots,jointSnapshots);
+        }
         public static SimulationConfigSnapshot Import(string json,RobotCoreSnapshot core)
         {
             var input=Parse(json);

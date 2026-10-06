@@ -7,6 +7,8 @@ namespace SW2URDF.Simulation {
   readonly string temporary;
   readonly ModelDoc2 document;
   public string Urdf{get;private set;} public string Sidecar{get;private set;}
+  public SW2URDF.RobotModel.RobotCoreSnapshot Core{get;private set;}
+  public SW2URDF.RobotModel.RobotModel NativeModel(){if(Core==null)throw new InvalidOperationException("Native core is unavailable; rebuild the project source.");return new SW2URDF.RobotModel.RobotModel(Core,SW2URDF.RobotModel.LegacySimulationConfigImporter.Import(File.ReadAllText(Sidecar),Core));}
   public string ExportId{get;}=Guid.NewGuid().ToString("N");
   public static int SourceBuildCount{get;private set;}
   public ExportPlan Plan{get;private set;}
@@ -20,12 +22,14 @@ namespace SW2URDF.Simulation {
     var cached=ProjectSourceCache.Find(expected,source,geometry);
     Plan=ExportPlan.Build(cached!=null,SimulationSession.Dirty(expected)|ExportFingerprint.Changed(cached?.project,current));
     if(cached!=null){
+     Core=cached.core;
      Urdf=Path.Combine(cached.folder,cached.urdf);Sidecar=Path.Combine(temporary,"robot.sim.json");
      System.Collections.Generic.Dictionary<string,object> data;
      if(cached.geometry==geometry)data=ProjectSourceCache.Overlay(cached,current);
      else{
       var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);
       data=resolver.Export(Urdf);data["urdf_sha256"]=cached.sidecar["urdf_sha256"];
+      if(cached.sidecar.ContainsKey("identities"))data["identities"]=cached.sidecar["identities"];
       cached.geometry=geometry;cached.sidecar=data;
      }
      SimulationProject.Write(Sidecar,data);return;
@@ -41,8 +45,11 @@ namespace SW2URDF.Simulation {
     // Export can update display state/preferences; establish the final metadata revision.
     source=ProjectSourceCache.Source(app,expected,treeData);
     var resolved=ExportFingerprint.Serializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(File.ReadAllText(Sidecar));
-    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,resolved,System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray()));
-    var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null)Urdf=Path.Combine(stored.folder,stored.urdf);
+    var meshes=new System.Collections.Generic.Dictionary<string,SW2URDF.RobotModel.MeshSource>();
+    Action<SW2URDF.URDF.Link> collect=null;collect=link=>{string path=Path.Combine(temporary,"robot","meshes",link.Name.Replace('/','_')+".STL");if(File.Exists(path))meshes.Add(link.Name,new SW2URDF.RobotModel.MeshSource(link.StableId+"/mesh",path,new SW2URDF.RobotModel.Vector3d(1,1,1)));foreach(var child in link.Children)collect(child);};collect(helper.URDFRobot.BaseLink);
+    Core=SW2URDF.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(helper.URDFRobot,meshes);
+    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,resolved,System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray()),Core);
+    var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }
   public void MarkSucceeded(){SimulationSession.ExportSucceeded(document);}

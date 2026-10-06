@@ -10,7 +10,7 @@ using System.Security.Cryptography;
 namespace SW2URDF.Simulation {
  // Sessions never trust CAD revision stamps from a previous document open.
  public static class ProjectSourceCache {
-  public sealed class Entry {public string source,geometry,folder,urdf;public SimulationProject project;public Dictionary<string,object> sidecar;public Dictionary<string,string> files;public Dictionary<string,double[]> frames;}
+  public sealed class Entry {public string source,geometry,folder,urdf;public SimulationProject project;public Dictionary<string,object> sidecar;public Dictionary<string,string> files;public Dictionary<string,double[]> frames;public SW2URDF.RobotModel.RobotCoreSnapshot core;}
   sealed class State {public Dictionary<string,Entry> entries=new Dictionary<string,Entry>();}
   static readonly ConditionalWeakTable<ModelDoc2,State> states=new ConditionalWeakTable<ModelDoc2,State>();
   public static string Root => Path.Combine(Environment.GetEnvironmentVariable("SW2MUJOCO_CACHE")??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SW2MuJoCo","cache"),"raw-mesh");
@@ -33,13 +33,14 @@ namespace SW2URDF.Simulation {
    Entry entry;var state=states.GetValue(model,x=>new State());if(!state.entries.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out entry)||entry.source!=source||(entry.geometry!=geometry&&entry.frames==null))return null;
    try{if(entry.files.All(x=>File.Exists(Path.Combine(entry.folder,x.Key))&&FileHash(Path.Combine(entry.folder,x.Key))==x.Value))return entry;}catch(IOException){}catch(UnauthorizedAccessException){}return null;
   }
-  public static void Store(ModelDoc2 model,string source,string geometry,string folder,string urdf,SimulationProject project,Dictionary<string,object> sidecar,Dictionary<string,double[]> frames=null){
+  public static void Store(ModelDoc2 model,string source,string geometry,string folder,string urdf,SimulationProject project,Dictionary<string,object> sidecar,Dictionary<string,double[]> frames=null,SW2URDF.RobotModel.RobotCoreSnapshot core=null){
    if(source==null||Environment.GetEnvironmentVariable("SW2MUJOCO_USE_INCREMENTAL_EXPORT")=="0")return;
    try{
     Directory.CreateDirectory(Root);string next=Path.Combine(Root,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(next);
     foreach(string dir in Directory.GetDirectories(folder,"*",SearchOption.AllDirectories))Directory.CreateDirectory(Path.Combine(next,dir.Substring(folder.Length+1)));
     foreach(string file in Directory.GetFiles(folder,"*",SearchOption.AllDirectories))File.Copy(file,Path.Combine(next,file.Substring(folder.Length+1)));
     var entry=new Entry{source=source,geometry=geometry,folder=next,urdf=urdf.Substring(folder.Length+1),project=ExportFingerprint.Serializer().Deserialize<SimulationProject>(ExportFingerprint.Serializer().Serialize(project)),sidecar=sidecar,frames=frames,files=Directory.GetFiles(next,"*",SearchOption.AllDirectories).ToDictionary(x=>x.Substring(next.Length+1),FileHash)};
+    entry.core=core?.RemapMeshPaths(path=>Path.Combine(next,path.Substring(folder.Length+1)));
     states.GetValue(model,x=>new State()).entries[model.ConfigurationManager.ActiveConfiguration.Name]=entry;
    }catch(IOException){}catch(UnauthorizedAccessException){} // Caching is optional.
   }

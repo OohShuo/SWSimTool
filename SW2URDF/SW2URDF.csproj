@@ -332,6 +332,9 @@
     <Compile Include="Simulation\CollisionConfiguration.cs" />
     <Compile Include="Simulation\SimulationStorage.cs" />
     <Compile Include="Simulation\StableReferences.cs" />
+    <Compile Include="Simulation\BackendProcess.cs" />
+    <Compile Include="Simulation\NativeBackend.cs" />
+    <Compile Include="Simulation\PackagePublisher.cs" />
     <Compile Include="Utilities\PerformanceScope.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
     <Compile Include="Simulation\ExportFingerprint.cs" />
@@ -553,6 +556,7 @@
       <Link>mujoco_backend\convert.py</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\mujoco_backend\native_support.py"><Link>mujoco_backend\native_support.py</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\mujoco_backend\simplify_stl.py">
       <Link>mujoco_backend\simplify_stl.py</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

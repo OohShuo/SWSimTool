@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import os
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -110,6 +111,27 @@ class NativeParity(unittest.TestCase):
         self.assertLess(data.contact[0].dist, 0)
         self.assertGreater(np.linalg.norm(data.qfrc_constraint), 0)
 
+    def test_collision_visual_material_inheritance(self):
+        root=ET.fromstring(URDF)
+        link=root.find('./link[@name="base"]')
+        material=ET.SubElement(link.find('visual'),'material',name='paint')
+        ET.SubElement(material,'color',rgba='1 0.2 0.3 1')
+        collision=ET.SubElement(link,'collision')
+        collision.append(copy.deepcopy(link.find('./visual/geometry')))
+        self.parity('collision_visual_material',ET.tostring(root,encoding='unicode'),self.config)
+
+    def test_mimic_and_floating_base(self):
+        root=ET.fromstring(URDF)
+        tool=root.find('./link[@name="tool"]')
+        inertial=ET.SubElement(tool,'inertial')
+        ET.SubElement(inertial,'mass',value='1')
+        ET.SubElement(inertial,'inertia',ixx='.01',iyy='.01',izz='.01',ixy='0',ixz='0',iyz='0')
+        joint=root.find('./joint[@name="tool_fixed"]');joint.set('type','continuous')
+        ET.SubElement(joint,'mimic',joint='hinge',multiplier='2',offset='.1')
+        self.parity('mimic',ET.tostring(root,encoding='unicode'),self.config)
+        base=root.find('./link[@name="base"]');base.append(copy.deepcopy(inertial))
+        self.parity('floating_base',ET.tostring(root,encoding='unicode'),dict(self.config,base_mode='floating'))
+
     def test_comparator_detects_physics_corruption(self):
         a = self.candidate(URDF)
         b = self.candidate(URDF)
@@ -148,6 +170,62 @@ class NativeParity(unittest.TestCase):
         expected = vertices * [1.2, .8, 1.5]
         close(np.linalg.norm(mesh_world_vertices(b, data, geom)[:, None, :] - expected[None, :, :], axis=2).min(axis=1), np.zeros(b.mesh_vertnum[b.geom_dataid[geom]]), 'independent scaled source vertices', atol=2e-7)
         RESULTS.append(dict(case='analytic_mesh_transform', L2A=True))
+
+    def test_production_package_preparation_incremental_and_rollback(self):
+        from test_simplify_stl import sphere
+        from simplify_stl import write_binary
+        from convert import export_package
+        vertices,faces=sphere(2)
+        mesh=self.folder/'part.stl';write_binary(mesh,vertices,faces)
+        source=URDF.replace('<box size="0.1 0.1 0.1"/>','<mesh filename="part.stl"/>')
+        self.urdf.write_text(source,encoding='utf-8')
+        settings=self.folder/'mesh-settings.json'
+        settings.write_text(json.dumps(dict(Enabled=True,MaximumTriangles=64,Backend='fast-simplification',CacheEnabled=True)),encoding='utf-8')
+        sidecar=self.folder/'robot.sim.json'
+        config=dict(self.config,solver=dict(enabled=True,timestep=.001),attachments=[dict(name='mount',link='arm',type='frame',xyz=[.02,0,0],rpy=[0,.1,.2])],sensors=[dict(name='imu',type='imu',site='mount')])
+        output=self.folder/'原生_mjcf'/'robot.xml'
+        env=dict(os.environ,SW2MUJOCO_CACHE=str(self.folder/'cache'),SW2MUJOCO_MESH_CACHE=str(self.folder/'mesh-cache'))
+        def run():
+            sidecar.write_text(json.dumps(config),encoding='utf-8')
+            result=subprocess.run([str(EXE),'--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],env=env,capture_output=True,text=True,encoding='utf-8')
+            return result
+        first=run();self.assertEqual(first.returncode,0,first.stderr+first.stdout)
+        original_inputs=(mesh.read_bytes(),self.urdf.read_bytes())
+        model=load_mjcf(output)
+        meshfile=output.parent/ET.parse(output).find('./asset/mesh').get('file')
+        import struct
+        self.assertLessEqual(struct.unpack_from('<I',meshfile.read_bytes(),80)[0],64)
+        files=list(output.parent.rglob('*'))
+        self.assertTrue(all(p.is_dir() or p.suffix in ('.xml','.stl') for p in files))
+        config['solver']['timestep']=.002
+        warm=run();self.assertEqual(warm.returncode,0,warm.stderr+warm.stdout)
+        metrics=json.loads(next(x[len('Native export metrics: '):] for x in warm.stdout.splitlines() if x.startswith('Native export metrics: ')))
+        self.assertEqual({k:metrics['counts'][k] for k in ('mesh_prepare','mesh_simplification','mjcf_generation','mujoco_validation')},dict(mesh_prepare=0,mesh_simplification=0,mjcf_generation=1,mujoco_validation=1))
+        warm_model=load_mjcf(output)
+        import shutil
+        shutil.rmtree(self.folder/'cache')
+        cold=run();self.assertEqual(cold.returncode,0,cold.stderr+cold.stdout)
+        cold_model=load_mjcf(output);compiled_semantics(warm_model,cold_model);dynamics(warm_model,cold_model)
+        from unittest.mock import patch
+        with patch.dict(os.environ,env):
+            reference=export_package(self.urdf,sidecar,self.folder/'python_mjcf'/'robot.xml',json.loads(settings.read_text()))
+        compiled_semantics(reference,cold_model);dynamics(reference,cold_model)
+        self.assertEqual(original_inputs,(mesh.read_bytes(),self.urdf.read_bytes()))
+        before={str(p.relative_to(output.parent)):p.read_bytes() for p in output.parent.rglob('*') if p.is_file()}
+        config['sensors'][0]['site']='missing'
+        broken=run();self.assertNotEqual(broken.returncode,0)
+        self.assertEqual(before,{str(p.relative_to(output.parent)):p.read_bytes() for p in output.parent.rglob('*') if p.is_file()})
+        config['sensors'][0]['site']='mount'
+        config['base_mode']='floating' # Root has no inertial: official compilation must reject it.
+        compilation_failure=run();self.assertNotEqual(compilation_failure.returncode,0)
+        self.assertIn('ERROR:',compilation_failure.stderr+compilation_failure.stdout)
+        self.assertEqual(before,{str(p.relative_to(output.parent)):p.read_bytes() for p in output.parent.rglob('*') if p.is_file()})
+        config['base_mode']='fixed'
+        unrelated=output.parent/'keep.txt';unrelated.write_text('user data')
+        refused=run();self.assertNotEqual(refused.returncode,0)
+        self.assertEqual(unrelated.read_text(),'user data')
+        self.assertEqual(before,{str(p.relative_to(output.parent)):p.read_bytes() for p in output.parent.rglob('*') if p.is_file() and p!=unrelated})
+        RESULTS.append(dict(case='native_production_package',incremental=True,cold_parity=True,source_unchanged=True,rollback=True,unrelated_files_preserved=True))
 
     def test_invalid_models_rejected_without_output(self):
         invalid = [URDF.replace('xyz="0 0 1"', 'xyz="0 0 0"'), URDF.replace('ixx="0.01"', 'ixx="-0.01"'), URDF.replace('parent link="arm"', 'parent link="tool"'), URDF.replace('type="revolute"', 'type="planar"'), URDF.replace('<limit lower=', '<mimic joint="missing"/><limit lower=')]

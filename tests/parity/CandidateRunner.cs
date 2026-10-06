@@ -11,6 +11,10 @@ public static class CandidateRunner
     {
         try {
             if(args.Length==1&&args[0]=="--selftest"){SelfTest();return 0;}
+            if(args.Length==6&&args[0]=="--package"){
+                var packageModel=SW2URDF.Simulation.NativeBackend.LoadLocal(args[2],args[3]);
+                return SW2URDF.Simulation.NativeBackend.RunAsync(args[1],packageModel,args[4],false,Console.WriteLine,args[5],"package-test").GetAwaiter().GetResult();
+            }
             if(args.Length!=3)throw new ArgumentException("Usage: candidate.exe input.urdf config.json output.xml");
             var core=UrdfRobotModelImporter.Load(args[0]);var simulation=LegacySimulationConfigImporter.Import(File.ReadAllText(args[1]),core);
             var meshes=core.Links.SelectMany(l=>l.Geometries).Where(g=>g.Mesh!=null).Select(g=>g.Mesh).GroupBy(m=>m.Id).Select(g=>g.First()).ToArray();
@@ -42,5 +46,12 @@ public static class CandidateRunner
         failed=false;try{LegacySimulationConfigImporter.Import("{\"attachments\":[{\"name\":\"tip\",\"link\":\"renamed\",\"link_id\":\"deleted-id\",\"type\":\"frame\",\"xyz\":[0,0,0],\"rpy\":[0,0,0]}]}",stableCore);}catch(InvalidDataException){failed=true;}Check(failed,"deleted identity never rebinds by name");
         var frozen=LegacySimulationConfigImporter.Import("{\"equalities\":[{\"name\":\"couple\",\"type\":\"joint\",\"polycoef\":[0,1,0,0,0]}]}");
         failed=false;try{((IList<double>)frozen.Equalities[0].Polycoef)[1]=4;}catch(NotSupportedException){failed=true;}Check(failed,"typed extension vectors are immutable");
+        var owned=Path.Combine(Path.GetTempPath(),"SW2MuJoCo-publish-test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(owned);
+        try {
+            var prior=Path.Combine(owned,"test_mjcf");var staging=Path.Combine(owned,".stage");Directory.CreateDirectory(prior);Directory.CreateDirectory(staging);
+            var target=Path.Combine(prior,"test.xml");var oldXml="<mujoco model=\"old\"><worldbody/></mujoco>";File.WriteAllText(target,oldXml);File.WriteAllText(Path.Combine(staging,"test.xml"),"<mujoco model=\"new\"><worldbody/></mujoco>");
+            int operations=0;failed=false;try{SW2URDF.Simulation.PackagePublisher.Publish(staging,target,(a,b)=>{if(++operations==2)throw new IOException("Injected publish failure");Directory.Move(a,b);});}catch(IOException){failed=true;}
+            Check(failed&&operations==3&&File.ReadAllText(target)==oldXml,"failed package swap restores previous complete package");
+        }finally{Directory.Delete(owned,true);}
     }
 }

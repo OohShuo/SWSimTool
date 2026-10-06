@@ -138,9 +138,15 @@ namespace SW2URDF.Simulation
             foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
 
             Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
-            return new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
+            var result = new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
                 { "site_forces", Project.site_forces }, { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision }, { "solver", Project.solver }, { "joint_defaults", Project.joint_defaults }, { "joints", Project.joints }, { "base_mode", Project.base_mode }, { "joint_force_limits", Project.joint_force_limits } };
+            if(exporter.URDFRobot?.BaseLink!=null) {
+                var links=new Dictionary<string,string>();var joints=new Dictionary<string,string>();
+                Action<Link> visit=null;visit=link=>{links.Add(link.Name,link.StableId);if(link.Parent!=null)joints.Add(link.Joint.Name,link.Joint.StableId);foreach(var child in link.Children)visit(child);};visit(exporter.URDFRobot.BaseLink);
+                result["identities"]=new{links,joints};
+            }
+            return result;
         }
         public Attachment CaptureSelectedAttachment(string link,string name,string type){
             var reference=CaptureSelection();ReferenceFrame(reference,type=="frame");

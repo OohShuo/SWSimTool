@@ -61,6 +61,10 @@ namespace SW2URDF.RobotModel
                 foreach(var child in core.Joints.Where(j=>j.ParentLinkId==link.Id))build(core.Links.Single(l=>l.Id==child.ChildLinkId),body,child);
             };build(core.Root,world,null);
             foreach(var site in model.Simulation.Sites){var s=new XElement("site",new XAttribute("name",site.Name),new XAttribute("size","0.003"),new XAttribute("rgba","1 0.3 0.1 1"));Pose(s,site.LinkFromSite);bodies[site.LinkId].Add(s);}
+            foreach(var joint in core.Joints.Where(j=>j.Mimic!=null)) {
+                var equality=root.Element("equality");if(equality==null){equality=new XElement("equality");root.Add(equality);}
+                equality.Add(new XElement("joint",new XAttribute("joint1",joint.Name),new XAttribute("joint2",core.Joints.Single(j=>j.Id==joint.Mimic.SourceJointId).Name),new XAttribute("polycoef",Numbers.Text(new[]{joint.Mimic.Offset,joint.Mimic.Multiplier,0,0,0}))));
+            }
             SimulationExtensions.Apply(root,model,config,bodies,joints);
             using(var stream=new MemoryStream()){
                 using(var writer=XmlWriter.Create(stream,new XmlWriterSettings{Encoding=new UTF8Encoding(false),Indent=true,CloseOutput=false}))new XDocument(root).Save(writer);

@@ -46,6 +46,7 @@ namespace SW2URDF.RobotModel
     }
     public sealed class JointSnapshot
     {
+        public MimicSnapshot Mimic { get; private set; }
         public string Id { get; private set; }
         public string Name { get; private set; }
         public string ParentLinkId { get; private set; }
@@ -58,8 +59,14 @@ namespace SW2URDF.RobotModel
         public double Damping { get; private set; }
         public double FrictionLoss { get; private set; }
         public double EffortLimit { get; private set; }
-        public JointSnapshot(string id,string name,string parent,string child,JointKind kind,RigidTransform pose,Vector3d axis,double? lower,double? upper,double damping,double friction,double effort=0)
-        { Id=id;Name=name;ParentLinkId=parent;ChildLinkId=child;Kind=kind;ParentLinkFromJoint=pose;AxisInJointFrame=kind==JointKind.Fixed||kind==JointKind.Floating?axis:axis.Normalized();Lower=lower;Upper=upper;Damping=Vector3d.Finite(damping);FrictionLoss=Vector3d.Finite(friction);EffortLimit=Vector3d.Finite(effort); }
+        public JointSnapshot(string id,string name,string parent,string child,JointKind kind,RigidTransform pose,Vector3d axis,double? lower,double? upper,double damping,double friction,double effort=0,MimicSnapshot mimic=null)
+        { Id=id;Name=name;ParentLinkId=parent;ChildLinkId=child;Kind=kind;ParentLinkFromJoint=pose;AxisInJointFrame=kind==JointKind.Fixed||kind==JointKind.Floating?axis:axis.Normalized();Lower=lower;Upper=upper;Damping=Vector3d.Finite(damping);FrictionLoss=Vector3d.Finite(friction);EffortLimit=Vector3d.Finite(effort);Mimic=mimic; }
+    }
+    public sealed class MimicSnapshot
+    {
+        public readonly string SourceJointId;
+        public readonly double Multiplier,Offset;
+        public MimicSnapshot(string source,double multiplier,double offset) { SourceJointId=source;Multiplier=Vector3d.Finite(multiplier);Offset=Vector3d.Finite(offset); }
     }
     public sealed class RobotCoreSnapshot
     {
@@ -69,6 +76,12 @@ namespace SW2URDF.RobotModel
         public RobotCoreSnapshot(string name,IEnumerable<LinkSnapshot> links,IEnumerable<JointSnapshot> joints)
         { Name=name;Links=Array.AsReadOnly(links.ToArray());Joints=Array.AsReadOnly(joints.ToArray());RobotModelValidator.Validate(this); }
         public LinkSnapshot Root { get { var children=new HashSet<string>(Joints.Select(j=>j.ChildLinkId));return Links.Single(l=>!children.Contains(l.Id)); } }
+        public RobotCoreSnapshot RemapMeshPaths(Func<string,string> map)
+        {
+            var links=Links.Select(l=>new LinkSnapshot(l.Id,l.Name,l.Inertial,l.Geometries.Select(g=>new GeometrySnapshot(g.Id,g.Kind,g.LinkFromGeometry,g.Dimensions,
+                g.Mesh==null?null:new MeshSource(g.Mesh.Id,map(g.Mesh.SourcePath),g.Mesh.Scale),g.IsCollision,g.Rgba))));
+            return new RobotCoreSnapshot(Name,links,Joints);
+        }
     }
     public static class RobotModelValidator
     {
@@ -79,6 +92,7 @@ namespace SW2URDF.RobotModel
             foreach(var group in core.Links.SelectMany(l=>l.Geometries).Where(g=>g.Mesh!=null).Select(g=>g.Mesh).GroupBy(m=>m.Id))if(group.Select(m=>m.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=1)throw new InvalidDataException("Conflicting mesh source identity: "+group.Key);
             var ids=new HashSet<string>(core.Links.Select(l=>l.Id));var child=new HashSet<string>();
             foreach(var j in core.Joints){if(!ids.Contains(j.ParentLinkId)||!ids.Contains(j.ChildLinkId)||j.ParentLinkId==j.ChildLinkId||!child.Add(j.ChildLinkId))throw new InvalidDataException("Invalid joint topology: "+j.Name);
+                if(j.Mimic!=null){var source=core.Joints.SingleOrDefault(v=>v.Id==j.Mimic.SourceJointId);if(source==null||source==j||source.Kind==JointKind.Fixed||source.Kind==JointKind.Floating||j.Kind==JointKind.Fixed||j.Kind==JointKind.Floating)throw new InvalidDataException("Invalid mimic reference: "+j.Name);var seen=new HashSet<string>{j.Id};while(source!=null&&source.Mimic!=null){if(!seen.Add(source.Id))throw new InvalidDataException("Cyclic mimic reference");source=core.Joints.SingleOrDefault(v=>v.Id==source.Mimic.SourceJointId);}}
                 if(!Enum.IsDefined(typeof(JointKind),j.Kind)||j.Damping<0||j.FrictionLoss<0||j.EffortLimit<0)throw new InvalidDataException("Invalid joint kind/dynamics");ValidatePose(j.ParentLinkFromJoint);
                 if(j.Lower.HasValue!=j.Upper.HasValue||(j.Lower.HasValue&&(Vector3d.Finite(j.Lower.Value)>=Vector3d.Finite(j.Upper.Value))))throw new InvalidDataException("Invalid joint range: "+j.Name);
                 if((j.Kind==JointKind.Revolute||j.Kind==JointKind.Prismatic)&&!j.Lower.HasValue)throw new InvalidDataException("Limited joint requires range: "+j.Name);
