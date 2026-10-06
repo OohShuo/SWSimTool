@@ -131,3 +131,22 @@ site 使用稳定内部 ID，名称用于显示与 MJCF 导出。改名同步传
 - 默认关闭性能日志。设置环境变量 `SW2MUJOCO_PROFILE=1` 后，Python 输出 mesh_read、mesh_prepare、simplify、mujoco_compile、package_validation、publish 阶段耗时；C# 通过 Trace 输出 CAD 求值、候选扫描、配置解析及保存耗时。正常预览不增加 Diagnostics 周期日志。
 
 本轮仍启动独立 Python 进程，也仍编译、验证完整 MJCF；没有引入常驻 worker、Robot IR 或跳过 CAD 导出的完整增量流程。从工程导出依旧先生成临时 URDF/STL，再转换。仅配置变化的减面结果可复用，但源网格读取和 MuJoCo 编译仍会发生。
+
+## 两点作用力（2.6）
+
+入口：工具 → SW2MuJoCo → 仿真配置 → 两点作用力。
+
+1. 先在“附着点”定义两个 site，并各自拾取 CAD 参考。point 和 frame 都可，只使用位置。
+2. 在“两点作用力”点击添加，填写名称；选择端点一、端点二的已有 site。所属 link 自动显示，不需要顶层 link 选择或 CAD 拾取。
+3. 类型 pull 表示拉近，push 表示推开。输入非负力大小，单位 N。初值 0，启用初值为开启；0 N 不施力。勾选关闭则不生成对应恒力 tendon/actuator。
+4. 保存配置到装配，再保存 .sldasm；重新导出 MJCF 或导出并预览。
+
+两个 site 必须不同且属于不同 link。力大小恒定，方向实时沿两端连线，分别作用于两端 site，大小相等、方向相反。作用点偏离质心时产生相应力矩。它不限制距离，不创建运动关节，也不是 connect 约束或弹簧。
+
+CAD 实时预览仅显示选中非零启用条目的两点连线示意，不运行仿真；改变力值、类型或端点不会重建整张表单。初始重合的两端在非零启用时无法导出；运动中也应避免两点重合，因为连线方向无定义。
+
+配置保存于统一装配节点，并随可选 .sim.json 导出；site 改名自动同步，删除后的 ID 不会被同名新 site 接管。旧配置不含 site_forces 时自动按空列表读取。普通 URDF/STL 不变，MJCF 最终仍只有 XML 和引用的 meshes/STL（没有网格时只生成 XML）。
+
+后端生成两 site 的 spatial tendon 与 general actuator：gear=1，gainprm=0，affine bias 的常数项为 pull 的 -F 或 push 的 +F，长度和速度项为 0；不添加 tendon 弹簧、阻尼或长度限位。恒力与 ctrl 值无关，不需要 Python 每步回调，标准 viewer 打开 XML 后即生效。生成名称分别为 sw2mujoco_tendon_<配置名> 和 sw2mujoco_force_<配置名>。
+
+每条启用配置会新增一个 general actuator，因此 model.nu 增加；这个控制槽的输入被忽略。外部控制脚本应按 actuator 名称定位关节执行器，避免假定所有控制槽都对应电机。原 joint 执行器的配置和按 actuator 引用选择的关节默认物理参数不变。
