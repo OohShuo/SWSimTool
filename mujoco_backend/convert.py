@@ -171,6 +171,8 @@ def validate(config, robot):
             raise ValueError("Camera fovy must be between 0 and 180 degrees")
     from equalities import validate_equalities
     validate_equalities(config, attachments, joints, links)
+    from site_forces import validate_site_forces
+    validate_site_forces(config, attachments)
     return attachments
 
 
@@ -329,10 +331,13 @@ def convert(urdf, config_path, output, preserve_mesh_paths=False):
                     ET.SubElement(sensor_group, kind, {"name": sensor["name"] + "_" + kind, "site": sensor["site"], "cutoff": str(sensor.get("cutoff", 0))})
         from equalities import apply_equalities
         apply_equalities(mjcf, config, effective)
+        from site_forces import apply_site_forces, validate_initial_force_directions
+        apply_site_forces(mjcf, config)
 
         xml = ET.tostring(mjcf, encoding="unicode")
         with asset_options(mujoco, assets) as options:
             final_model = mujoco.MjModel.from_xml_string(xml, **options)
+        validate_initial_force_directions(final_model, config)
         # Compile first; failed conversions leave the previous output intact.
         for name, data in assets.items():
             asset_path = output.parent / name

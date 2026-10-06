@@ -117,6 +117,20 @@ namespace SW2URDF.Simulation
         public override string ToString() => name + " ["+type+"] : " + (type=="joint"?joint1:binding=="body"?body1:site1) + " ↔ " + (type=="joint"?joint2:binding=="body"?body2:site2);
     }
 
+    public sealed class SiteForceConfig
+    {
+        public string name { get; set; } = "force";
+        public string type { get; set; } = "pull";
+        public bool enabled { get; set; } = true;
+        public double magnitude { get; set; }
+        public string site1 { get; set; }
+        public string site2 { get; set; }
+        [Browsable(false)] public string site1_id { get; set; }
+        [Browsable(false)] public string site2_id { get; set; }
+        public void Validate(){if(string.IsNullOrWhiteSpace(name)||!new[]{"pull","push"}.Contains(type)||double.IsNaN(magnitude)||double.IsInfinity(magnitude)||magnitude<0)throw new InvalidDataException("两点作用力需要名称、pull/push 类型及非负有限力值 N。");}
+        public override string ToString()=>name+" ["+type+"] : "+site1+" ↔ "+site2;
+    }
+
     public sealed class SimulationProject
     {
         public int schema_version { get; set; } = 1;
@@ -126,6 +140,7 @@ namespace SW2URDF.Simulation
         public List<Attachment> attachments { get; set; } = new List<Attachment>();
         public List<ActuatorConfig> actuators { get; set; } = new List<ActuatorConfig>();
         public List<SensorConfig> sensors { get; set; } = new List<SensorConfig>();
+        public List<SiteForceConfig> site_forces { get; set; } = new List<SiteForceConfig>();
         public List<EqualityConfig> equalities { get; set; } = new List<EqualityConfig>();
         public CollisionConfiguration collision { get; set; }
         public SolverSettings solver { get; set; }
@@ -136,6 +151,8 @@ namespace SW2URDF.Simulation
 
         public void NormalizeSiteReferences(){
             var ids=new HashSet<string>();foreach(var a in attachments){if(string.IsNullOrWhiteSpace(a.id))a.id=Guid.NewGuid().ToString("N");if(!ids.Add(a.id))throw new InvalidDataException("site 内部 ID 重复。");}
+            if(site_forces==null)throw new InvalidDataException("两点作用力配置不完整。");
+            foreach(var force in site_forces){var a=FindSite(force.site1_id,force.site1);var b=FindSite(force.site2_id,force.site2);if(a!=null){force.site1_id=a.id;force.site1=a.name;}if(b!=null){force.site2_id=b.id;force.site2=b.name;}}
             foreach(var sensor in sensors){var a=FindSite(sensor.site_id,sensor.site);if(a!=null){sensor.site_id=a.id;sensor.site=a.name;}}
             foreach(var e in equalities.Where(e=>e.type!="joint"&&e.binding=="site")){var a=FindSite(e.site1_id,e.site1);var b=FindSite(e.site2_id,e.site2);if(a!=null){e.site1_id=a.id;e.site1=a.name;}if(b!=null){e.site2_id=b.id;e.site2=b.name;}}
         }
@@ -143,6 +160,8 @@ namespace SW2URDF.Simulation
         public void RenameSite(Attachment item,string name){name=(name??"").Trim();if(string.IsNullOrWhiteSpace(name)||attachments.Any(a=>a!=item&&a.name==name))throw new InvalidDataException("site 名称不能为空或重复。");NormalizeSiteReferences();item.name=name;NormalizeSiteReferences();}
         public void ValidateSolver()
         {
+            if(site_forces==null)throw new InvalidDataException("两点作用力配置不完整。");
+            foreach(var force in site_forces)force.Validate();if(site_forces.Select(f=>f.name).Distinct().Count()!=site_forces.Count)throw new InvalidDataException("两点作用力名称重复。");
             solver?.Validate();
             if(joints==null||joint_force_limits==null||!new[]{"inherit","fixed","floating"}.Contains(base_mode))throw new InvalidDataException("关节配置不完整。");
             foreach(var j in joints)j.Validate();foreach(var f in joint_force_limits)f.Validate();

@@ -28,3 +28,9 @@ def normalize_site_references(config):
         if equality.get('type') != 'joint' and equality.get('binding', 'site') == 'site':
             resolve(equality, 'site1')
             resolve(equality, 'site2')
+
+    if not isinstance(config.get('site_forces', []), list):
+        raise ValueError('Two-site forces must be a list')
+    for force in config.get('site_forces', []):
+        resolve(force, 'site1')
+        resolve(force, 'site2')
