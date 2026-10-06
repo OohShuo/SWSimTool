@@ -319,6 +319,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="RobotModel\Spatial.cs" />
+    <Compile Include="RobotModel\RobotCoreSnapshot.cs" />
+    <Compile Include="RobotModel\UrdfRobotModelImporter.cs" />
+    <Compile Include="RobotModel\SimulationConfigSnapshot.cs" />
+    <Compile Include="RobotModel\MjcfExporter.cs" />
+    <Compile Include="RobotModel\CandidateExtensions.cs" />
+    <Compile Include="RobotModel\SolidWorksRobotModelBuilder.cs" />
     <Compile Include="Simulation\SimulationProject.cs" />
     <Compile Include="Simulation\AttachmentService.cs" />
     <Compile Include="Simulation\CollisionConfiguration.cs" />

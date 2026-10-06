@@ -1,0 +1,5 @@
+<robot name="analytic_hinge">
+  <link name="base"/>
+  <link name="arm"><inertial><origin xyz="0.1 0 0" rpy="0 0 1.5707963267948966"/><mass value="2"/><inertia ixx="0.02" iyy="0.03" izz="0.04" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="hinge" type="continuous"><parent link="base"/><child link="arm"/><origin xyz="1 2 3" rpy="0 0 1.5707963267948966"/><axis xyz="0 0 1"/></joint>
+</robot>

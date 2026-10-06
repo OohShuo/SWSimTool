@@ -1,0 +1,10 @@
+<robot name="rotated_inertia">
+  <link name="base"/>
+  <link name="arm">
+    <inertial><origin xyz="0.1 0.2 0.3" rpy="0.2 -0.3 0.4"/><mass value="2"/><inertia ixx="0.03" iyy="0.04" izz="0.05" ixy="0.002" ixz="-0.003" iyz="0.001"/></inertial>
+    <collision><origin xyz="0.02 0.01 0" rpy="0.1 0.2 0.3"/><geometry><box size="0.1 0.2 0.3"/></geometry></collision>
+  </link>
+  <joint name="hinge" type="revolute"><parent link="base"/><child link="arm"/><origin xyz="1 2 3" rpy="0.3 -0.2 0.7"/><axis xyz="1 2 3"/><limit lower="-1" upper="1" effort="10" velocity="2"/><dynamics damping="0.04" friction="0.02"/></joint>
+  <link name="tool"><inertial><mass value="0.1"/><inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="tool_fixed" type="fixed"><parent link="arm"/><child link="tool"/><origin xyz="0.2 0.1 0" rpy="0.1 0.2 -0.4"/></joint>
+</robot>
