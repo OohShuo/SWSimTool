@@ -337,6 +337,8 @@
     <Compile Include="Simulation\PackagePublisher.cs" />
     <Compile Include="Utilities\PerformanceScope.cs" />
     <Compile Include="Simulation\ProjectExport.cs" />
+    <Compile Include="Simulation\SimulationConfigBuilder.cs" />
+    <Compile Include="Simulation\NativeSimulationGeometry.cs" />
     <Compile Include="Simulation\ExportFingerprint.cs" />
     <Compile Include="Simulation\SimulationSession.cs" />
     <Compile Include="Simulation\ExportInstrumentation.cs" />

@@ -29,3 +29,9 @@
 ## 阶段 1 基线
 
 使用 3.0 的候选测试 14 项和 Python 后端 96 项建立基线，日志保存在 build/3.1-baseline-*.log。本阶段不启动 SolidWorks，不调用桌面自动化。
+
+## 阶段 2：直接仿真快照
+
+领域快照仅接受类型化参数并复制数组/集合；JSON/字典解析全部移入兼容导入器。新增 SimulationConfigBuilder 和纯数据 ResolvedSimulationGeometry，工程 native 路径不生成或重读 robot.sim.json。缓存分别保存已解析的附着点/碰撞几何与核心快照，timestep 变化只重建配置快照。
+
+验证：14 项候选回归通过；6 项直接配置测试覆盖所有扩展族新旧路径字节一致、快照不可变和失效 joint/site/link ID 拒绝。COM 新建四 link 装配通过 initial / timestep-only / 清缓存 full；增量保持 0/0/0/1/1，全量与增量严格语义和 1/10/100 步动力学一致，测试目录无中间 URDF 或 .sim.json。测试工程位于 build/native-incremental-7dddce42295447dc8b8ffb8d57414896，未打开用户工程。

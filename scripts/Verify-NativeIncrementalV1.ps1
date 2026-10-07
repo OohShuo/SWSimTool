@@ -28,6 +28,7 @@ public static class NativeIncrementalProbe {
   using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name,NativeOnly)){
    if(NativeOnly){
     Check(export.Urdf==null,"engineering export has no intermediate URDF");
+    Check(export.Sidecar==null,"engineering model construction has no sidecar JSON bridge");
     string directOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");var directLines=new List<string>();
     int directCode=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.NativeModel(),directOutput,false,line=>{directLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
     Check(directCode==0,"native production "+label+" export succeeds");export.MarkSucceeded();

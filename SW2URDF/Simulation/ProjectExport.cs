@@ -8,7 +8,8 @@ namespace SW2URDF.Simulation {
   readonly ModelDoc2 document;
   public string Urdf{get;private set;} public string Sidecar{get;private set;}
   public SW2URDF.RobotModel.RobotCoreSnapshot Core{get;private set;}
-  public SW2URDF.RobotModel.RobotModel NativeModel(){if(Core==null)throw new InvalidOperationException("Native core is unavailable; rebuild the project source.");return new SW2URDF.RobotModel.RobotModel(Core,SW2URDF.RobotModel.LegacySimulationConfigImporter.Import(File.ReadAllText(Sidecar),Core));}
+  SW2URDF.RobotModel.SimulationConfigSnapshot simulation;
+  public SW2URDF.RobotModel.RobotModel NativeModel(){if(Core==null||simulation==null)throw new InvalidOperationException("Native model is unavailable; rebuild the project source.");return new SW2URDF.RobotModel.RobotModel(Core,simulation);}
   public string ExportId{get;}=Guid.NewGuid().ToString("N");
   public static int SourceBuildCount{get;private set;}
   public ExportPlan Plan{get;private set;}
@@ -20,10 +21,16 @@ namespace SW2URDF.Simulation {
     var entry=SimulationStorage.LoadEntry(expected);double treeVersion;string treeData=entry==null?ConfigurationSerialization.GetLegacyConfigTreeData(expected,out treeVersion):entry.urdf_xml;
     string source=ProjectSourceCache.Source(app,expected,treeData),geometry=ProjectSourceCache.Geometry(current);
     var cached=ProjectSourceCache.Find(expected,source,geometry);
-    if(cached!=null&&(nativeOnly?cached.core==null:cached.urdf==null))cached=null;
+    if(cached!=null&&(nativeOnly?cached.core==null||cached.resolvedGeometry==null:cached.urdf==null))cached=null;
     Plan=ExportPlan.Build(cached!=null,SimulationSession.Dirty(expected)|ExportFingerprint.Changed(cached?.project,current));
     if(cached!=null){
      Core=cached.core;
+     bool geometryChanged=cached.geometry!=geometry;
+     if(nativeOnly){
+      var resolvedGeometry=cached.resolvedGeometry;
+      if(cached.geometry!=geometry){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);resolvedGeometry=resolver.ResolveNativeGeometry(Core);cached.resolvedGeometry=resolvedGeometry;cached.geometry=geometry;}
+      simulation=SimulationConfigBuilder.Build(current,Core,resolvedGeometry);return;
+     }
      Urdf=cached.urdf==null?null:Path.Combine(cached.folder,cached.urdf);Sidecar=Path.Combine(temporary,"robot.sim.json");
      System.Collections.Generic.Dictionary<string,object> data;
      if(cached.geometry==geometry)data=ProjectSourceCache.Overlay(cached,current);
@@ -33,7 +40,9 @@ namespace SW2URDF.Simulation {
       if(cached.sidecar.ContainsKey("identities"))data["identities"]=cached.sidecar["identities"];
       cached.geometry=geometry;cached.sidecar=data;
      }
-     SimulationProject.Write(Sidecar,data);return;
+     SimulationProject.Write(Sidecar,data);
+     if(geometryChanged){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);cached.resolvedGeometry=resolver.ResolveNativeGeometry(Core);}
+     simulation=SimulationConfigBuilder.Build(current,Core,cached.resolvedGeometry);return;
     }
     SourceBuildCount++;CadRevision.Invalidate(expected);
     bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(expected,out error);
@@ -43,8 +52,7 @@ namespace SW2URDF.Simulation {
     helper.GetSimulation().Project=current;if(!helper.CreateRobotFromTreeView(tree))throw new InvalidOperationException("URDF 构建失败，请检查 link / joint 配置。");
     var meshes=new System.Collections.Generic.Dictionary<string,SW2URDF.RobotModel.MeshSource>();
     if(nativeOnly){
-     Sidecar=Path.Combine(temporary,"robot.sim.json");
-     SimulationProject.Write(Sidecar,helper.GetSimulation().Export("robot.urdf"));
+
      meshes=helper.ExportNativeMeshes(Path.Combine(temporary,"raw-mesh"));
     }else{
     helper.ExportRobot();Urdf=helper.LastURDFPath;Sidecar=helper.LastSimulationPath;
@@ -53,9 +61,12 @@ namespace SW2URDF.Simulation {
     }
     // Export can update display state/preferences; establish the final metadata revision.
     source=ProjectSourceCache.Source(app,expected,treeData);
-    var resolved=ExportFingerprint.Serializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(File.ReadAllText(Sidecar));
+    var resolved=Sidecar==null?null:ExportFingerprint.Serializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(File.ReadAllText(Sidecar));
     Core=SW2URDF.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(helper.URDFRobot,meshes);
-    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,resolved,System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray()),Core);
+    var frames=System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray());
+    ResolvedSimulationGeometry nativeGeometry=null;
+    helper.GetSimulation().UseExportFrames(frames);nativeGeometry=helper.GetSimulation().ResolveNativeGeometry(Core);simulation=SimulationConfigBuilder.Build(current,Core,nativeGeometry);
+    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,resolved,frames,Core,nativeGeometry);
     var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=stored.urdf==null?null:Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }
