@@ -1,0 +1,26 @@
+name: SolidWorks integration and release
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        type: choice
+        options: [SolidWorksIntegration, Release]
+        default: SolidWorksIntegration
+        description: Release also installs and uninstalls SWSimTool on the dedicated runner
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: [self-hosted, Windows, X64, solidworks-2025]
+    environment: solidworks-release
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tools/build/RunSuite.ps1 -Tier '${{ inputs.tier }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solidworks-reports
+          path: |
+            build/logs
+            build/reports
+            build/dist

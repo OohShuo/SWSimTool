@@ -1,7 +1,8 @@
 ﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[int[]]$OwnedStaleProcessIds=@())
 $ErrorActionPreference='Stop'
-if(Get-Process SLDWORKS -ErrorAction SilentlyContinue | Where-Object {$_.Id -notin $OwnedStaleProcessIds}){throw 'Refusing compatibility CAD test with an existing SolidWorks session'}
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})
+. "${root}/tools/build/CadProcessGuard.ps1"
+if(Get-ActiveSolidWorksProcesses){throw 'Refusing compatibility CAD test with an existing SolidWorks session'}
 $source=(Resolve-Path -LiteralPath $OwnedLegacyFixture).Path
 $allowed=(Join-Path $root 'build')+[IO.Path]::DirectorySeparatorChar
 if(-not $source.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -and $source -ne [IO.Path]::GetFullPath((Join-Path $root 'tests/fixtures/sw2mujoco-v2/cad'))){throw 'Only owned build fixtures or the frozen compatibility fixture are accepted'}

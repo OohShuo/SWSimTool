@@ -85,7 +85,7 @@ begin
   try
     Locator := CreateOleObject('WbemScripting.SWbemLocator');
     Services := Locator.ConnectServer('', 'root\CIMV2');
-    Processes := Services.ExecQuery('SELECT ProcessId FROM Win32_Process WHERE Name=''SLDWORKS.exe''');
+    Processes := Services.ExecQuery('SELECT ProcessId FROM Win32_Process WHERE Name=''SLDWORKS.exe'' AND (ThreadCount > 0 OR HandleCount > 0 OR ThreadCount IS NULL OR HandleCount IS NULL)');
     Result := Processes.Count > 0;
   except
     Log('Could not check running SolidWorks processes: ' + GetExceptionMessage);

@@ -1,6 +1,7 @@
 ﻿param([string]$Configuration='Release',[string]$Python='python')
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+& "$root/tools/build/ValidationReceipt.ps1" -Mode Verify -Configuration $Configuration
 $source=Join-Path $root "build/bin/SWSimTool.SolidWorks/$Configuration/net48"
 $version=([xml](Get-Content -LiteralPath (Join-Path $root 'Version.props'))).Project.PropertyGroup.SWSimToolVersion
 $payload=Join-Path $root 'build/runtime-release'

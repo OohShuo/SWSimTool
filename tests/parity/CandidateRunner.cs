@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,6 +33,12 @@ public static class CandidateRunner
     static void Check(bool value,string label) { if(!value)throw new Exception(label);Console.WriteLine("PASS: "+label); }
     static void SelfTest()
     {
+        var envelope=SWSimTool.Persistence.DocumentEnvelopeSerializer.Deserialize<Dictionary<string,object>>("{\"version\":2,\"configurations\":{}}",2);
+        Check(envelope.ContainsKey("configurations"),"explicit v2 storage envelope accepted");
+        foreach(var invalid in new[]{"{}","{\"version\":\"2\",\"configurations\":{}}","{\"version\":3,\"configurations\":{}}"}){
+            bool rejected=false;try{SWSimTool.Persistence.DocumentEnvelopeSerializer.Deserialize<Dictionary<string,object>>(invalid,2);}catch(InvalidDataException){rejected=true;}
+            Check(rejected,"implicit or incompatible storage envelope rejected");
+        }
         var rotated=Quaterniond.FromRpy(new Vector3d(0,0,Math.PI/2)).Rotate(new Vector3d(1,0,0));Check(Math.Abs(rotated.X)<1e-14&&Math.Abs(rotated.Y-1)<1e-14,"double rotation convention");
         var inertia=new SymmetricInertia(1,2,2.5,0,0,0).Rotated(Quaterniond.FromRpy(new Vector3d(0,0,Math.PI/2)));Check(Math.Abs(inertia.XX-2)<1e-14&&Math.Abs(inertia.YY-1)<1e-14,"inertia rotated into link frame");
         var geometry=new[]{new GeometrySnapshot("g",GeometryKind.Box,RigidTransform.Identity,new Vector3d(1,2,3),null,true,new[]{.2,.3,.4,1})};var links=new List<LinkSnapshot>{new LinkSnapshot("base","base",null,geometry)};

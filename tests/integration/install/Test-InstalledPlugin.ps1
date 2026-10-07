@@ -1,7 +1,8 @@
 ﻿param([string]$Installed='C:\Program Files\SWSimTool\SWSimTool.dll',[int[]]$OwnedStaleProcessIds=@())
 $ErrorActionPreference='Stop'
-if(Get-Process SLDWORKS -ErrorAction SilentlyContinue | Where-Object {$_.Id -notin $OwnedStaleProcessIds}){throw 'Refusing installed addin test with an existing SolidWorks session'}
 $workspacePath=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
+. "${workspacePath}/tools/build/CadProcessGuard.ps1"
+if(Get-ActiveSolidWorksProcesses){throw 'Refusing installed addin test with an existing SolidWorks session'}
 $fixture=Join-Path $workspacePath ('build\installed-plugin-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 $interop='D:\sw\sw2025\SOLIDWORKS\SolidWorks.Interop.sldworks.dll'

@@ -56,3 +56,5 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 测试说明见 [tests/README.md](tests/README.md)。真实 CAD 增量与保存重开门禁只创建自有 fixture，须在没有已有 SolidWorks 会话时运行；不属于普通无 CAD 测试命令。
 
 [Python Tool Backend 边界](docs/SWSimTool_ToolBackend.md) · [许可证](LICENSE)
+
+构建验证与 CI 的分层入口见 [测试说明](docs/Testing.md)。
