@@ -1,8 +1,11 @@
-﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
+; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
-#define Payload AddBackslash(SourcePath) + "..\build\simulation-candidate"
+#define Payload AddBackslash(SourcePath) + "..\build\stable-audit"
 #endif
 #define BuildVersion GetFileVersion(Payload + "\SW2URDF.dll")
+#ifndef ReleaseName
+#define ReleaseName "3.2.1"
+#endif
 
 [Setup]
 AppId={{E43E85A9-071D-430A-91B2-84B7AB923170}
@@ -22,7 +25,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir=..\dist
-OutputBaseFilename=SW2MuJoCo_SW2025_x64_Setup
+OutputBaseFilename=SW2MuJoCo_{#ReleaseName}_SW2025_x64_Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -42,7 +45,6 @@ Source: "{#Payload}\SW2URDF.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SW2URDF.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docs\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "MuJoCo-Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
@@ -51,7 +53,6 @@ Source: "{#Payload}\mujoco_backend\incremental.py"; DestDir: "{app}\mujoco_backe
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
-Source: "..\docs\SW2MuJoCo_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags: ignoreversion

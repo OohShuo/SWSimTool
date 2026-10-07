@@ -1,4 +1,4 @@
-param([string]$Payload='3.2-final')
+﻿param([string]$Payload='stable-audit')
 $ErrorActionPreference='Stop'
 $workspacePath=Split-Path -Parent $PSScriptRoot
 $payloadPath=Join-Path $workspacePath ('build\'+$Payload)

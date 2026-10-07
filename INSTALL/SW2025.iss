@@ -40,7 +40,7 @@ Source: "{#Payload}\SW2URDF.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SW2URDF.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docs\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\history\SW2025_SW2URDF_FIX.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "Setup-Readme.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Code]

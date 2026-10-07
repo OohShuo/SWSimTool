@@ -349,3 +349,6 @@ SW2URDF/Versioning/VersionInfo.cs
 /INSTALL/tools/
 /upstream-reference/
 /upstream-master.json
+
+# Local workspace archive; historical documentation remains tracked in docs/history.
+/_archive/

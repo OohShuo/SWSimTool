@@ -1,4 +1,4 @@
-﻿SW2MuJoCo for SolidWorks 2025 (x64)
+SW2MuJoCo for SolidWorks 2025 (x64)
 
 Complete plugin based on the upstream SolidWorks URDF Exporter.
 The original license and attribution are retained.
@@ -22,4 +22,4 @@ Python, MuJoCo and simplification tools are supplied by your local environment.
 Closing an export/preview window cancels its backend and waits for cleanup.
 On failure or cancellation, the previous valid MJCF package is retained.
 Offline illustrated guide: docs/SW2MuJoCo_3.2.1_使用指南.html
-Details: docs/SW2MuJoCo_使用说明.md
+Text guide: docs/SW2MuJoCo_3.2.1_使用指南.md

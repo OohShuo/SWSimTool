@@ -1,4 +1,4 @@
-﻿param([string]$Payload='collision-navigation-final')
+﻿param([string]$Payload='stable-audit')
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $bin=Join-Path $root ('build\'+$Payload)

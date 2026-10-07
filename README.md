@@ -1,55 +1,53 @@
-# SolidWorks to URDF Exporter
+# SW2MuJoCo
 
-Authored and maintained by [Stephen Brawner](brawner@gmail.com). Past supporters include [PickNik Consulting](https://picknik.ai), Verb Surgical, Open Robotics, and Willow Garage. 
+SolidWorks 2025 插件：配置 URDF 树、碰撞几何、关节、传感器、执行器、闭链约束、恒力和弹簧，导出 URDF / MJCF，并使用本地 MuJoCo 预览。
 
-## Latest Release
+当前交付版本：**3.2.1**。基于 ROS SolidWorks URDF Exporter，保留原作者署名与许可证；官方基线和本地更改见 [源码来源](docs/SOURCE_PROVENANCE.md)。原官方 README 保留在 [历史目录](docs/history/upstream-README.md)。
 
-**SolidWorks 2021**
+## 安装与使用
 
-https://github.com/ros/solidworks_urdf_exporter/releases/tag/1.6.1
+本地最终安装包：`dist/SW2MuJoCo_3.2.1_SW2025_x64_Setup.exe`，旁边的 `.sha256` 用于校验。安装前关闭 SolidWorks。安装包不加入 Git；从源码获取仓库后需自行构建。
 
-**SolidWorks 2020**
+- [离线图文使用指南](docs/SW2MuJoCo_3.2.1_使用指南.html)
+- [Markdown 使用指南](docs/SW2MuJoCo_3.2.1_使用指南.md)
+- [文档导航](docs/README.md)
+- [3.2.1 稳定引用审计](docs/SW2MuJoCo_3.2.1稳定引用审计.md)
 
-https://github.com/ros/solidworks_urdf_exporter/releases/tag/1.6.0
+Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Python 环境。URDF 导出可选附加配置；MJCF 交付目录只包含 XML 与 `meshes/*.stl`。
 
-**SolidWorks 2019 on 2018 SP 5**
+## 工作目录
 
-https://github.com/ros/solidworks_urdf_exporter/releases/tag/1.5.1
+| 路径 | 用途 |
+|---|---|
+| `SW2URDF/`、`SW2URDF.sln` | 插件源码和解决方案；内部项目名保留兼容性 |
+| `mujoco_backend/` | Python 工具后端及回归测试 |
+| `tests/`、`TestRunner/`、`scripts/` | 模型差分、测试与构建脚本 |
+| `docs/` | 当前使用指南、审计和开发说明 |
+| `docs/history/` | 旧版指南与阶段记录，保留在 Git 中 |
+| `dist/` | 当前安装包及校验文件，不进入 Git |
+| `build/stable-audit/` | 当前已验证插件的构建载荷 |
+| `build/native-parity/` | 差分测试运行器 |
+| `build/` 中的报告与隔离 fixture | 最终验收证据，不进入 Git |
+| `_archive/` | 旧安装包、旧构建、实验脚本、备份和诊断，本地归档，不进入 Git |
+| `packages/`、`INSTALL/tools/` | NuGet 依赖与本地安装器编译工具，不进入 Git |
+| `examples/` | 官方示例 |
 
-## SolidWorks Version Requirements
+归档迁移清单为 `_archive/workspace-*/manifest.json`。需要旧资源时按清单查找；当前生产构建不依赖归档目录。历史文档中的旧 `build/`、`dist/` 路径对应归档前的位置。
 
-1. The minimum required version of SolidWorks for use with this add-in is 2018 Service Pack 5. SolidWorks 2017 or earlier may work. See [this issue](https://github.com/ros/solidworks_urdf_exporter/issues/73).
+## 构建与验证
 
-## Usage
+需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8、SolidWorks 2025 API 程序集和已还原的 NuGet 包。使用 MSBuild 构建 `SW2URDF/SW2URDF.csproj`，设置 `Configuration=Release`、`Platform=x64`、`SolutionDir` 为仓库绝对路径、`SolidWorksDir` 为 SolidWorks 安装目录，以及 `OutputPath` 为仓库下的 `build/stable-audit/`。
 
-See the [ROS Wiki](http://wiki.ros.org/sw_urdf_exporter) and associated [tutorials](http://wiki.ros.org/sw_urdf_exporter/Tutorials).
+生产安装器入口为 `INSTALL/SW2025-MuJoCo.iss`，默认读取 `build/stable-audit/`；可用 Inno Setup 的 `/DPayload=<绝对路径>` 指定其他载荷。旧 `Install.iss` 和 `SW2025.iss` 保留为历史构建入口。
 
-## Development
+当前身份与界面回归可运行以下脚本，必要时显式传入 `-Payload stable-audit`：
 
-1. Install Visual Studio 2017
-1. Install .NET desktop development
-    1. From Visual Studio: `Tools > Get Tools and Features...`
-    1. Check `.NET desktop development` package
-    1. Select `Modify`
-1. Install the [SolidWorks API tools](https://help.solidworks.com/2019/english/api/sldworksapiprogguide/GettingStarted/SolidWorks_API_Getting_Started_Overview.htm)
-1. Launch Visual Studio with admin privileges. Right click and select `Run as Administrator`
-1. Open `sw2urdf/SW2URDF.sln`  
-1. Enable Debugging
-    1. Right click `SW2URDF` in the Solution Explorer
-    1. Click the `Debug` Tab
-    1. Ensure `Configuration:` is set to `Debug`
-    1. Ensure `Start external program:` is pointing to the SolidWorks executable. For example `C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe`
-
-## Converting mesh format from 3dxml to dae
-
-Executing the following command will convert the format of the exported mesh from 3DXML to DAE, and rewrite the URDF, allowing you to display colored meshes in visualization tools like RViz:
-
-```bash
-pip3 install scikit-robot -U
-convert-urdf-mesh <URDF_PATH> --output <OUTPUT_URDF_PATH>
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-StableReferenceAudit.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-CollisionNavigation.ps1 -Payload stable-audit
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-ProductionBoundary.ps1 -Payload stable-audit
 ```
 
-### Trouble Shooting
+MuJoCo 编译语义和动力学差分见 `tests/parity/run.py`；后端回归见 `mujoco_backend/test_*.py`。COM 验证使用 `scripts/Verify-NativeIncrementalV1.ps1 -Payload stable-audit -NativeOnly -IdentityLifecycle -CadReferenceLifecycle`，须在没有已有 SolidWorks 文档的独立测试环境运行。
 
-1. `AxImp.exe` error - Check the installation of the .Net Tools. If there is no error, install the Windows 10 SDK.
-1. `Resourse.resx` error - Check if `sw2urdf/SW2URDF/Resources.resx` exists and is empty. If empty, delete this file then right click the `SW2URDF` in the Solution Explorer and select `Properties`. Navigate to the Resources tab and click the button to create a new file.
+[Python Tool Backend 边界](docs/SW2MuJoCo_ToolBackend.md) · [许可证](LICENSE)

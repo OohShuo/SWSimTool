@@ -20,6 +20,6 @@ in the add-in settings for your normal Windows user.
 
 Uninstall from Windows Installed Apps. Close SolidWorks before uninstalling.
 Models and exported URDF packages are not installed or removed by this package.
-Detailed diagnosis and validation: docs\SW2025_SW2URDF_FIX.md.
+Detailed diagnosis and validation: docs/history/SW2025_SW2URDF_FIX.md (source repository historical documentation).
 
 This is a locally built, unsigned installer based on the ROS SW2URDF project.

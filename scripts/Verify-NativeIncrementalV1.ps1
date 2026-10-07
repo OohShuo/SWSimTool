@@ -1,4 +1,4 @@
-﻿param([string]$Payload='native-candidate',[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
+﻿param([string]$Payload='stable-audit',[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
