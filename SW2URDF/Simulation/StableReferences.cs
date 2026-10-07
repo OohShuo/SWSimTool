@@ -56,8 +56,6 @@ namespace SW2URDF.Simulation
         {
             if(!string.IsNullOrWhiteSpace(id)) {
                 string current;
-                if(objects.TryGetValue(id,out current)&&current!=name&&objects.Values.Contains(name))
-                    return objects.Single(p=>p.Value==name); // An explicit selection of another existing object.
                 // A deleted ID must never silently rebind to a new object bearing the old name.
                 return new KeyValuePair<string,string>(id,objects.TryGetValue(id,out current)?current:name);
             }

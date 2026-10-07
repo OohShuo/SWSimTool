@@ -35,3 +35,13 @@
 领域快照仅接受类型化参数并复制数组/集合；JSON/字典解析全部移入兼容导入器。新增 SimulationConfigBuilder 和纯数据 ResolvedSimulationGeometry，工程 native 路径不生成或重读 robot.sim.json。缓存分别保存已解析的附着点/碰撞几何与核心快照，timestep 变化只重建配置快照。
 
 验证：14 项候选回归通过；6 项直接配置测试覆盖所有扩展族新旧路径字节一致、快照不可变和失效 joint/site/link ID 拒绝。COM 新建四 link 装配通过 initial / timestep-only / 清缓存 full；增量保持 0/0/0/1/1，全量与增量严格语义和 1/10/100 步动力学一致，测试目录无中间 URDF 或 .sim.json。测试工程位于 build/native-incremental-7dddce42295447dc8b8ffb8d57414896，未打开用户工程。
+
+## 阶段 3：直接 CAD 核心及身份审计
+
+新增 CadRobotCoreBuilder，直接从配置树、共享惰性 CAD 快照和短生命周期质量属性测量生成 RobotCoreSnapshot。工程 native 路径不创建 URDF.Robot；配置树仅作为持久用户输入。原 URDF 构建和导出不变，旧核心适配器只用于明确的参考验证。
+
+惯量产品符号转换在 CAD 边界完成；质量、COM、惯量分别使用短生命周期测量，避免 SW getter 重置坐标状态。解析物理属性必须在 STL 隐藏组件前完成。严格比较捕捉并修复了全零惯量与质心偏移，未通过放宽容差绕过。
+
+同一新建四 link 装配的直接 CAD 与旧适配器核心通过严格 L2 和 1/10/100 步 L3；timestep-only 0/0/0/1/1、冷缓存严格语义/动力学一致继续通过。目录为 build/native-incremental-88748ea408c8484299d87c8577b34d55。125 项非桌面配置/导航检查、10 项身份/纯数据检查及 6 项类型化配置检查通过。
+
+保存归一化以已有 ID 为准，不依据冲突名称重绑；显式下拉改选清除旧 ID 后在保存边界建立新绑定。历史 body equality 的空 body2（world）继续兼容。

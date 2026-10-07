@@ -339,6 +339,8 @@
     <Compile Include="Simulation\ProjectExport.cs" />
     <Compile Include="Simulation\SimulationConfigBuilder.cs" />
     <Compile Include="Simulation\NativeSimulationGeometry.cs" />
+    <Compile Include="Simulation\CadRobotCoreBuilder.cs" />
+    <Compile Include="URDFExport\ExportHelperNativeSource.cs" />
     <Compile Include="Simulation\ExportFingerprint.cs" />
     <Compile Include="Simulation\SimulationSession.cs" />
     <Compile Include="Simulation\ExportInstrumentation.cs" />

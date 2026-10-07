@@ -1,4 +1,4 @@
-param([string]$Payload='native-candidate')
+﻿param([string]$Payload='native-candidate')
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $bin=Join-Path $root ('build\'+$Payload)
@@ -26,6 +26,8 @@ public static class ResolvedCadModelProbe {
   using(var stream=new MemoryStream()){var serializer=new DataContractSerializer(typeof(Link));serializer.WriteObject(stream,root);stream.Position=0;var loaded=(Link)serializer.ReadObject(stream);Check(loaded.Clone().Children[0].StableId==linkId&&loaded.Clone().Children[0].Joint.StableId==jointId,"persistent identities survive serialization and reload");}
   copy.Children[0].Name="renamed_arm";copy.Children[0].Joint.Name="renamed_slide";var renamed=new LinkNode(copy);StableReferences.RemapModes(project,tree,renamed);StableReferences.Normalize(project,renamed);
   Check(project.attachments[0].link=="renamed_arm"&&project.attachments[0].link_id==linkId&&project.actuators[0].joint=="renamed_slide"&&project.actuators[0].joint_id==jointId&&project.collision.link_modes.ContainsKey("renamed_arm"),"rename updates bindings and collision modes without changing identity");
+  project.actuators[0].joint="slide";copy.Children.Add(new Link(copy));copy.Children[1].Name="other";copy.Children[1].Joint.Name="slide";var conflicting=new LinkNode(copy);StableReferences.Normalize(project,conflicting);
+  Check(project.actuators[0].joint_id==jointId&&project.actuators[0].joint=="renamed_slide","existing joint ID wins over a conflicting editable name");copy.Children.RemoveAt(1);
   var sources=new Dictionary<string,MeshSource>{{"base",new MeshSource("base_mesh","base.stl",new Vector3d(1,1,1))},{"arm",new MeshSource("arm_mesh","arm.stl",new Vector3d(1,1,1))}};
   int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports;
   var core=SolidWorksRobotModelBuilder.FromResolvedRobot(robot,sources);Check(core.Links.Count==2&&core.Joints.Count==1,"resolved CAD topology extracted directly without URDF serialization");

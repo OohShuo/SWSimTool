@@ -65,7 +65,7 @@ namespace SW2URDF.Simulation
                 Joint1:x.type=="joint"?joint(x.joint1_id,x.joint1):null,Joint1Id:x.type=="joint"?joint(x.joint1_id,x.joint1):null,
                 Joint2:x.type=="joint"?Reference(x.joint2_id,x.joint2,joints,true):null,Joint2Id:x.type=="joint"?Reference(x.joint2_id,x.joint2,joints,true):null,
                 Body1:x.type!="joint"&&x.binding=="body"?link(x.body1_id,x.body1):null,Body1Id:x.type!="joint"&&x.binding=="body"?link(x.body1_id,x.body1):null,
-                Body2:x.type!="joint"&&x.binding=="body"?link(x.body2_id,x.body2):null,Body2Id:x.type!="joint"&&x.binding=="body"?link(x.body2_id,x.body2):null,
+                Body2:x.type!="joint"&&x.binding=="body"?Reference(x.body2_id,x.body2,links,true):null,Body2Id:x.type!="joint"&&x.binding=="body"?Reference(x.body2_id,x.body2,links,true):null,
                 PoseMode:x.pose_mode,Torquescale:x.torquescale,Active:x.active,Polycoef:x.polycoef,Anchor:x.anchor,Position:x.position,Orientation:x.orientation,Solver:Constraint(x.solver)));
             var forces=p.site_forces.Select(x=>new SiteForceSnapshot(x.id,x.name,x.type,site(x.site1_id,x.site1),site(x.site1_id,x.site1),site(x.site2_id,x.site2),site(x.site2_id,x.site2),x.length_mode,x.stiffness,x.damping,x.magnitude,x.rest_length,x.enabled));
             return new SimulationConfigSnapshot(p.base_mode,p.joint_defaults,solver,collisionSnapshot,settings,limits,actuators,sensors,equalities,forces,geometry.Sites);

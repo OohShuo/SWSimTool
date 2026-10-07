@@ -23,6 +23,18 @@ public static class NativeIncrementalProbe {
  public static bool NativeOnly;
  static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
+ static void CoreParity(SldWorks sw,ModelDoc2 model,string directory){
+  bool error;var legacyTree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,legacyTree,new List<string>());
+  var legacyHelper=new ExportHelper(sw);Check(legacyHelper.CreateRobotFromTreeView(legacyTree),"legacy core reference builds on new fixture");
+  var legacy=SW2URDF.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(legacyHelper.URDFRobot,new Dictionary<string,SW2URDF.RobotModel.MeshSource>());
+  var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,tree,new List<string>());
+  var helper=new ExportHelper(sw);helper.EnsureNativeReferences(tree);helper.GetSimulation().SetCollisionTree(tree);
+  var direct=CadRobotCoreBuilder.Build("robot",helper.GetSimulation(),tree,new Dictionary<string,SW2URDF.RobotModel.MeshSource>());
+  Check(helper.URDFRobot==null,"direct CAD builder never constructs URDF Robot");
+  var assets=new SW2URDF.RobotModel.PreparedAssets(new SW2URDF.RobotModel.PreparedMeshAsset[0]);var context=new SW2URDF.RobotModel.ExportContext("robot");
+  File.WriteAllText(Path.Combine(directory,"core_reference.xml"),SW2URDF.RobotModel.MjcfExporter.Generate(new SW2URDF.RobotModel.RobotModel(legacy,new SW2URDF.RobotModel.SimulationConfigSnapshot()),assets,context));
+  File.WriteAllText(Path.Combine(directory,"core_direct.xml"),SW2URDF.RobotModel.MjcfExporter.Generate(new SW2URDF.RobotModel.RobotModel(direct,new SW2URDF.RobotModel.SimulationConfigSnapshot()),assets,context));
+ }
  static object Stage(SldWorks sw,ModelDoc2 model,string directory,string label,string settings){
   int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports,b=ProjectExport.SourceBuildCount;
   using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name,NativeOnly)){
@@ -105,6 +117,7 @@ public static class NativeIncrementalProbe {
    project.collision.allowed_pairs.Add(new CollisionPair{link1="base",link2="tool"});SimulationStorage.Save(sw,model,project);
    Check(model.Extension.SaveAs(Path.Combine(directory,"fixture.SLDASM"),0,1,null,ref errors,ref warnings),"new assembly saved");
    string settings=Path.Combine(directory,"mesh-settings.json");new MeshExportSettings{Enabled=true,MaximumTriangles=100000,Backend="fast-simplification"}.Save(settings);
+   if(NativeOnly)CoreParity(sw,model,directory);
    var initial=Stage(sw,model,directory,"initial",settings);
    project=SimulationStorage.Load(model);string beforeConfig=json.Serialize(project);project.solver.timestep=.002;SimulationStorage.Save(sw,model,project);
    var verified=SimulationStorage.Load(model);verified.solver.timestep=.001;Check(json.Serialize(verified)==beforeConfig,"only timestep configuration changed");

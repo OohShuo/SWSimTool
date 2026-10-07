@@ -18,6 +18,12 @@ report_path = root / 'build/native-incremental-v1.json'
 report_path.unlink(missing_ok=True)
 report = json.loads((folder / 'native-counts.json').read_text(encoding='utf-8-sig'))
 if report['stages'][0].get('nativeOnly'):
+    if (folder/'core_direct.xml').is_file():
+        direct=load_mjcf(folder/'core_direct.xml')
+        reference=load_mjcf(folder/'core_reference.xml')
+        compiled_semantics(direct, reference)
+        dynamics(direct, reference, steps=(1,10,100))
+        report['direct_cad_core_legacy_parity']=True
     warm=load_mjcf(folder/'incremental_native_mjcf/robot.xml')
     cold=load_mjcf(folder/'full_native_mjcf/robot.xml')
     compiled_semantics(warm,cold)
