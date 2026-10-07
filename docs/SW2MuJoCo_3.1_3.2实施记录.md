@@ -51,3 +51,7 @@
 ProjectSourceBuilder 负责源快照，NativeAssetPlanner 负责资产映射与输入哈希，NativeExportWorkspace 管理自有暂存目录，NativeExportPipeline 编排完整生成、工具调用、验证和原子发布。生产入口不回退到 Python 生成器。
 
 14 项候选差分、125 项非桌面配置/导航回归通过。新建 COM 装配 build/native-incremental-533f1bff780b43fd9bdd3be45ca3a9e6 通过直接 CAD 核心差分、0/0/0/1/1 增量计数、冷缓存严格语义和 1/10/100 步动力学一致性；无中间 URDF/JSON。
+
+## 阶段 5：3.1 交付
+
+版本 3.1.0.0 Release 构建及 Inno Setup 打包通过。SolidWorks 关闭时静默安装成功，安装 DLL 与构建 SHA256 相同，64 位 COM 注册指向安装目录。安装包为 dist/SW2MuJoCo_3.1_SW2025_x64_Setup.exe。此项验证安装/注册，不声明 UI 视觉验收。
