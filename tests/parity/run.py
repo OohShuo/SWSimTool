@@ -2,7 +2,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import copy
 import hashlib
@@ -15,14 +15,14 @@ import os
 import unittest
 import xml.etree.ElementTree as ET
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 import mujoco
 import numpy as np
 from convert import convert, load_mjcf
 from test_convert import URDF
 from semantic_compare import compiled_semantics, dynamics, inertia_in_body, mesh_world_vertices, close
 
-EXE = ROOT / 'build/native-parity/SW2MuJoCo.CandidateRunner.exe'
+EXE = ROOT / 'build/native-parity/SWSimTool.CandidateRunner.exe'
 RESULTS = []
 
 
@@ -196,9 +196,9 @@ class NativeParity(unittest.TestCase):
         settings=self.folder/'mesh-settings.json'
         settings.write_text(json.dumps(dict(Enabled=True,MaximumTriangles=64,Backend='fast-simplification',CacheEnabled=True)),encoding='utf-8')
         sidecar=self.folder/'robot.sim.json'
-        config=dict(self.config,solver=dict(enabled=True,timestep=.001),attachments=[dict(name='mount',link='arm',type='frame',xyz=[.02,0,0],rpy=[0,.1,.2])],sensors=[dict(name='imu',type='imu',site='mount')])
+        config=dict(self.config,product='SWSimTool',solver=dict(enabled=True,timestep=.001),attachments=[dict(name='mount',link='arm',type='frame',xyz=[.02,0,0],rpy=[0,.1,.2])],sensors=[dict(name='imu',type='imu',site='mount')])
         output=self.folder/'原生_mjcf'/'robot.xml'
-        env=dict(os.environ,SW2MUJOCO_CACHE=str(self.folder/'cache'),SW2MUJOCO_MESH_CACHE=str(self.folder/'mesh-cache'))
+        env=dict(os.environ,SWSIMTOOL_CACHE=str(self.folder/'cache'),SWSIMTOOL_MESH_CACHE=str(self.folder/'mesh-cache'))
         def run():
             sidecar.write_text(json.dumps(config),encoding='utf-8')
             result=subprocess.run([str(EXE),'--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],env=env,capture_output=True,text=True,encoding='utf-8')
@@ -255,7 +255,7 @@ class NativeParity(unittest.TestCase):
         self.urdf.write_text(URDF,encoding='utf-8')
         sidecar=self.folder/'robot.sim.json'
         settings=self.folder/'settings.json';settings.write_text('{"Enabled":false}')
-        config=dict(self.config,identities=dict(links=dict(base='L0',arm='L1',tool='L2'),joints=dict(hinge='J1',tool_fixed='J2')),actuators=[dict(name='drive',joint='hinge',joint_id='J1',type='motor',gear=2,ctrl_min=-1,ctrl_max=1,force_min=-7,force_max=7)])
+        config=dict(self.config,product='SWSimTool',identities=dict(links=dict(base='L0',arm='L1',tool='L2'),joints=dict(hinge='J1',tool_fixed='J2')),actuators=[dict(name='drive',joint='hinge',joint_id='J1',type='motor',gear=2,ctrl_min=-1,ctrl_max=1,force_min=-7,force_max=7)])
         output=self.folder/'local_mjcf'/'robot.xml'
         def run():
             sidecar.write_text(json.dumps(config),encoding='utf-8')

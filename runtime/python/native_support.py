@@ -96,7 +96,7 @@ def prepare(manifest_path, settings_path=None):
                 backend=identity(data,maximum,settings.get('Backend','pymeshlab'),settings.get('Blender')),
                 support=file_hash(Path(__file__))))
             cached=ProcessedMesh(data,key,settings.get('CacheEnabled',True)
-                and os.environ.get('SW2MUJOCO_USE_INCREMENTAL_EXPORT')!='0')
+                and os.environ.get('SWSIMTOOL_USE_INCREMENTAL_EXPORT')!='0')
             target.parent.mkdir(parents=True,exist_ok=True)
             report=cached.restore(target)
             if report and settings.get('Enabled',False) and report['after']>maximum:
@@ -154,6 +154,6 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as error:
-        print('SW2MUJOCO_TOOL_ERROR:'+json.dumps(dict(category=error_category(error),message=str(error)),ensure_ascii=False),file=sys.stderr,flush=True)
+        print('SWSIMTOOL_TOOL_ERROR:'+json.dumps(dict(category=error_category(error),message=str(error)),ensure_ascii=False),file=sys.stderr,flush=True)
         print(f'ERROR: {error}',file=sys.stderr)
         sys.exit(1)

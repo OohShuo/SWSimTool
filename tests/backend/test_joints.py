@@ -1,7 +1,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import hashlib
 import copy
@@ -64,7 +64,7 @@ class JointTests(unittest.TestCase):
         self.config['base_mode']='floating'
         model=self.run_convert()
         self.assertEqual(model.nv,7)
-        j=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,'__sw2mujoco_base_free')
+        j=mujoco.mj_name2id(model,mujoco.mjtObj.mjOBJ_JOINT,'__swsimtool_base_free')
         self.assertEqual(model.jnt_type[j],mujoco.mjtJoint.mjJNT_FREE)
         self.assertEqual(model.nsite,3)
         self.config['base_mode']='fixed'

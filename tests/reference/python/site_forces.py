@@ -2,7 +2,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import math
 import xml.etree.ElementTree as ET
@@ -10,7 +10,7 @@ from solver import finite
 
 
 def names(item):
-    return 'sw2mujoco_tendon_' + item['name'], 'sw2mujoco_force_' + item['name']
+    return 'swsimtool_tendon_' + item['name'], 'swsimtool_force_' + item['name']
 
 
 def validate_site_forces(config, attachments):

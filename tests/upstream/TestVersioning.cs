@@ -1,10 +1,10 @@
 ﻿
-using SW2URDF.Versioning;
+using SWSimTool.Versioning;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
-    public class TestVersioning : SW2URDFTest
+    public class TestVersioning : SWSimToolTest
     {
         public TestVersioning(SWTestFixture fixture) : base(fixture)
         {

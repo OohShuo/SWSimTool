@@ -1,198 +1,198 @@
-﻿param([string]$Payload="runtime-release",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
-$ErrorActionPreference='Stop'
-$root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SW2URDF.sln')) { $p; break } })
-$directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $directory | Out-Null
-$bin=Join-Path $root ('build\'+$Payload)
-$interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SW2URDF.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Xml.Linq','System.Core')
-$refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
-# Native SolidWorks API, no mouse/keyboard automation. Never attach to an existing document.
-Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
-using System;
-using Environment=System.Environment;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Web.Script.Serialization;
-using SolidWorks.Interop.sldworks;
-using SW2URDF.URDF;
-using SW2URDF.URDFExport;
-using SW2URDF.Simulation;
-public static class NativeIncrementalProbe {
- public static bool NativeOnly;
- public static bool IdentityLifecycle;
- public static bool CadReferenceLifecycle;
- static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
- static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
- static void CoreParity(SldWorks sw,ModelDoc2 model,string directory){
-  bool error;var legacyTree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,legacyTree,new List<string>());
-  var legacyHelper=new ExportHelper(sw);Check(legacyHelper.CreateRobotFromTreeView(legacyTree),"legacy core reference builds on new fixture");
-  var legacy=SW2URDF.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(legacyHelper.URDFRobot,new Dictionary<string,SW2URDF.RobotModel.MeshSource>());
-  var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,tree,new List<string>());
-  var helper=new ExportHelper(sw);helper.EnsureNativeReferences(tree);helper.GetSimulation().SetCollisionTree(tree);
-  var direct=CadRobotCoreBuilder.Build("robot",helper.GetSimulation(),tree,new Dictionary<string,SW2URDF.RobotModel.MeshSource>());
-  Check(helper.URDFRobot==null,"direct CAD builder never constructs URDF Robot");
-  var assets=new SW2URDF.RobotModel.PreparedAssets(new SW2URDF.RobotModel.PreparedMeshAsset[0]);var context=new SW2URDF.RobotModel.ExportContext("robot");
-  File.WriteAllText(Path.Combine(directory,"core_reference.xml"),SW2URDF.RobotModel.MjcfExporter.Generate(new SW2URDF.RobotModel.RobotModel(legacy,new SW2URDF.RobotModel.SimulationConfigSnapshot()),assets,context));
-  File.WriteAllText(Path.Combine(directory,"core_direct.xml"),SW2URDF.RobotModel.MjcfExporter.Generate(new SW2URDF.RobotModel.RobotModel(direct,new SW2URDF.RobotModel.SimulationConfigSnapshot()),assets,context));
- }
- static object Stage(SldWorks sw,ModelDoc2 model,string directory,string label,string settings){
-  int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports,b=ProjectExport.SourceBuildCount;
-  using(var export=NativeOnly?new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name):ProjectExport.ForReferenceTests(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){
-   if(NativeOnly){
-    Check(export.Urdf==null,"engineering export has no intermediate URDF");
-    Check(export.Sidecar==null,"engineering model construction has no sidecar JSON bridge");
-    string directOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");var directLines=new List<string>();
-    int directCode=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.NativeModel(),directOutput,false,line=>{directLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
-    Check(directCode==0,"native production "+label+" export succeeds");export.MarkSucceeded();
-    var directMetrics=json.Deserialize<Dictionary<string,object>>(directLines.Single(x=>x.StartsWith("Native export metrics: ")).Substring("Native export metrics: ".Length));
-    var directCounts=(Dictionary<string,object>)directMetrics["counts"];
-    var directDelta=new Dictionary<string,int>{{"geometry_query",ExportInstrumentation.GeometryQueries-g},{"stl_export",ExportInstrumentation.StlExports-s},{"source_build",ProjectExport.SourceBuildCount-b}};
-    if(label=="incremental")Check(directDelta["geometry_query"]==0&&directDelta["stl_export"]==0&&directDelta["source_build"]==0&&Convert.ToInt32(directCounts["mesh_prepare"])==0&&Convert.ToInt32(directCounts["mesh_simplification"])==0&&Convert.ToInt32(directCounts["mjcf_generation"])==1&&Convert.ToInt32(directCounts["mujoco_validation"])==1,"native production zero/zero/zero/one/one counts");
-    else Check(directDelta["source_build"]==1&&directDelta["stl_export"]==4,"cold native production exports four raw STL");
-    Check(!Directory.GetFiles(directory,"*.urdf",SearchOption.AllDirectories).Any(),"native-only fixture and cache contain no URDF");
-    return new{label,nativeOutput=directOutput,cad=directDelta,nativeBackend=directMetrics,nativeOnly=true};
-   }
-   string output=Path.Combine(directory,label+"_mjcf","robot.xml");var lines=new List<string>();
-   int code=PythonBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.Urdf,export.Sidecar,output,false,null,line=>{lines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
-   Check(code==0,"native "+label+" export succeeds");export.MarkSucceeded();
-   var metrics=json.Deserialize<Dictionary<string,object>>(lines.Single(x=>x.StartsWith("Export metrics: ")).Substring("Export metrics: ".Length));
-   var counts=(Dictionary<string,object>)metrics["counts"];
-   var nativeLines=new List<string>();string nativeOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");
-   var nativeModel=export.NativeModel();
-   code=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",nativeModel,nativeOutput,false,line=>{nativeLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
-   Check(code==0,"C# shadow "+label+" export succeeds");
-   var nativeMetrics=json.Deserialize<Dictionary<string,object>>(nativeLines.Single(x=>x.StartsWith("Native export metrics: ")).Substring("Native export metrics: ".Length));
-   var nativeCounts=(Dictionary<string,object>)nativeMetrics["counts"];
-   if(label=="incremental")Check(Convert.ToInt32(nativeCounts["mesh_prepare"])==0&&Convert.ToInt32(nativeCounts["mesh_simplification"])==0&&Convert.ToInt32(nativeCounts["mjcf_generation"])==1&&Convert.ToInt32(nativeCounts["mujoco_validation"])==1,"C# shadow zero preparation / one generation / one validation");
-   var delta=new Dictionary<string,int>{{"geometry_query",ExportInstrumentation.GeometryQueries-g},{"stl_export",ExportInstrumentation.StlExports-s},{"source_build",ProjectExport.SourceBuildCount-b}};
-   if(label=="incremental")Check(delta["geometry_query"]==0&&delta["stl_export"]==0&&delta["source_build"]==0&&Convert.ToInt32(counts["mesh_simplification"])==0&&Convert.ToInt32(counts["mjcf_generation"])==1&&Convert.ToInt32(counts["mujoco_validation"])==1,"native V1 zero/zero/zero/one/one counts");
-   else Check(delta["source_build"]==1&&delta["stl_export"]>0,"native "+label+" really builds CAD source/STL");
-   return new{label,output,nativeOutput,sourceUrdf=export.Urdf,cad=delta,backend=metrics,nativeBackend=nativeMetrics};
-  }
- }
- static ModelDoc2 Reopen(SldWorks sw,ModelDoc2 model,string directory){
-  string path=Path.GetFullPath(model.GetPathName());Check(path.StartsWith(Path.GetFullPath(directory)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase),"reopen only owned fixture");
-  int errors=0,warnings=0;Check(model.Save3(1,ref errors,ref warnings),"identity fixture saved to CAD file");sw.CloseDoc(model.GetTitle());
-  var reopened=(ModelDoc2)sw.OpenDoc6(path,2,1,"",ref errors,ref warnings);Check(reopened!=null&&errors==0,"identity fixture reopened from CAD file");return reopened;
- }
- static void ClearOwnedCaches(string directory){
-  foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
- }
- static ModelDoc2 CadReferences(SldWorks sw,ModelDoc2 model,string directory,string settings){
-  bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];var joint=node.Link.Joint;string coordinateId=joint.CoordinateReference.FeatureId,axisId=joint.AxisReference.FeatureId;int pidError;
-  var coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);var axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);
-  coordinate.Name="audit_coordinate";axis.Name="audit_axis";tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
-  Check(joint.CoordinateSystemName=="audit_coordinate"&&joint.AxisName=="audit_axis"&&joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate and axis rename retain persistent identities");
-  ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
-  Check(joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate/axis save/reopen retain identities");
-  var warm=Stage(sw,model,directory,"cad_reference_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"cad_reference_cold",settings);
-  axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);model.ClearSelection2(true);Check(axis.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD axis");
-  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);var segment=model.SketchManager.CreateLine(0,0,0,0,0,.05);model.SketchManager.Insert3DSketch(true);var names=new HashSet<string>(((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().Select(f=>f.Name));
-  Check(segment.Select4(false,((SelectionMgr)model.SelectionManager).CreateSelectData())&&model.InsertAxis2(true),"create same-name replacement CAD axis");var replacement=((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().First(f=>f.GetTypeName2()=="RefAxis"&&!names.Contains(f.Name));replacement.Name="audit_axis";string replacementId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacement));
-  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;Check(joint.AxisReference.FeatureId==axisId&&replacementId!=axisId,"CAD same-name axis recreate never rebinds stored PID");
-  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_axis");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name axis");}
-  coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);model.ClearSelection2(true);Check(coordinate.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD coordinate system");
-  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);model.SketchManager.CreatePoint(.1,.2,.3);model.SketchManager.Insert3DSketch(true);Check(model.Extension.SelectByID2("","EXTSKETCHPOINT",.1,.2,.3,false,1,null,0),"select owned point for replacement coordinate");
-  var replacementCoordinate=model.FeatureManager.InsertCoordinateSystem(false,false,false);Check(replacementCoordinate!=null,"create same-name replacement coordinate");replacementCoordinate.Name="audit_coordinate";
-  string replacementCoordinateId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacementCoordinate));model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
-  Check(joint.CoordinateReference.FeatureId==coordinateId&&replacementCoordinateId!=coordinateId,"CAD same-name coordinate recreate never rebinds stored PID");
-  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_coordinate");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name coordinate");}
-  File.WriteAllText(Path.Combine(directory,"cad-reference-counts.json"),json.Serialize(new{status="passed",coordinateId,axisId,stages=new[]{warm,cold}}));return model;
- }
- static void Identity(SldWorks sw,ModelDoc2 model,string directory,string settings){
-  model=Reopen(sw,model,directory);bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];string id=node.Link.StableId;var project=SimulationStorage.Load(model);
-  Check(project.collision.Mode(id)=="primitive","CAD save/reopen preserves A collision mode");
-  node.Name=node.Text=node.Link.Name="left_arm";ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);
-  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);node=(LinkNode)tree.Nodes[0];project=SimulationStorage.Load(model);
-  Check(node.Link.StableId==id&&node.Link.Name=="left_arm"&&project.collision.Mode(id)=="primitive","CAD rename/save/reopen retains identity A and mode");
-  var warm=Stage(sw,model,directory,"identity_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"identity_cold",settings);
-  var configuration=model.ConfigurationManager.ActiveConfiguration;int configurationId=configuration.GetID();configuration.Name="audit_renamed_configuration";
-  model=Reopen(sw,model,directory);Check(model.ConfigurationManager.ActiveConfiguration.GetID()==configurationId&&SimulationStorage.Load(model)!=null,"configuration rename/save/reopen retains production project by CAD ID");
-  var configWarm=Stage(sw,model,directory,"configuration_warm",settings);ClearOwnedCaches(directory);var configCold=Stage(sw,model,directory,"configuration_cold",settings);
-  File.WriteAllText(Path.Combine(directory,"configuration-reference-counts.json"),json.Serialize(new{status="passed",configurationId,stages=new[]{configWarm,configCold}}));
-  if(CadReferenceLifecycle)model=CadReferences(sw,model,directory,settings);
-  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);tree.Nodes.Clear();tree.Link.Children.Clear();
-  var replacement=new Link(tree.Link);replacement.Name="left_arm";replacement.Joint.Name="hinge";tree.Link.Children.Add(replacement);tree.Nodes.Add(new LinkNode(replacement));string replacementId=replacement.StableId;
-  SimulationStorage.SaveTree(sw,model,ConfigurationSerialization.WriteTree(tree),1.4);model=Reopen(sw,model,directory);
-  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);project=SimulationStorage.Load(model);
-  Check(((LinkNode)tree.Nodes[0]).Link.StableId==replacementId&&replacementId!=id&&project.collision.Mode(replacementId)=="mesh"&&!project.collision.link_modes_by_id.ContainsKey(replacementId)&&project.collision.link_modes_by_id.ContainsKey(id),"CAD delete/same-name recreate/save/reopen never transfers A mode to B");
-  ClearOwnedCaches(directory);var isolated=new SimulationProject{collision=new CollisionConfiguration{link_modes_migrated=true}};isolated.collision.link_modes_by_id[id]=project.collision.Mode(id);bool rejected=false;
-  var inertia=new SW2URDF.RobotModel.InertialSnapshot(1,SW2URDF.RobotModel.RigidTransform.Identity,new SW2URDF.RobotModel.SymmetricInertia(.1,.1,.1,0,0,0));
-  var core=new SW2URDF.RobotModel.RobotCoreSnapshot("identity",new[]{new SW2URDF.RobotModel.LinkSnapshot(replacementId,"left_arm",inertia,new SW2URDF.RobotModel.GeometrySnapshot[0])},new SW2URDF.RobotModel.JointSnapshot[0]);
-  try{SimulationConfigBuilder.Build(isolated,core,new ResolvedSimulationGeometry(new SW2URDF.RobotModel.SiteSnapshot[0],new SW2URDF.RobotModel.CollisionGeometrySnapshot[0]));}catch(InvalidDataException){rejected=true;}
-  Check(rejected,"cold rebuild rejects unresolved A without same-name fallback");
-  File.WriteAllText(Path.Combine(directory,"identity-counts.json"),json.Serialize(new{status="passed",originalId=id,replacementId,stages=new[]{warm,cold}}));
- }
- public static void Run(string directory){
-  var sw=(SldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
-  // Do not change visibility, close documents, or quit unless this instance starts empty.
-  if(sw.GetDocumentCount()!=0)throw new Exception("Refusing SolidWorks instance containing existing documents");
-  File.WriteAllText(Path.Combine(directory,"solidworks-process.txt"),sw.GetProcessID().ToString());
-  var oldCache=Environment.GetEnvironmentVariable("SW2MUJOCO_CACHE");var oldMesh=Environment.GetEnvironmentVariable("SW2MUJOCO_MESH_CACHE");var oldProfile=Environment.GetEnvironmentVariable("SW2MUJOCO_PROFILE");
-  Environment.SetEnvironmentVariable("SW2MUJOCO_CACHE",Path.Combine(directory,"cache"));Environment.SetEnvironmentVariable("SW2MUJOCO_MESH_CACHE",Path.Combine(directory,"mesh-cache"));Environment.SetEnvironmentVariable("SW2MUJOCO_PROFILE","1");
-  try{
-   sw.Visible=false;sw.UserControl=false;string templates=@"C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\templates\";int errors=0,warnings=0;
-   for(int i=0;i<4;i++){
-    var part=(ModelDoc2)sw.NewDocument(templates+"gb_part.prtdot",0,0,0);if(part==null)throw new Exception("Part template missing");Feature plane=(Feature)part.FirstFeature();while(plane!=null&&plane.GetTypeName2()!="RefPlane")plane=(Feature)plane.GetNextFeature();
-    Check(plane!=null&&plane.Select2(false,0),"new fixture plane available");part.SketchManager.InsertSketch(true);part.SketchManager.CreateCornerRectangle(-.025,-.02,0,.025+i*.005,.02+i*.003,0);part.SketchManager.InsertSketch(true);
-    Check(part.FeatureManager.FeatureExtrusion2(true,false,false,0,0,.02,.02,false,false,false,false,0,0,false,false,false,false,true,true,true,0,0,false)!=null,"new block extruded");part.ClearSelection2(true);
-    Check(part.Extension.SaveAs(Path.Combine(directory,"block"+i+".SLDPRT"),0,1,null,ref errors,ref warnings),"new block saved");
-   }
-   var model=(ModelDoc2)sw.NewDocument(templates+"gb_assembly.asmdot",0,0,0);if(model==null)throw new Exception("Assembly template missing");var assembly=(AssemblyDoc)model;
-   var first=assembly.AddComponent5(Path.Combine(directory,"block0.SLDPRT"),0,"",false,"",0,0,0);var second=assembly.AddComponent5(Path.Combine(directory,"block1.SLDPRT"),0,"",false,"",.08,0,0);Check(first!=null&&second!=null,"new components inserted");
-   var root=new LinkNode(new Link(null));root.Link.Name="base";root.Name=root.Text="base";root.IsBaseNode=true;((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(root.Link)).Add(first);root.Link.SWMainComponent=first;root.Link.Joint.CoordinateSystemName="Automatically Generate";
-   var child=new LinkNode(new Link(root.Link));child.Link.Name="arm";child.Name=child.Text="arm";((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(child.Link)).Add(second);child.Link.SWMainComponent=second;child.Link.Joint.Name="hinge";child.Link.Joint.Type="continuous";child.Link.Joint.CoordinateSystemName="Automatically Generate";child.Link.Joint.AxisName="Automatically Generate";root.Nodes.Add(child);root.UpdateLinkTree(null);
-   var previous=child;
-   for(int i=2;i<4;i++){
-    var component=assembly.AddComponent5(Path.Combine(directory,"block"+i+".SLDPRT"),0,"",false,"",i*.08,.01*i,0);Check(component!=null,"additional native component inserted");
-    var node=new LinkNode(new Link(previous.Link));node.Name=node.Text=node.Link.Name=i==2?"elbow":"tool";((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(node.Link)).Add(component);node.Link.SWMainComponent=component;node.Link.Joint.Name=i==2?"bend":"tool_fixed";node.Link.Joint.Type=i==2?"revolute":"fixed";node.Link.Joint.CoordinateSystemName="Automatically Generate";node.Link.Joint.AxisName="Automatically Generate";if(i==2){node.Link.Joint.Limit.Lower=-1;node.Link.Joint.Limit.Upper=1;node.Link.Joint.Limit.Effort=10;node.Link.Joint.Limit.Velocity=1;}previous.Nodes.Add(node);previous=node;
-   }
-   root.UpdateLinkTree(null);
-   var helper=new ExportHelper(sw);Check(helper.CreateRobotFromTreeView(root),"native reference fixture builds before capture");
-   int movingIndex=0;
-   foreach(LinkNode moving in new[]{child,(LinkNode)child.Nodes[0]}) {
-    model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);var segment=model.SketchManager.CreateLine(0,0,0,movingIndex==0?0:.04,movingIndex==0?0:.01,.05);model.SketchManager.Insert3DSketch(true);Check(segment!=null,"explicit native joint direction drawn");
-    var names=new HashSet<string>(((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().Select(f=>f.Name));
-    Check(segment.Select4(false,((SelectionMgr)model.SelectionManager).CreateSelectData()),"explicit joint segment selected");Check(model.InsertAxis2(true),"explicit native axis created");
-    var axis=((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().First(f=>f.GetTypeName2()=="RefAxis"&&!names.Contains(f.Name));axis.Name="native_axis_"+movingIndex;moving.Link.Joint.AxisName=axis.Name;moving.Link.Joint.Type=movingIndex==0?"continuous":"revolute";movingIndex++;
-   }
-   model.ClearSelection2(true);
-   CommonSwOperations.RetrieveSWComponentPIDs(model,root);ConfigurationSerialization.SaveConfigTreeXML(sw,model,root,false);
-   var project=new SimulationProject{solver=new SolverSettings{enabled=true,timestep=.001},collision=new CollisionConfiguration()};
-   helper.GetSimulation().Project=project;
-   string anchor=child.Link.Joint.CoordinateSystemName;
-   foreach(string link in new[]{"base","arm"}) {Check(model.Extension.SelectByID2(anchor,"COORDSYS",0,0,0,false,0,null,0),"native joint coordinate selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment(link,"anchor_"+link,"frame"));}
-   Check(model.Extension.SelectByID2(previous.Link.Joint.CoordinateSystemName,"COORDSYS",0,0,0,false,0,null,0),"native tool frame selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment("tool","imu_mount","frame"));
-   Check(model.Extension.SelectByID2(root.Link.Joint.CoordinateSystemName,"COORDSYS",0,0,0,false,0,null,0),"native base frame selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment("base","force_base","point"));
-   project.actuators.Add(new ActuatorConfig{name="motor",joint="hinge",force_min=-1,force_max=1});project.sensors.Add(new SensorConfig{name="imu",site="imu_mount",type="imu"});project.equalities.Add(new EqualityConfig{name="closure",site1="anchor_base",site2="anchor_arm"});
-   project.site_forces.Add(new SiteForceConfig{name="pull",type="pull",site1="force_base",site2="imu_mount",magnitude=.1});project.site_forces.Add(new SiteForceConfig{name="spring",type="spring",site1="force_base",site2="imu_mount",stiffness=1,damping=.01});
-   foreach(string link in new[]{"base","arm","elbow","tool"}){project.collision.link_modes[link]="primitive";project.collision.geometries.Add(new CollisionGeometry{name=link+"_proxy",link=link,type="box",size=new[]{.04,.03,.02},xyz=new double[3],rpy=new double[3]});}
-   project.collision.allowed_pairs.Add(new CollisionPair{link1="base",link2="tool"});SimulationStorage.Save(sw,model,project);
-   Check(model.Extension.SaveAs(Path.Combine(directory,"fixture.SLDASM"),0,1,null,ref errors,ref warnings),"new assembly saved");
-   string settings=Path.Combine(directory,"mesh-settings.json");new MeshExportSettings{Enabled=true,MaximumTriangles=100000,Backend="fast-simplification"}.Save(settings);
-   if(NativeOnly)CoreParity(sw,model,directory);
-   var initial=Stage(sw,model,directory,"initial",settings);
-   project=SimulationStorage.Load(model);string beforeConfig=json.Serialize(project);project.solver.timestep=.002;SimulationStorage.Save(sw,model,project);
-   var verified=SimulationStorage.Load(model);verified.solver.timestep=.001;Check(json.Serialize(verified)==beforeConfig,"only timestep configuration changed");
-   var incremental=Stage(sw,model,directory,"incremental",settings);
-   // Only delete caches inside this newly generated, owned fixture directory.
-   foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
-   var full=Stage(sw,model,directory,"full",settings);
-   File.WriteAllText(Path.Combine(directory,"native-counts.json"),json.Serialize(new{status="passed",source="new native SW assembly",stages=new[]{initial,incremental,full}}));Console.WriteLine("NATIVE_REPORT: "+directory);
-   if(IdentityLifecycle){Check(NativeOnly,"identity lifecycle uses production entry only");Identity(sw,model,directory,settings);}
-  }catch(Exception error){Console.WriteLine(error.ToString());throw;}finally{
-   Environment.SetEnvironmentVariable("SW2MUJOCO_CACHE",oldCache);Environment.SetEnvironmentVariable("SW2MUJOCO_MESH_CACHE",oldMesh);Environment.SetEnvironmentVariable("SW2MUJOCO_PROFILE",oldProfile);
-   // Close only documents created by this probe. Never close an unexpected document.
-   var docs=sw.GetDocuments() as object[];if(docs!=null)foreach(ModelDoc2 doc in docs){var path=doc.GetPathName();if(!string.IsNullOrEmpty(path)&&Path.GetFullPath(path).StartsWith(Path.GetFullPath(directory)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))sw.CloseDoc(doc.GetTitle());}
-   if(sw.GetDocumentCount()==0)sw.ExitApp();
-  }
- }
-}
-'@
-[NativeIncrementalProbe]::NativeOnly=$NativeOnly.IsPresent
-[NativeIncrementalProbe]::IdentityLifecycle=$IdentityLifecycle.IsPresent
-[NativeIncrementalProbe]::CadReferenceLifecycle=$CadReferenceLifecycle.IsPresent
-[NativeIncrementalProbe]::Run($directory)
-$directory | Set-Content -LiteralPath (Join-Path $root 'build\native-incremental-directory.txt')
+﻿param([string]$Payload="swsimtool-release",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
+$ErrorActionPreference='Stop'
+$root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
+$directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $directory | Out-Null
+$bin=Join-Path $root ('build\'+$Payload)
+$interop='D:\sw\sw2025\SOLIDWORKS'
+$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Xml.Linq','System.Core')
+$refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
+# Native SolidWorks API, no mouse/keyboard automation. Never attach to an existing document.
+Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
+using System;
+using Environment=System.Environment;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Web.Script.Serialization;
+using SolidWorks.Interop.sldworks;
+using SWSimTool.URDF;
+using SWSimTool.URDFExport;
+using SWSimTool.Simulation;
+public static class NativeIncrementalProbe {
+ public static bool NativeOnly;
+ public static bool IdentityLifecycle;
+ public static bool CadReferenceLifecycle;
+ static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
+ static void CoreParity(SldWorks sw,ModelDoc2 model,string directory){
+  bool error;var legacyTree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,legacyTree,new List<string>());
+  var legacyHelper=new ExportHelper(sw);Check(legacyHelper.CreateRobotFromTreeView(legacyTree),"legacy core reference builds on new fixture");
+  var legacy=SWSimTool.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(legacyHelper.URDFRobot,new Dictionary<string,SWSimTool.RobotModel.MeshSource>());
+  var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);CommonSwOperations.LoadSWComponents(model,tree,new List<string>());
+  var helper=new ExportHelper(sw);helper.EnsureNativeReferences(tree);helper.GetSimulation().SetCollisionTree(tree);
+  var direct=CadRobotCoreBuilder.Build("robot",helper.GetSimulation(),tree,new Dictionary<string,SWSimTool.RobotModel.MeshSource>());
+  Check(helper.URDFRobot==null,"direct CAD builder never constructs URDF Robot");
+  var assets=new SWSimTool.RobotModel.PreparedAssets(new SWSimTool.RobotModel.PreparedMeshAsset[0]);var context=new SWSimTool.RobotModel.ExportContext("robot");
+  File.WriteAllText(Path.Combine(directory,"core_reference.xml"),SWSimTool.RobotModel.MjcfExporter.Generate(new SWSimTool.RobotModel.RobotModel(legacy,new SWSimTool.RobotModel.SimulationConfigSnapshot()),assets,context));
+  File.WriteAllText(Path.Combine(directory,"core_direct.xml"),SWSimTool.RobotModel.MjcfExporter.Generate(new SWSimTool.RobotModel.RobotModel(direct,new SWSimTool.RobotModel.SimulationConfigSnapshot()),assets,context));
+ }
+ static object Stage(SldWorks sw,ModelDoc2 model,string directory,string label,string settings){
+  int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports,b=ProjectExport.SourceBuildCount;
+  using(var export=NativeOnly?new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name):ProjectExport.ForReferenceTests(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){
+   if(NativeOnly){
+    Check(export.Urdf==null,"engineering export has no intermediate URDF");
+    Check(export.Sidecar==null,"engineering model construction has no sidecar JSON bridge");
+    string directOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");var directLines=new List<string>();
+    int directCode=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.NativeModel(),directOutput,false,line=>{directLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
+    Check(directCode==0,"native production "+label+" export succeeds");export.MarkSucceeded();
+    var directMetrics=json.Deserialize<Dictionary<string,object>>(directLines.Single(x=>x.StartsWith("Native export metrics: ")).Substring("Native export metrics: ".Length));
+    var directCounts=(Dictionary<string,object>)directMetrics["counts"];
+    var directDelta=new Dictionary<string,int>{{"geometry_query",ExportInstrumentation.GeometryQueries-g},{"stl_export",ExportInstrumentation.StlExports-s},{"source_build",ProjectExport.SourceBuildCount-b}};
+    if(label=="incremental")Check(directDelta["geometry_query"]==0&&directDelta["stl_export"]==0&&directDelta["source_build"]==0&&Convert.ToInt32(directCounts["mesh_prepare"])==0&&Convert.ToInt32(directCounts["mesh_simplification"])==0&&Convert.ToInt32(directCounts["mjcf_generation"])==1&&Convert.ToInt32(directCounts["mujoco_validation"])==1,"native production zero/zero/zero/one/one counts");
+    else Check(directDelta["source_build"]==1&&directDelta["stl_export"]==4,"cold native production exports four raw STL");
+    Check(!Directory.GetFiles(directory,"*.urdf",SearchOption.AllDirectories).Any(),"native-only fixture and cache contain no URDF");
+    return new{label,nativeOutput=directOutput,cad=directDelta,nativeBackend=directMetrics,nativeOnly=true};
+   }
+   string output=Path.Combine(directory,label+"_mjcf","robot.xml");var lines=new List<string>();
+   int code=PythonBackend.RunAsync(@"D:\Softwaves\python\python.exe",export.Urdf,export.Sidecar,output,false,null,line=>{lines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
+   Check(code==0,"native "+label+" export succeeds");export.MarkSucceeded();
+   var metrics=json.Deserialize<Dictionary<string,object>>(lines.Single(x=>x.StartsWith("Export metrics: ")).Substring("Export metrics: ".Length));
+   var counts=(Dictionary<string,object>)metrics["counts"];
+   var nativeLines=new List<string>();string nativeOutput=Path.Combine(directory,label+"_native_mjcf","robot.xml");
+   var nativeModel=export.NativeModel();
+   code=NativeBackend.RunAsync(@"D:\Softwaves\python\python.exe",nativeModel,nativeOutput,false,line=>{nativeLines.Add(line);Console.WriteLine(line);},settings,export.ExportId).GetAwaiter().GetResult();
+   Check(code==0,"C# shadow "+label+" export succeeds");
+   var nativeMetrics=json.Deserialize<Dictionary<string,object>>(nativeLines.Single(x=>x.StartsWith("Native export metrics: ")).Substring("Native export metrics: ".Length));
+   var nativeCounts=(Dictionary<string,object>)nativeMetrics["counts"];
+   if(label=="incremental")Check(Convert.ToInt32(nativeCounts["mesh_prepare"])==0&&Convert.ToInt32(nativeCounts["mesh_simplification"])==0&&Convert.ToInt32(nativeCounts["mjcf_generation"])==1&&Convert.ToInt32(nativeCounts["mujoco_validation"])==1,"C# shadow zero preparation / one generation / one validation");
+   var delta=new Dictionary<string,int>{{"geometry_query",ExportInstrumentation.GeometryQueries-g},{"stl_export",ExportInstrumentation.StlExports-s},{"source_build",ProjectExport.SourceBuildCount-b}};
+   if(label=="incremental")Check(delta["geometry_query"]==0&&delta["stl_export"]==0&&delta["source_build"]==0&&Convert.ToInt32(counts["mesh_simplification"])==0&&Convert.ToInt32(counts["mjcf_generation"])==1&&Convert.ToInt32(counts["mujoco_validation"])==1,"native V1 zero/zero/zero/one/one counts");
+   else Check(delta["source_build"]==1&&delta["stl_export"]>0,"native "+label+" really builds CAD source/STL");
+   return new{label,output,nativeOutput,sourceUrdf=export.Urdf,cad=delta,backend=metrics,nativeBackend=nativeMetrics};
+  }
+ }
+ static ModelDoc2 Reopen(SldWorks sw,ModelDoc2 model,string directory){
+  string path=Path.GetFullPath(model.GetPathName());Check(path.StartsWith(Path.GetFullPath(directory)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase),"reopen only owned fixture");
+  int errors=0,warnings=0;Check(model.Save3(1,ref errors,ref warnings),"identity fixture saved to CAD file");sw.CloseDoc(model.GetTitle());
+  var reopened=(ModelDoc2)sw.OpenDoc6(path,2,1,"",ref errors,ref warnings);Check(reopened!=null&&errors==0,"identity fixture reopened from CAD file");return reopened;
+ }
+ static void ClearOwnedCaches(string directory){
+  foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
+ }
+ static ModelDoc2 CadReferences(SldWorks sw,ModelDoc2 model,string directory,string settings){
+  bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];var joint=node.Link.Joint;string coordinateId=joint.CoordinateReference.FeatureId,axisId=joint.AxisReference.FeatureId;int pidError;
+  var coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);var axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);
+  coordinate.Name="audit_coordinate";axis.Name="audit_axis";tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateSystemName=="audit_coordinate"&&joint.AxisName=="audit_axis"&&joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate and axis rename retain persistent identities");
+  ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate/axis save/reopen retain identities");
+  var warm=Stage(sw,model,directory,"cad_reference_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"cad_reference_cold",settings);
+  axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);model.ClearSelection2(true);Check(axis.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD axis");
+  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);var segment=model.SketchManager.CreateLine(0,0,0,0,0,.05);model.SketchManager.Insert3DSketch(true);var names=new HashSet<string>(((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().Select(f=>f.Name));
+  Check(segment.Select4(false,((SelectionMgr)model.SelectionManager).CreateSelectData())&&model.InsertAxis2(true),"create same-name replacement CAD axis");var replacement=((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().First(f=>f.GetTypeName2()=="RefAxis"&&!names.Contains(f.Name));replacement.Name="audit_axis";string replacementId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacement));
+  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;Check(joint.AxisReference.FeatureId==axisId&&replacementId!=axisId,"CAD same-name axis recreate never rebinds stored PID");
+  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_axis");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name axis");}
+  coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);model.ClearSelection2(true);Check(coordinate.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD coordinate system");
+  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);model.SketchManager.CreatePoint(.1,.2,.3);model.SketchManager.Insert3DSketch(true);Check(model.Extension.SelectByID2("","EXTSKETCHPOINT",.1,.2,.3,false,1,null,0),"select owned point for replacement coordinate");
+  var replacementCoordinate=model.FeatureManager.InsertCoordinateSystem(false,false,false);Check(replacementCoordinate!=null,"create same-name replacement coordinate");replacementCoordinate.Name="audit_coordinate";
+  string replacementCoordinateId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacementCoordinate));model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateReference.FeatureId==coordinateId&&replacementCoordinateId!=coordinateId,"CAD same-name coordinate recreate never rebinds stored PID");
+  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_coordinate");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name coordinate");}
+  File.WriteAllText(Path.Combine(directory,"cad-reference-counts.json"),json.Serialize(new{status="passed",coordinateId,axisId,stages=new[]{warm,cold}}));return model;
+ }
+ static void Identity(SldWorks sw,ModelDoc2 model,string directory,string settings){
+  model=Reopen(sw,model,directory);bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];string id=node.Link.StableId;var project=SimulationStorage.Load(model);
+  Check(project.collision.Mode(id)=="primitive","CAD save/reopen preserves A collision mode");
+  node.Name=node.Text=node.Link.Name="left_arm";ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);
+  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);node=(LinkNode)tree.Nodes[0];project=SimulationStorage.Load(model);
+  Check(node.Link.StableId==id&&node.Link.Name=="left_arm"&&project.collision.Mode(id)=="primitive","CAD rename/save/reopen retains identity A and mode");
+  var warm=Stage(sw,model,directory,"identity_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"identity_cold",settings);
+  var configuration=model.ConfigurationManager.ActiveConfiguration;int configurationId=configuration.GetID();configuration.Name="audit_renamed_configuration";
+  model=Reopen(sw,model,directory);Check(model.ConfigurationManager.ActiveConfiguration.GetID()==configurationId&&SimulationStorage.Load(model)!=null,"configuration rename/save/reopen retains production project by CAD ID");
+  var configWarm=Stage(sw,model,directory,"configuration_warm",settings);ClearOwnedCaches(directory);var configCold=Stage(sw,model,directory,"configuration_cold",settings);
+  File.WriteAllText(Path.Combine(directory,"configuration-reference-counts.json"),json.Serialize(new{status="passed",configurationId,stages=new[]{configWarm,configCold}}));
+  if(CadReferenceLifecycle)model=CadReferences(sw,model,directory,settings);
+  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);tree.Nodes.Clear();tree.Link.Children.Clear();
+  var replacement=new Link(tree.Link);replacement.Name="left_arm";replacement.Joint.Name="hinge";tree.Link.Children.Add(replacement);tree.Nodes.Add(new LinkNode(replacement));string replacementId=replacement.StableId;
+  SimulationStorage.SaveTree(sw,model,ConfigurationSerialization.WriteTree(tree),1.4);model=Reopen(sw,model,directory);
+  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);project=SimulationStorage.Load(model);
+  Check(((LinkNode)tree.Nodes[0]).Link.StableId==replacementId&&replacementId!=id&&project.collision.Mode(replacementId)=="mesh"&&!project.collision.link_modes_by_id.ContainsKey(replacementId)&&project.collision.link_modes_by_id.ContainsKey(id),"CAD delete/same-name recreate/save/reopen never transfers A mode to B");
+  ClearOwnedCaches(directory);var isolated=new SimulationProject{collision=new CollisionConfiguration{link_modes_migrated=true}};isolated.collision.link_modes_by_id[id]=project.collision.Mode(id);bool rejected=false;
+  var inertia=new SWSimTool.RobotModel.InertialSnapshot(1,SWSimTool.RobotModel.RigidTransform.Identity,new SWSimTool.RobotModel.SymmetricInertia(.1,.1,.1,0,0,0));
+  var core=new SWSimTool.RobotModel.RobotCoreSnapshot("identity",new[]{new SWSimTool.RobotModel.LinkSnapshot(replacementId,"left_arm",inertia,new SWSimTool.RobotModel.GeometrySnapshot[0])},new SWSimTool.RobotModel.JointSnapshot[0]);
+  try{SimulationConfigBuilder.Build(isolated,core,new ResolvedSimulationGeometry(new SWSimTool.RobotModel.SiteSnapshot[0],new SWSimTool.RobotModel.CollisionGeometrySnapshot[0]));}catch(InvalidDataException){rejected=true;}
+  Check(rejected,"cold rebuild rejects unresolved A without same-name fallback");
+  File.WriteAllText(Path.Combine(directory,"identity-counts.json"),json.Serialize(new{status="passed",originalId=id,replacementId,stages=new[]{warm,cold}}));
+ }
+ public static void Run(string directory){
+  var sw=(SldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
+  // Do not change visibility, close documents, or quit unless this instance starts empty.
+  if(sw.GetDocumentCount()!=0)throw new Exception("Refusing SolidWorks instance containing existing documents");
+  File.WriteAllText(Path.Combine(directory,"solidworks-process.txt"),sw.GetProcessID().ToString());
+  var oldCache=Environment.GetEnvironmentVariable("SWSIMTOOL_CACHE");var oldMesh=Environment.GetEnvironmentVariable("SWSIMTOOL_MESH_CACHE");var oldProfile=Environment.GetEnvironmentVariable("SWSIMTOOL_PROFILE");
+  Environment.SetEnvironmentVariable("SWSIMTOOL_CACHE",Path.Combine(directory,"cache"));Environment.SetEnvironmentVariable("SWSIMTOOL_MESH_CACHE",Path.Combine(directory,"mesh-cache"));Environment.SetEnvironmentVariable("SWSIMTOOL_PROFILE","1");
+  try{
+   sw.Visible=false;sw.UserControl=false;string templates=@"C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\templates\";int errors=0,warnings=0;
+   for(int i=0;i<4;i++){
+    var part=(ModelDoc2)sw.NewDocument(templates+"gb_part.prtdot",0,0,0);if(part==null)throw new Exception("Part template missing");Feature plane=(Feature)part.FirstFeature();while(plane!=null&&plane.GetTypeName2()!="RefPlane")plane=(Feature)plane.GetNextFeature();
+    Check(plane!=null&&plane.Select2(false,0),"new fixture plane available");part.SketchManager.InsertSketch(true);part.SketchManager.CreateCornerRectangle(-.025,-.02,0,.025+i*.005,.02+i*.003,0);part.SketchManager.InsertSketch(true);
+    Check(part.FeatureManager.FeatureExtrusion2(true,false,false,0,0,.02,.02,false,false,false,false,0,0,false,false,false,false,true,true,true,0,0,false)!=null,"new block extruded");part.ClearSelection2(true);
+    Check(part.Extension.SaveAs(Path.Combine(directory,"block"+i+".SLDPRT"),0,1,null,ref errors,ref warnings),"new block saved");
+   }
+   var model=(ModelDoc2)sw.NewDocument(templates+"gb_assembly.asmdot",0,0,0);if(model==null)throw new Exception("Assembly template missing");var assembly=(AssemblyDoc)model;
+   var first=assembly.AddComponent5(Path.Combine(directory,"block0.SLDPRT"),0,"",false,"",0,0,0);var second=assembly.AddComponent5(Path.Combine(directory,"block1.SLDPRT"),0,"",false,"",.08,0,0);Check(first!=null&&second!=null,"new components inserted");
+   var root=new LinkNode(new Link(null));root.Link.Name="base";root.Name=root.Text="base";root.IsBaseNode=true;((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(root.Link)).Add(first);root.Link.SWMainComponent=first;root.Link.Joint.CoordinateSystemName="Automatically Generate";
+   var child=new LinkNode(new Link(root.Link));child.Link.Name="arm";child.Name=child.Text="arm";((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(child.Link)).Add(second);child.Link.SWMainComponent=second;child.Link.Joint.Name="hinge";child.Link.Joint.Type="continuous";child.Link.Joint.CoordinateSystemName="Automatically Generate";child.Link.Joint.AxisName="Automatically Generate";root.Nodes.Add(child);root.UpdateLinkTree(null);
+   var previous=child;
+   for(int i=2;i<4;i++){
+    var component=assembly.AddComponent5(Path.Combine(directory,"block"+i+".SLDPRT"),0,"",false,"",i*.08,.01*i,0);Check(component!=null,"additional native component inserted");
+    var node=new LinkNode(new Link(previous.Link));node.Name=node.Text=node.Link.Name=i==2?"elbow":"tool";((System.Collections.IList)typeof(Link).GetField("SWComponents").GetValue(node.Link)).Add(component);node.Link.SWMainComponent=component;node.Link.Joint.Name=i==2?"bend":"tool_fixed";node.Link.Joint.Type=i==2?"revolute":"fixed";node.Link.Joint.CoordinateSystemName="Automatically Generate";node.Link.Joint.AxisName="Automatically Generate";if(i==2){node.Link.Joint.Limit.Lower=-1;node.Link.Joint.Limit.Upper=1;node.Link.Joint.Limit.Effort=10;node.Link.Joint.Limit.Velocity=1;}previous.Nodes.Add(node);previous=node;
+   }
+   root.UpdateLinkTree(null);
+   var helper=new ExportHelper(sw);Check(helper.CreateRobotFromTreeView(root),"native reference fixture builds before capture");
+   int movingIndex=0;
+   foreach(LinkNode moving in new[]{child,(LinkNode)child.Nodes[0]}) {
+    model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);var segment=model.SketchManager.CreateLine(0,0,0,movingIndex==0?0:.04,movingIndex==0?0:.01,.05);model.SketchManager.Insert3DSketch(true);Check(segment!=null,"explicit native joint direction drawn");
+    var names=new HashSet<string>(((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().Select(f=>f.Name));
+    Check(segment.Select4(false,((SelectionMgr)model.SelectionManager).CreateSelectData()),"explicit joint segment selected");Check(model.InsertAxis2(true),"explicit native axis created");
+    var axis=((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().First(f=>f.GetTypeName2()=="RefAxis"&&!names.Contains(f.Name));axis.Name="native_axis_"+movingIndex;moving.Link.Joint.AxisName=axis.Name;moving.Link.Joint.Type=movingIndex==0?"continuous":"revolute";movingIndex++;
+   }
+   model.ClearSelection2(true);
+   CommonSwOperations.RetrieveSWComponentPIDs(model,root);ConfigurationSerialization.SaveConfigTreeXML(sw,model,root,false);
+   var project=new SimulationProject{solver=new SolverSettings{enabled=true,timestep=.001},collision=new CollisionConfiguration()};
+   helper.GetSimulation().Project=project;
+   string anchor=child.Link.Joint.CoordinateSystemName;
+   foreach(string link in new[]{"base","arm"}) {Check(model.Extension.SelectByID2(anchor,"COORDSYS",0,0,0,false,0,null,0),"native joint coordinate selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment(link,"anchor_"+link,"frame"));}
+   Check(model.Extension.SelectByID2(previous.Link.Joint.CoordinateSystemName,"COORDSYS",0,0,0,false,0,null,0),"native tool frame selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment("tool","imu_mount","frame"));
+   Check(model.Extension.SelectByID2(root.Link.Joint.CoordinateSystemName,"COORDSYS",0,0,0,false,0,null,0),"native base frame selected");project.attachments.Add(helper.GetSimulation().CaptureSelectedAttachment("base","force_base","point"));
+   project.actuators.Add(new ActuatorConfig{name="motor",joint="hinge",force_min=-1,force_max=1});project.sensors.Add(new SensorConfig{name="imu",site="imu_mount",type="imu"});project.equalities.Add(new EqualityConfig{name="closure",site1="anchor_base",site2="anchor_arm"});
+   project.site_forces.Add(new SiteForceConfig{name="pull",type="pull",site1="force_base",site2="imu_mount",magnitude=.1});project.site_forces.Add(new SiteForceConfig{name="spring",type="spring",site1="force_base",site2="imu_mount",stiffness=1,damping=.01});
+   foreach(string link in new[]{"base","arm","elbow","tool"}){project.collision.link_modes[link]="primitive";project.collision.geometries.Add(new CollisionGeometry{name=link+"_proxy",link=link,type="box",size=new[]{.04,.03,.02},xyz=new double[3],rpy=new double[3]});}
+   project.collision.allowed_pairs.Add(new CollisionPair{link1="base",link2="tool"});SimulationStorage.Save(sw,model,project);
+   Check(model.Extension.SaveAs(Path.Combine(directory,"fixture.SLDASM"),0,1,null,ref errors,ref warnings),"new assembly saved");
+   string settings=Path.Combine(directory,"mesh-settings.json");new MeshExportSettings{Enabled=true,MaximumTriangles=100000,Backend="fast-simplification"}.Save(settings);
+   if(NativeOnly)CoreParity(sw,model,directory);
+   var initial=Stage(sw,model,directory,"initial",settings);
+   project=SimulationStorage.Load(model);string beforeConfig=json.Serialize(project);project.solver.timestep=.002;SimulationStorage.Save(sw,model,project);
+   var verified=SimulationStorage.Load(model);verified.solver.timestep=.001;Check(json.Serialize(verified)==beforeConfig,"only timestep configuration changed");
+   var incremental=Stage(sw,model,directory,"incremental",settings);
+   // Only delete caches inside this newly generated, owned fixture directory.
+   foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
+   var full=Stage(sw,model,directory,"full",settings);
+   File.WriteAllText(Path.Combine(directory,"native-counts.json"),json.Serialize(new{status="passed",source="new native SW assembly",stages=new[]{initial,incremental,full}}));Console.WriteLine("NATIVE_REPORT: "+directory);
+   if(IdentityLifecycle){Check(NativeOnly,"identity lifecycle uses production entry only");Identity(sw,model,directory,settings);}
+  }catch(Exception error){Console.WriteLine(error.ToString());throw;}finally{
+   Environment.SetEnvironmentVariable("SWSIMTOOL_CACHE",oldCache);Environment.SetEnvironmentVariable("SWSIMTOOL_MESH_CACHE",oldMesh);Environment.SetEnvironmentVariable("SWSIMTOOL_PROFILE",oldProfile);
+   // Close only documents created by this probe. Never close an unexpected document.
+   var docs=sw.GetDocuments() as object[];if(docs!=null)foreach(ModelDoc2 doc in docs){var path=doc.GetPathName();if(!string.IsNullOrEmpty(path)&&Path.GetFullPath(path).StartsWith(Path.GetFullPath(directory)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))sw.CloseDoc(doc.GetTitle());}
+   if(sw.GetDocumentCount()==0)sw.ExitApp();
+  }
+ }
+}
+'@
+[NativeIncrementalProbe]::NativeOnly=$NativeOnly.IsPresent
+[NativeIncrementalProbe]::IdentityLifecycle=$IdentityLifecycle.IsPresent
+[NativeIncrementalProbe]::CadReferenceLifecycle=$CadReferenceLifecycle.IsPresent
+[NativeIncrementalProbe]::Run($directory)
+$directory | Set-Content -LiteralPath (Join-Path $root 'build\native-incremental-directory.txt')

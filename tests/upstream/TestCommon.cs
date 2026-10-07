@@ -1,6 +1,6 @@
 ﻿using SolidWorks.Interop.sldworks;
-using SW2URDF.URDF;
-using SW2URDF.URDFExport;
+using SWSimTool.URDF;
+using SWSimTool.URDFExport;
 using System.Collections;
 using System;
 using System.Reflection;
@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     [Collection("Requires SW Test Collection")]
-    public class TestCommon : SW2URDFTest
+    public class TestCommon : SWSimToolTest
     {
         public TestCommon(SWTestFixture fixture) : base(fixture)
         {

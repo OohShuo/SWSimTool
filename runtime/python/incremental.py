@@ -30,7 +30,7 @@ def count(name, amount=1):
 
 @contextmanager
 def export_metrics():
-    metrics = dict(export_id=os.environ.get('SW2MUJOCO_EXPORT_ID') or uuid.uuid4().hex,
+    metrics = dict(export_id=os.environ.get('SWSIMTOOL_EXPORT_ID') or uuid.uuid4().hex,
                    counts=dict(mesh_prepare=0, mesh_simplification=0, mjcf_generation=0,
                                mujoco_validation=0, base_generation=0), seconds={})
     token = CURRENT.set(metrics)
@@ -42,7 +42,7 @@ def export_metrics():
         LAST_METRICS.clear()
         LAST_METRICS.update(metrics)
         CURRENT.reset(token)
-        if os.environ.get('SW2MUJOCO_PROFILE') == '1':
+        if os.environ.get('SWSIMTOOL_PROFILE') == '1':
             print('Export metrics: ' + json.dumps(metrics, ensure_ascii=False), flush=True)
 
 
@@ -58,8 +58,8 @@ def stage(name):
 
 
 def cache_root():
-    return Path(os.environ.get('SW2MUJOCO_CACHE') or
-                str(Path(os.environ.get('LOCALAPPDATA', tempfile.gettempdir())) / 'SW2MuJoCo' / 'cache'))
+    return Path(os.environ.get('SWSIMTOOL_CACHE') or
+                str(Path(os.environ.get('LOCALAPPDATA', tempfile.gettempdir())) / 'SWSimTool' / 'cache'))
 
 
 def generator_identity():
@@ -91,7 +91,7 @@ def mesh_source_path(filename, urdf):
 class PreparedInputs:
     def __init__(self, urdf, robot, original, settings, output_root, config):
         from mesh_cache import file_hash, identity
-        self.enabled = settings.get('CacheEnabled', True) and os.environ.get('SW2MUJOCO_USE_INCREMENTAL_EXPORT', '1') != '0'
+        self.enabled = settings.get('CacheEnabled', True) and os.environ.get('SWSIMTOOL_USE_INCREMENTAL_EXPORT', '1') != '0'
         with stage('fingerprint'):
             sources={}
             mesh_fingerprints={}

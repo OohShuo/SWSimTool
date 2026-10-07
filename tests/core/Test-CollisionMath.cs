@@ -3,8 +3,8 @@ using System.Linq;
 using System.Reflection;
 using System.Web.Script.Serialization;
 using MathNet.Numerics.LinearAlgebra;
-using SW2URDF.Simulation;
-using SW2URDF.Utilities;
+using SWSimTool.Simulation;
+using SWSimTool.Utilities;
 
 public static class CollisionMathTests
 {

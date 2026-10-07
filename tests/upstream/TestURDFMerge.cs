@@ -1,4 +1,4 @@
-﻿namespace SW2URDF.Test
+﻿namespace SWSimTool.Test
 {
     /// <summary>
     /// TODO(SIMINT-164) Implement tests covering public methods below
@@ -7,7 +7,7 @@
     ///     out List<Link> matchedLinks, out List<Link> unmatchedLinks)
     /// public Link GetCorrespondingLink(TreeViewItem item)
     /// </summary>
-    public class TestURDFMerge : SW2URDFTest
+    public class TestURDFMerge : SWSimToolTest
     {
         public TestURDFMerge(SWTestFixture fixture) : base(fixture)
         {

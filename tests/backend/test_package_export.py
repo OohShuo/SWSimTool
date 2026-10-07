@@ -1,7 +1,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import hashlib
 import json
@@ -41,7 +41,7 @@ class PackageExportTests(unittest.TestCase):
         ET.SubElement(ET.SubElement(root_collision, 'geometry'), 'mesh', filename='a/same.stl')
         self.urdf.write_bytes(ET.tostring(robot))
         self.refresh_hash()
-        self.cache_env = patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(Path(self.temp.name) / 'mesh-cache'), 'SW2MUJOCO_CACHE': str(Path(self.temp.name) / 'cache')})
+        self.cache_env = patch.dict(os.environ, {'SWSIMTOOL_MESH_CACHE': str(Path(self.temp.name) / 'mesh-cache'), 'SWSIMTOOL_CACHE': str(Path(self.temp.name) / 'cache')})
         self.cache_env.start()
         self.settings = dict(Enabled=True, MaximumTriangles=128, Backend='fast-simplification')
     def refresh_hash(self):
@@ -71,7 +71,7 @@ class PackageExportTests(unittest.TestCase):
     def test_all_three_backends(self):
         for backend in ('pymeshlab', 'fast-simplification', 'blender'):
             with self.subTest(backend=backend):
-                settings = dict(self.settings, Backend=backend, Blender=os.environ.get('SW2URDF_TEST_BLENDER'))
+                settings = dict(self.settings, Backend=backend, Blender=os.environ.get('SWSimTool_TEST_BLENDER'))
                 if backend == 'blender' and not settings['Blender']:
                     continue
                 export_package(self.urdf, self.sidecar, self.output, settings)

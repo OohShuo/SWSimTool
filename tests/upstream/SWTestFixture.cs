@@ -1,7 +1,7 @@
 using SolidWorks.Interop.sldworks;
 using System;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     /// <summary>
     /// TestFixture which gets passed to each Test Class. For now it just provides 

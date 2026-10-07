@@ -80,10 +80,10 @@ def blender_worker(source, destination, target):
     import bpy
     import numpy as np
     vertices, faces = indexed_mesh(source)
-    mesh = bpy.data.meshes.new('SW2URDF_STL')
+    mesh = bpy.data.meshes.new('SWSimTool_STL')
     mesh.from_pydata(vertices.tolist(), [], faces.tolist())
     mesh.update()
-    obj = bpy.data.objects.new('SW2URDF_STL', mesh)
+    obj = bpy.data.objects.new('SWSimTool_STL', mesh)
     bpy.context.collection.objects.link(obj)
     modifier = obj.modifiers.new('Triangle budget', 'DECIMATE')
     modifier.decimate_type = 'COLLAPSE'
@@ -121,7 +121,7 @@ def simplify(source, maximum, backend, blender=None, output=None, raw=None):
     vertices, faces = indexed_mesh(source, raw)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Temporary files are on the destination volume so replacement is atomic.
-    with tempfile.TemporaryDirectory(prefix='.sw2urdf-mesh-', dir=output.parent) as directory:
+    with tempfile.TemporaryDirectory(prefix='.swsimtool-mesh-', dir=output.parent) as directory:
         staged = Path(directory) / 'simplified.stl'
         target = maximum
         for attempt in range(8):

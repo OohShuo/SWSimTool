@@ -1,4 +1,4 @@
-# 测试目录
+﻿# 测试目录
 
 | 目录 | 内容 |
 |---|---|
@@ -18,7 +18,7 @@
 | manual | 手动界面检查和指南演示辅助 |
 | upstream | 从官方源码拆出的独立 xUnit 项目与 runner |
 
-先构建生产插件到 `build/runtime-release/`。PowerShell 回归默认读取这个载荷；可使用 `-Payload` 显式选择。
+先构建生产插件到 `build/swsimtool-release/`。PowerShell 回归默认读取这个载荷；可使用 `-Payload` 显式选择。
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/identity/Test-StableReferenceAudit.ps1
@@ -28,6 +28,6 @@ python tests/parity/run.py
 python tests/architecture/Test-ReleaseLayout.py
 ```
 
-`tests/core/CoreTests.csproj`、`tests/parity/CandidateRunner.csproj` 和 `tests/upstream/SW2URDF.Tests.csproj` 是独立测试构建入口。测试依赖不会进入生产 DLL 或安装包。
+`tests/core/CoreTests.csproj`、`tests/parity/CandidateRunner.csproj` 和 `tests/upstream/SWSimTool.Tests.csproj` 是独立测试构建入口。测试依赖不会进入生产 DLL 或安装包。
 
 CAD、官方及安装集成测试不会随上述纯回归自动运行。需要 SolidWorks 的测试仅可在独立空会话和明确指定的隔离 fixture 上执行，不得使用用户已有工程；官方 runner 会在会话已有文档时拒绝运行。

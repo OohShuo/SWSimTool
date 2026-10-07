@@ -1,16 +1,16 @@
 ﻿using SolidWorks.Interop.sldworks;
-using SW2URDF.URDF;
-using SW2URDF.URDFExport;
-using SW2URDF.URDFExport.CSV;
+using SWSimTool.URDF;
+using SWSimTool.URDFExport;
+using SWSimTool.URDFExport.CSV;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     [Collection("Requires SW Test Collection")]
-    public class TestCSVImportExport : SW2URDFTest
+    public class TestCSVImportExport : SWSimToolTest
     {
         public TestCSVImportExport(SWTestFixture fixture) : base(fixture)
         {

@@ -5,13 +5,13 @@ import html
 import re
 import argparse
 
-ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 parser = argparse.ArgumentParser()
 parser.add_argument('--version', default='3.2.1')
 args = parser.parse_args()
 if not re.fullmatch(r'\d+\.\d+(?:\.\d+)?', args.version):
     parser.error('Version must be major.minor or major.minor.patch')
-source = ROOT / f'docs/SW2MuJoCo_{args.version}_使用指南.md'
+source = ROOT / f'docs/SWSimTool_{args.version}_使用指南.md'
 text = source.read_text(encoding='utf-8')
 images = []
 
@@ -75,7 +75,7 @@ table{border-collapse:collapse;width:100%;margin:22px 0}th,td{border:1px solid #
 figure{margin:30px 0}img{display:block;width:100%;height:auto}figcaption{font-size:14px;color:#555;margin-top:8px}nav ol{columns:2;padding-left:24px}nav li{break-inside:avoid}nav{margin:32px 0}
 @media(max-width:700px){main{padding:22px}body{font-size:16px}nav ol{columns:1}table{font-size:14px}th,td{padding:8px}}
 @media print{body{background:white;font-size:11pt}main{max-width:none;padding:0}h2,h3{break-after:avoid}figure,table{break-inside:avoid}img{max-height:220mm;object-fit:contain}a{color:inherit}@page{size:A4;margin:18mm}}'''
-document = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SW2MuJoCo '+args.version+' 使用指南</title><style>'+css+'</style><main>'
+document = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SWSimTool '+args.version+' 使用指南</title><style>'+css+'</style><main>'
 document += parts[0] + parts[1] + toc + ''.join(parts[2:]) + '</main></html>'
 output = source.with_suffix('.html')
 output.write_text(document, encoding='utf-8')

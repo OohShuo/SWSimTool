@@ -1,16 +1,16 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SW2URDF.SW;
-using SW2URDF.URDFExport;
+using SWSimTool.SW;
+using SWSimTool.URDFExport;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     /// <summary>
     ///  TODO (SIMINT-164), code in UI components needs to be tested, but
     ///  pm.show() crashes SolidWorks. 
     /// </summary>
     [Collection("Requires SW Test Collection")]
-    public class TestPropertyManager : SW2URDFTest
+    public class TestPropertyManager : SWSimToolTest
     {
         public TestPropertyManager(SWTestFixture fixture) : base(fixture)
         {

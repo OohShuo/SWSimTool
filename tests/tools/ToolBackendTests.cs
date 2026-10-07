@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SW2URDF.Simulation;
+using SWSimTool.Simulation;
 
 internal static class ToolBackendTests
 {
@@ -12,7 +12,7 @@ internal static class ToolBackendTests
     static void Check(bool condition,string message){if(!condition)throw new Exception(message);checks++;Console.WriteLine("PASS: "+message);}
     internal static void Run(string python,string script)
     {
-        var root=Path.Combine(Path.GetTempPath(),"SW2MuJoCo 工具 空格-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
+        var root=Path.Combine(Path.GetTempPath(),"SWSimTool 工具 空格-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         try {
             var fake=new PythonToolBackend(Path.GetFullPath(script));var xml=Path.Combine(root,"测试 model.xml");
             Func<TimeSpan,CancellationToken,ToolContext> context=(time,token)=>new ToolContext(python,"tool-test",time,token);
@@ -79,7 +79,7 @@ internal static class ToolBackendTests
                 code=NativeExportPipeline.RunAsync(python,model,output,false,null,settingsPath,"test",stop.Token,validationService:new CancelValidation(stop)).Result;
                 Check(code!=0&&File.ReadAllText(output)==original,"Cancellation before publication preserves previous package");
             }
-            Check(!Directory.EnumerateDirectories(root,".sw2mujoco-*").Any(),"Export staging cleaned after failure");
+            Check(!Directory.EnumerateDirectories(root,".swsimtool-*").Any(),"Export staging cleaned after failure");
             Console.WriteLine("Tool contract checks: "+checks);
         }finally{Directory.Delete(root,true);}
     }

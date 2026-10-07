@@ -1,23 +1,23 @@
 ﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\install.iss
 #ifndef Payload
-#define Payload AddBackslash(SourcePath) + "..\build\runtime-release"
+#define Payload AddBackslash(SourcePath) + "..\build\swsimtool-release"
 #endif
-#define BuildVersion GetFileVersion(Payload + "\SW2URDF.dll")
+#define BuildVersion GetFileVersion(Payload + "\SWSimTool.dll")
 #ifndef ReleaseName
 #define ReleaseName "3.2.1"
 #endif
 
 [Setup]
-AppId={{E43E85A9-071D-430A-91B2-84B7AB923170}
-AppName=SW2MuJoCo for SolidWorks 2025
+AppId={{6506C8C8-4D78-4A53-91A4-EF24B72BFA25}
+AppName=SWSimTool for SolidWorks 2025
 AppVersion={#BuildVersion}
-AppVerName=SW2MuJoCo for SolidWorks 2025 ({#BuildVersion})
-AppPublisher=SW2URDF contributors
-AppPublisherURL=https://github.com/ros/solidworks_urdf_exporter
+AppVerName=SWSimTool for SolidWorks 2025 ({#BuildVersion})
+AppPublisher=SWSimTool contributors
+AppPublisherURL=https://github.com/OohShuo/sw2mujoco
 VersionInfoVersion={#BuildVersion}
-VersionInfoProductName=SW2MuJoCo for SolidWorks 2025
-VersionInfoDescription=SW2MuJoCo SolidWorks 2025 x64 Setup
-DefaultDirName={autopf}\SolidWorks Corp\SolidWorks\URDFExporter
+VersionInfoProductName=SWSimTool for SolidWorks 2025
+VersionInfoDescription=SWSimTool SolidWorks 2025 x64 Setup
+DefaultDirName={autopf}\SWSimTool
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
@@ -25,13 +25,13 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir=..\dist
-OutputBaseFilename=SW2MuJoCo_{#ReleaseName}_SW2025_x64_Setup
+OutputBaseFilename=SWSimTool_{#ReleaseName}_SW2025_x64_Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
-UninstallDisplayIcon={app}\SW2URDF.dll
+UninstallDisplayIcon={app}\SWSimTool.dll
 LicenseFile=..\LICENSE
 InfoBeforeFile=..\docs\INSTALL.md
 
@@ -40,13 +40,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; Explicit production payload: tests and reference generators are never installed.
-Source: "{#Payload}\SW2URDF.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\SWSimTool.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\CsvHelper.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\MathNet.Numerics.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\log4net.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\solidworkstools.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#Payload}\SW2URDF.pdb"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#Payload}\SW2URDF.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\SWSimTool.pdb"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\SWSimTool.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\INSTALL.md"; DestDir: "{app}\docs"; Flags: ignoreversion
@@ -57,38 +57,16 @@ Source: "{#Payload}\mujoco_backend\incremental.py"; DestDir: "{app}\mujoco_backe
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
-Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\SWSimTool_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\SWSimTool_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\native_support.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
-[InstallDelete]
-Type: files; Name: "{app}\Castle.Core.dll"
-Type: files; Name: "{app}\Moq.dll"
-Type: files; Name: "{app}\Microsoft.VisualStudio.TestPlatform.TestFramework.dll"
-Type: files; Name: "{app}\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll"
-Type: files; Name: "{app}\xunit.abstractions.dll"
-Type: files; Name: "{app}\xunit.assert.dll"
-Type: files; Name: "{app}\xunit.core.dll"
-Type: files; Name: "{app}\xunit.execution.desktop.dll"
-Type: files; Name: "{app}\xunit.runner.reporters.net452.dll"
-Type: files; Name: "{app}\xunit.runner.utility.net452.dll"
-Type: files; Name: "{app}\xunit.runner.visualstudio.testadapter.dll"
-Type: files; Name: "{app}\System.Runtime.CompilerServices.Unsafe.dll"
-Type: files; Name: "{app}\System.Threading.Tasks.Extensions.dll"
-Type: files; Name: "{app}\mujoco_backend\convert.py"
-Type: files; Name: "{app}\mujoco_backend\equalities.py"
-Type: files; Name: "{app}\mujoco_backend\robot_model.py"
-Type: files; Name: "{app}\mujoco_backend\site_forces.py"
-Type: files; Name: "{app}\mujoco_backend\sites.py"
-Type: files; Name: "{app}\mujoco_backend\joints.py"
-Type: files; Name: "{app}\mujoco_backend\collision.py"
-
 [Code]
 const
-  ClsidKey = 'SOFTWARE\Classes\CLSID\{65c9fc17-6a74-45a3-8f84-55185900275d}\InprocServer32';
-  AddinKey = 'SOFTWARE\SolidWorks\Addins\{65c9fc17-6a74-45a3-8f84-55185900275d}';
+  ClsidKey = 'SOFTWARE\Classes\CLSID\{974a302b-3966-4e45-a5a5-1c24c26b7faa}\InprocServer32';
+  AddinKey = 'SOFTWARE\SolidWorks\Addins\{974a302b-3966-4e45-a5a5-1c24c26b7faa}';
 
 function RegAsmPath: String;
 begin
@@ -118,7 +96,7 @@ begin
   Result := False;
   if RegQueryStringValue(HKLM64, ClsidKey, 'CodeBase', CodeBase) then
   begin
-    Expected := ExpandConstant('{app}\SW2URDF.dll');
+    Expected := ExpandConstant('{app}\SWSimTool.dll');
     StringChangeEx(Expected, '\', '/', True);
     Result := CompareText(CodeBase, 'file:///' + Expected) = 0;
   end;
@@ -144,14 +122,14 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    if not Exec(RegAsmPath, '/codebase "' + ExpandConstant('{app}\SW2URDF.dll') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(RegAsmPath, '/codebase "' + ExpandConstant('{app}\SWSimTool.dll') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       RaiseException('Unable to start 64-bit RegAsm: ' + SysErrorMessage(ExitCode));
     if ExitCode <> 0 then
       RaiseException('64-bit COM registration failed. RegAsm exit code: ' + IntToStr(ExitCode));
     { Upstream ComRegisterFunction catches errors internally, so verify its effects too. }
     if not OwnsRegistration or not RegKeyExists(HKLM64, AddinKey) then
-      RaiseException('SW2URDF registration verification failed. Run Setup as administrator.');
-    Log('Verified SW2URDF COM registration for ' + ExpandConstant('{app}\SW2URDF.dll'));
+      RaiseException('SWSimTool registration verification failed. Run Setup as administrator.');
+    Log('Verified SWSimTool COM registration for ' + ExpandConstant('{app}\SWSimTool.dll'));
   end;
 end;
 
@@ -168,7 +146,7 @@ var
 begin
   if (CurUninstallStep = usUninstall) and OwnsRegistration then
   begin
-    if not Exec(RegAsmPath, '/unregister "' + ExpandConstant('{app}\SW2URDF.dll') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    if not Exec(RegAsmPath, '/unregister "' + ExpandConstant('{app}\SWSimTool.dll') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
       RaiseException('Unable to start 64-bit RegAsm: ' + SysErrorMessage(ExitCode));
     if ExitCode <> 0 then
       RaiseException('COM unregistration failed. RegAsm exit code: ' + IntToStr(ExitCode));

@@ -331,7 +331,7 @@ ASALocalRun/
 # Ignore installer zip files
 *.zip
 
-SW2URDF/Versioning/VersionInfo.cs
+SWSimTool/Versioning/VersionInfo.cs
 
 # Local SW2025 build, investigation and downloaded tools (kept on disk)
 /diagnostics/
@@ -340,8 +340,8 @@ SW2URDF/Versioning/VersionInfo.cs
 /upstream-reference/
 /upstream-master.json
 /build/
-*.sldasm.sw2urdf.json
-*.SLDASM.sw2urdf.json
+*.sldasm.swsimtool.json
+*.SLDASM.swsimtool.json
 
 # Local SW2025 build, investigation and downloaded tools (kept on disk)
 /diagnostics/

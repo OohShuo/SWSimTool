@@ -2,7 +2,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import itertools
 import math
@@ -60,7 +60,7 @@ def apply_collision(mjcf, bodies, config, quaternion, text):
         active = []
         for j, geom in enumerate(body.findall('geom')):
             if not geom.get('name'):
-                name = f'sw2urdf_original_{index}_{j}'
+                name = f'swsimtool_original_{index}_{j}'
                 while name in existing_names:
                     name += '_'
                 geom.set('name', name)

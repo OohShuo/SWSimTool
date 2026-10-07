@@ -2,13 +2,13 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import json
 from pathlib import Path
 import sys
 
-root = next(p for p in Path(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+root = next(p for p in Path(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 sys.path.insert(0, str(root / 'tests/parity'))
 from semantic_compare import compiled_semantics, dynamics, inertia_in_body, close
 from convert import load_mjcf, resolve_meshes, asset_options

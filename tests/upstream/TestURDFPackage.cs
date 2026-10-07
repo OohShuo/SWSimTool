@@ -1,14 +1,14 @@
 ﻿using Moq;
-using SW2URDF.UI;
-using SW2URDF.URDFExport;
+using SWSimTool.UI;
+using SWSimTool.URDFExport;
 using System;
 using System.IO;
 using System.Windows;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
-    public class TestURDFPackage : SW2URDFTest
+    public class TestURDFPackage : SWSimToolTest
     {
         public TestURDFPackage(SWTestFixture fixture) : base(fixture)
         {

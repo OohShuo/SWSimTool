@@ -1,11 +1,11 @@
 using System;
 using System.IO;
-using SW2URDF.Simulation;
+using SWSimTool.Simulation;
 internal static class MuJoCoSettingsTests
 {
     internal static void Run()
     {
-        string folder=Path.Combine(Path.GetTempPath(),"SW2MuJoCo-settings-"+Guid.NewGuid().ToString("N"));
+        string folder=Path.Combine(Path.GetTempPath(),"SWSimTool-settings-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         try {
             string path=Path.Combine(folder,"settings.json");

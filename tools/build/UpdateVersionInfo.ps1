@@ -2,7 +2,7 @@
     [string]$filename
  )
 
-$repoDirectory = $(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SW2URDF.sln')) { $p; break } })
+$repoDirectory = $(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $CommitVersion = 'source-archive'
 if (Test-Path (Join-Path $repoDirectory '.git')) {
     $gitVersion = git -c safe.directory=$repoDirectory -C $repoDirectory describe --tags --long --dirty --always

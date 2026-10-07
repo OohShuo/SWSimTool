@@ -2,7 +2,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import contextlib
 import io
@@ -23,7 +23,7 @@ try:
     fixture.refresh_hash()
     before = fixture.original_bytes()
     fixture.settings['MaximumTriangles'] = 8192
-    os.environ['SW2MUJOCO_PROFILE'] = '1'
+    os.environ['SWSIMTOOL_PROFILE'] = '1'
     results = []
     for label in ('cold', 'warm_solver_change'):
         if label != 'cold':

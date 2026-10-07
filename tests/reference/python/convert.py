@@ -1,4 +1,4 @@
-"""Convert an unchanged SW2URDF URDF and its simulation sidecar to MJCF.
+"""Convert an unchanged SWSimTool URDF and its simulation sidecar to MJCF.
 
 CLI exports only MJCF XML and preprocessed STL copies under meshes/.
 Intermediate URDF and simulation snapshots remain in a temporary workspace.
@@ -7,7 +7,7 @@ The original URDF, sidecar and meshes are never rewritten.
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import argparse
 from contextlib import contextmanager
@@ -217,7 +217,7 @@ def resolve_meshes(robot, urdf, folder=None, preserve_paths=False, reject_root=N
     for data in files.values():
         digest.update(len(data).to_bytes(8, "little"))
         digest.update(data)
-    folder = folder or "sw2urdf_assets_" + digest.hexdigest()[:20]
+    folder = folder or "swsimtool_assets_" + digest.hexdigest()[:20]
     aliases = {path: f"{folder}/mesh_{index:04d}{path.suffix.lower()}" for index, path in enumerate(files)}
     for mesh in robot.findall(".//mesh"):
         mesh.set("filename", aliases[Path(mesh.attrib["filename"])])
@@ -417,7 +417,7 @@ def _export_package(urdf, config_path, output, mesh_settings=None):
     root.parent.mkdir(parents=True, exist_ok=True)
     # Build next to the destination, validate fully, then swap the complete directory.
     # Existing unrelated files are retained across successful updates.
-    with tempfile.TemporaryDirectory(prefix='.sw2urdf-package-', dir=root.parent) as temporary:
+    with tempfile.TemporaryDirectory(prefix='.swsimtool-package-', dir=root.parent) as temporary:
         workspace = Path(temporary) / 'work'
         workspace.mkdir()
         staged_root = Path(temporary) / root.name
@@ -441,7 +441,7 @@ def _export_package(urdf, config_path, output, mesh_settings=None):
             with measured('mesh_read'):
                 assets = resolve_meshes(robot, urdf, folder='meshes', reject_root=root)
             if any(Path(name).suffix.lower() != '.stl' for name in assets):
-                raise ValueError('SW2MuJoCo export requires STL input meshes; export URDF with STL meshes first')
+                raise ValueError('SWSimTool export requires STL input meshes; export URDF with STL meshes first')
             aliases = [m.get('filename') for m in robot.findall('.//mesh')]
             provenance = dict(zip(aliases, sources))
             (workspace / 'meshes').mkdir()

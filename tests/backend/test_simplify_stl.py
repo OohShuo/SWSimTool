@@ -1,7 +1,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import hashlib
 import os
@@ -52,7 +52,7 @@ class MeshSimplificationTests(unittest.TestCase):
         for backend in ('pymeshlab', 'fast-simplification', 'blender'):
             with self.subTest(backend=backend):
                 write_binary(self.path, self.vertices, self.faces)
-                blender = os.environ.get('SW2URDF_TEST_BLENDER')
+                blender = os.environ.get('SWSimTool_TEST_BLENDER')
                 if backend == 'blender' and not blender:
                     continue
                 report = simplify(self.path, 500, backend, blender)
@@ -68,7 +68,7 @@ class MeshSimplificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'original STL retained'):
                 simplify(self.path, 500, 'fast-simplification')
         self.assertEqual(self.path.read_bytes(), before)
-        self.assertFalse(list(self.path.parent.glob('.sw2urdf-mesh-*')))
+        self.assertFalse(list(self.path.parent.glob('.swsimtool-mesh-*')))
     def test_backend_error_preserves_original(self):
         before = self.path.read_bytes()
         with patch('simplify_stl.reduce_python', side_effect=ImportError('missing backend')):

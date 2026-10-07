@@ -1,7 +1,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import json
 import tempfile
@@ -17,7 +17,7 @@ class MeshCacheTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.env = patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(self.root / 'cache')})
+        self.env = patch.dict(os.environ, {'SWSIMTOOL_MESH_CACHE': str(self.root / 'cache')})
         self.env.start()
         self.source = self.root / 'source.stl'
         write_binary(self.source, *sphere(3))
@@ -56,7 +56,7 @@ class MeshCacheTests(unittest.TestCase):
         self.assertFalse(self.prepare(dict(self.settings, CacheEnabled=False))['cache_hit'])
         blocked = self.root / 'blocked'
         blocked.write_text('file')
-        with patch.dict(os.environ, {'SW2MUJOCO_MESH_CACHE': str(blocked)}):
+        with patch.dict(os.environ, {'SWSIMTOOL_MESH_CACHE': str(blocked)}):
             self.assertTrue(self.prepare()['changed'])
     def test_backend_version_and_algorithm_change_invalidate(self):
         self.prepare()

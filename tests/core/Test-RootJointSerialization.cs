@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Xml;
-using SW2URDF.URDF;
+using SWSimTool.URDF;
 
 public static class TestRootJointSerialization {
     public static void Main() {

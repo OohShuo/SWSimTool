@@ -1,12 +1,12 @@
 ﻿using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using SolidWorks.Interop.sldworks;
-using SW2URDF.Utilities;
+using SWSimTool.Utilities;
 using System;
 using Xunit;
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
-    public class TestMathOps : SW2URDFTest
+    public class TestMathOps : SWSimToolTest
     {
         public TestMathOps(SWTestFixture fixture) : base(fixture)
         {

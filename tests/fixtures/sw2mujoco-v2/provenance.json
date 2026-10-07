@@ -1,0 +1,25 @@
+{
+  "source_commit": "d19fbb3",
+  "generator": "old NativeIncrementalProbe, NativeOnly, no destructive identity stages",
+  "cad_sha256": {
+    "block0.SLDPRT": "83f6b7e12eda6018daca65234e544f0ea03ce7aa55f8b51ee99d04d92ea9471e",
+    "block1.SLDPRT": "622757799dc132735a8c20f338e101c014d72b98e886de0f8dc7679e5ddedc16",
+    "block2.SLDPRT": "7217cfbd1e7e7b5fc181bb1fd8ee6a58bd816378536ad3f78846dc4b485241b5",
+    "block3.SLDPRT": "2d74ae487f79c1c0d3489d4f39c49ef8ca9509d212471869af6d33a982b713d4",
+    "fixture.SLDASM": "023da5ad0d49202f098b961fcf995a2dc1bbc73cdcf0d09c1b588cc5cba79ce0"
+  },
+  "features": [
+    "4 links",
+    "3 joints",
+    "sites",
+    "collision",
+    "contact pair",
+    "connect",
+    "actuator",
+    "IMU",
+    "constant force",
+    "spring",
+    "custom solver",
+    "link_modes_by_id"
+  ]
+}

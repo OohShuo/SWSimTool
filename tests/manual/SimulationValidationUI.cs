@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using SolidWorks.Interop.sldworks;
-using SW2URDF.URDFExport;
-using SW2URDF.Simulation;
+using SWSimTool.URDFExport;
+using SWSimTool.Simulation;
 public static class SimulationValidationUI {
  [STAThread] public static void Main(string[] args) {
   try {
@@ -19,14 +19,14 @@ public static class SimulationValidationUI {
     bool stop; var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out stop);
     CommonSwOperations.LoadSWComponents(model,tree,new List<string>());
     if(stop || !helper.CreateRobotFromTreeView(tree)) throw new Exception("Tree reload failed");
-    Application.EnableVisualStyles(); Application.Run(new SW2URDF.UI.AssemblyExportForm(sw,tree,helper)); return;
+    Application.EnableVisualStyles(); Application.Run(new SWSimTool.UI.AssemblyExportForm(sw,tree,helper)); return;
    }
    File.AppendAllText(Path.Combine(args[1],"ui-stages.txt"),"form\n"); Application.EnableVisualStyles();
-   using(var form=new SW2URDF.UI.SimulationConfigForm(service,"arm",new[]{"hinge"})) {
+   using(var form=new SWSimTool.UI.SimulationConfigForm(service,"arm",new[]{"hinge"})) {
     File.AppendAllText(Path.Combine(args[1],"ui-stages.txt"),"show\n"); if(form.ShowDialog()!=DialogResult.OK) return;
    }
    // Reopen to verify persistence through the same production UI.
-   using(var form=new SW2URDF.UI.SimulationConfigForm(new SW2URDF.Simulation.AttachmentService(helper),"arm",new[]{"hinge"})) form.ShowDialog();
+   using(var form=new SWSimTool.UI.SimulationConfigForm(new SWSimTool.Simulation.AttachmentService(helper),"arm",new[]{"hinge"})) form.ShowDialog();
    bool abort;
    var node=ConfigurationSerialization.LoadBaseNodeFromModel(model,out abort);
    CommonSwOperations.LoadSWComponents(model,node,new List<string>());
@@ -38,7 +38,7 @@ public static class SimulationValidationUI {
    helper.ExportRobot();
    int errors=0,warnings=0; model.Extension.SaveAs(model.GetPathName(),0,1,null,ref errors,ref warnings);
    PythonBackend.Launch(service.Project.python,helper.LastURDFPath,helper.LastSimulationPath,true);
-   Application.Run(new Form {Text="SW2URDF validation backend host",Width=360,Height=100});
+   Application.Run(new Form {Text="SWSimTool validation backend host",Width=360,Height=100});
   } catch(Exception error) { File.WriteAllText(Path.Combine(args[1],"ui-error.txt"),error.ToString()); MessageBox.Show(error.ToString(),"Validation error"); }
  }
 }

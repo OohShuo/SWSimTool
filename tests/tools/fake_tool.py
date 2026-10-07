@@ -45,7 +45,7 @@ else:
         print('expected error', file=sys.stderr, flush=True)
         sys.exit(7)
     if mode == 'bad-error-json':
-        print('SW2MUJOCO_TOOL_ERROR:invalid json', file=sys.stderr, flush=True)
+        print('SWSIMTOOL_TOOL_ERROR:invalid json', file=sys.stderr, flush=True)
         sys.exit(1)
     if mode == 'modify':
         path.write_text('rewritten', encoding='utf-8')

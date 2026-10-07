@@ -1,20 +1,20 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <AssemblyName>SW2MuJoCo.CandidateRunner</AssemblyName><OutputPath>..\..\build\native-parity\</OutputPath>
+    <AssemblyName>SWSimTool.CandidateRunner</AssemblyName><OutputPath>..\..\build\native-parity\</OutputPath>
     <IntermediateOutputPath>..\..\build\native-parity-obj\</IntermediateOutputPath><LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xml.Linq"/><Reference Include="System.Web.Extensions"/><Reference Include="System.Windows.Forms"/>
-    <Compile Include="..\..\SW2URDF\RobotModel\Spatial.cs"/><Compile Include="..\..\SW2URDF\RobotModel\RobotCoreSnapshot.cs"/>
-    <Compile Include="..\..\SW2URDF\RobotModel\UrdfRobotModelImporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationConfigSnapshot.cs"/>
-    <Compile Include="..\..\SW2URDF\RobotModel\MjcfExporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationExtensions.cs"/><Compile Include="..\..\SW2URDF\RobotModel\LegacySimulationConfigImporter.cs"/>
+    <Compile Include="..\..\SWSimTool\RobotModel\Spatial.cs"/><Compile Include="..\..\SWSimTool\RobotModel\RobotCoreSnapshot.cs"/>
+    <Compile Include="..\..\SWSimTool\RobotModel\UrdfRobotModelImporter.cs"/><Compile Include="..\..\SWSimTool\RobotModel\SimulationConfigSnapshot.cs"/>
+    <Compile Include="..\..\SWSimTool\RobotModel\MjcfExporter.cs"/><Compile Include="..\..\SWSimTool\RobotModel\SimulationExtensions.cs"/><Compile Include="..\..\SWSimTool\RobotModel\LegacySimulationConfigImporter.cs"/>
     <Compile Include="CandidateRunner.cs"/>
-    <Compile Include="..\tools\ToolBackendTests.cs"/><Compile Include="..\tools\Test-MuJoCoTools.cs"/><Compile Include="..\..\SW2URDF\Simulation\MuJoCoSettings.cs"/>
-    <Compile Include="..\..\SW2URDF\Simulation\ToolBackend.cs"/>
-    <Compile Include="..\..\SW2URDF\Simulation\ExportOutputPaths.cs"/>
-    <Compile Include="..\..\SW2URDF\Simulation\BackendProcess.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeBackend.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeAssetPlanner.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeExportPipeline.cs"/><Compile Include="..\..\SW2URDF\Simulation\PackagePublisher.cs"/><Compile Include="..\..\SW2URDF\Simulation\PythonBackend.cs"/><Compile Include="..\..\SW2URDF\Simulation\MeshExportSettings.cs"/>
+    <Compile Include="..\tools\ToolBackendTests.cs"/><Compile Include="..\tools\Test-MuJoCoTools.cs"/><Compile Include="..\..\SWSimTool\Simulation\MuJoCoSettings.cs"/>
+    <Compile Include="..\..\SWSimTool\Simulation\ToolBackend.cs"/>
+    <Compile Include="..\..\SWSimTool\Simulation\ExportOutputPaths.cs"/>
+    <Compile Include="..\..\SWSimTool\Simulation\BackendProcess.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeBackend.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeAssetPlanner.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeExportPipeline.cs"/><Compile Include="..\..\SWSimTool\Simulation\PackagePublisher.cs"/><Compile Include="..\..\SWSimTool\Simulation\PythonBackend.cs"/><Compile Include="..\..\SWSimTool\Simulation\MeshExportSettings.cs"/>
     <Content Include="..\..\runtime\python\*.py"><Link>mujoco_backend\%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>

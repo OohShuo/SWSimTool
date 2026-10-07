@@ -22,7 +22,7 @@ def measured(stage):
         current=CURRENT.get()
         if current is not None:
             current['seconds'][stage]=current['seconds'].get(stage,0)+perf_counter()-start
-        if os.environ.get('SW2MUJOCO_PROFILE') == '1':
+        if os.environ.get('SWSIMTOOL_PROFILE') == '1':
             print('PERF: ' + json.dumps(dict(stage=stage, seconds=perf_counter()-start)), flush=True)
 
 def file_hash(path):
@@ -65,8 +65,8 @@ def identity(data, maximum, backend, blender):
     return hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
 
 def cache_folder():
-    configured = os.environ.get('SW2MUJOCO_MESH_CACHE')
-    return Path(configured) if configured else Path(os.environ.get('LOCALAPPDATA', tempfile.gettempdir())) / 'SW2MuJoCo' / 'mesh-cache-v1'
+    configured = os.environ.get('SWSIMTOOL_MESH_CACHE')
+    return Path(configured) if configured else Path(os.environ.get('LOCALAPPDATA', tempfile.gettempdir())) / 'SWSimTool' / 'mesh-cache-v1'
 
 def prune(folder, keep, maximum_bytes=512*1024*1024):
     entries = sorted((p for p in folder.glob('*.stl') if re.fullmatch(r'[0-9a-f]{64}\.stl', p.name) and p.with_suffix('.json').is_file()), key=lambda p: p.stat().st_mtime)

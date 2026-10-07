@@ -1,9 +1,9 @@
 ﻿using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     [Collection("Requires SW Test Collection")]
-    public class TestSWAttached : SW2URDFTest
+    public class TestSWAttached : SWSimToolTest
     {
         public TestSWAttached(SWTestFixture fixture) : base(fixture)
         {

@@ -1,11 +1,11 @@
 ﻿using log4net;
-using SW2URDF.Utilities;
+using SWSimTool.Utilities;
 using System.IO;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
-    public class TestLogger : SW2URDFTest
+    public class TestLogger : SWSimToolTest
     {
         public TestLogger(SWTestFixture fixture) : base(fixture)
         {

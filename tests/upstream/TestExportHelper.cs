@@ -1,13 +1,13 @@
 ﻿using SolidWorks.Interop.sldworks;
-using SW2URDF.URDF;
-using SW2URDF.URDFExport;
+using SWSimTool.URDF;
+using SWSimTool.URDFExport;
 using System.Collections.Generic;
 using Xunit;
 
-namespace SW2URDF.Test
+namespace SWSimTool.Test
 {
     [Collection("Requires SW Test Collection")]
-    public class TestExportHelper : SW2URDFTest
+    public class TestExportHelper : SWSimToolTest
     {
         public TestExportHelper(SWTestFixture fixture) : base(fixture)
         {

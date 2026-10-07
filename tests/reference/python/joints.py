@@ -2,7 +2,7 @@
 
 from pathlib import Path as _TestPath
 import sys as _TestSys
-_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 _TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import math
 import xml.etree.ElementTree as ET
@@ -143,7 +143,7 @@ def apply_base(root, config, root_names, bodies):
         elif mode == 'floating':
             raise ValueError('Floating base cannot coexist with other root joints')
     if mode == 'floating':
-        reserved = '__sw2mujoco_base_free'
+        reserved = '__swsimtool_base_free'
         if root.find(f".//*[@name='{reserved}']") is not None:
             raise ValueError('Reserved floating-base joint name already exists')
         ET.SubElement(body, 'freejoint', name=reserved)
