@@ -1,4 +1,9 @@
 """Candidate compiler/parity/analytical gate. Synthetic files only, no CAD access."""
+
+from pathlib import Path as _TestPath
+import sys as _TestSys
+_TestRoot = next(p for p in _TestPath(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
+_TestSys.path[:0] = [str(_TestRoot / 'runtime/python'), str(_TestRoot / 'tests/reference/python'), str(_TestRoot / 'tests/backend')]
 import copy
 import hashlib
 import json
@@ -10,8 +15,7 @@ import os
 import unittest
 import xml.etree.ElementTree as ET
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'mujoco_backend'))
+ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SW2URDF.sln').is_file())
 import mujoco
 import numpy as np
 from convert import convert, load_mjcf

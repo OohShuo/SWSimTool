@@ -1,4 +1,4 @@
-# SW2MuJoCo 3.2.1 最终稳定引用审计
+﻿# SW2MuJoCo 3.2.1 最终稳定引用审计
 
 审计日期：2026-10-07。范围为现有配置的身份、持久化、缓存和生产模型构建，不增加仿真功能，不更改界面布局或动力学比较容差。没有使用 computer-use，也没有打开用户已有 SolidWorks 工程。
 
@@ -39,13 +39,13 @@
 
 ## 验证证据
 
-`scripts/Test-StableReferenceAudit.ps1`：297 项通过。24 组引用端点分别验证迁移、创建保存重开、改名保存重开、直接 typed RobotModel 注入 dangling ID、真实缓存 Store/Find 与冷构建、删除、同名重建再保存重开、冷暖拒绝原 ID。另覆盖 mimic、碰撞模式、缺失旧名称、CAD configuration、sidecar/preview、CAD PID 和组件丢失。缓存测试使用自己的 GUID 目录。
+`tests/identity/Test-StableReferenceAudit.ps1`：297 项通过。24 组引用端点分别验证迁移、创建保存重开、改名保存重开、直接 typed RobotModel 注入 dangling ID、真实缓存 Store/Find 与冷构建、删除、同名重建再保存重开、冷暖拒绝原 ID。另覆盖 mimic、碰撞模式、缺失旧名称、CAD configuration、sidecar/preview、CAD PID 和组件丢失。缓存测试使用自己的 GUID 目录。
 
-`scripts/Test-CadConfigurationIdentity.ps1`：16 项真实 COM 检查通过。新建空装配，创建 configuration A、保存重开、改名保存重开、删除 A、同名创建 B、再保存重开；确认 SW GetID 保持、B 的 ID 不同且不继承 A 的配置。仅关闭本脚本创建的装配。
+`tests/identity/Test-CadConfigurationIdentity.ps1`：16 项真实 COM 检查通过。新建空装配，创建 configuration A、保存重开、改名保存重开、删除 A、同名创建 B、再保存重开；确认 SW GetID 保持、B 的 ID 不同且不继承 A 的配置。仅关闭本脚本创建的装配。
 
-`scripts/Verify-NativeIncrementalV1.ps1 -NativeOnly -IdentityLifecycle -CadReferenceLifecycle`：新建四 link 装配，真实保存关闭重开，验证 link 改名、CAD configuration 改名，以及坐标系/轴的改名、删除同名重建。配置和参考改名后的暖缓存、清空隔离缓存后的冷导出均成功；旧 link / 坐标系 / 轴身份在同名重建后仍然失效。
+`tests/incremental/Verify-NativeIncrementalV1.ps1 -NativeOnly -IdentityLifecycle -CadReferenceLifecycle`：新建四 link 装配，真实保存关闭重开，验证 link 改名、CAD configuration 改名，以及坐标系/轴的改名、删除同名重建。配置和参考改名后的暖缓存、清空隔离缓存后的冷导出均成功；旧 link / 坐标系 / 轴身份在同名重建后仍然失效。
 
-`scripts/Compare-NativeIncremental.py`：上述暖缓存与冷导出的 MuJoCo 编译语义、1/10/100 步动力学比较通过；改名后的模型与改名前物理模型一致。沿用原严格容差。timestep-only 仍为 geometry query / STL export / mesh simplification / MJCF generation / MuJoCo validation = **0 / 0 / 0 / 1 / 1**。
+`tests/incremental/Compare-NativeIncremental.py`：上述暖缓存与冷导出的 MuJoCo 编译语义、1/10/100 步动力学比较通过；改名后的模型与改名前物理模型一致。沿用原严格容差。timestep-only 仍为 geometry query / STL export / mesh simplification / MJCF generation / MuJoCo validation = **0 / 0 / 0 / 1 / 1**。
 
 现有回归：14 模型差分、96 Python 后端、125 导航、12 碰撞模式身份、10 已有身份、6 配置快照、4 production/reference 边界、35 工具故障契约、2 Form 生命周期通过。生产入口没有 reference fallback；失败/取消保护旧输出包。
 

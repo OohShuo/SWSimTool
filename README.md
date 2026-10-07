@@ -1,4 +1,4 @@
-# SW2MuJoCo
+﻿# SW2MuJoCo
 
 SolidWorks 2025 插件：配置 URDF 树、碰撞几何、关节、传感器、执行器、闭链约束、恒力和弹簧，导出 URDF / MJCF，并使用本地 MuJoCo 预览。
 
@@ -20,12 +20,13 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 | 路径 | 用途 |
 |---|---|
 | `SW2URDF/`、`SW2URDF.sln` | 插件源码和解决方案；内部项目名保留兼容性 |
-| `mujoco_backend/` | Python 工具后端及回归测试 |
-| `tests/`、`TestRunner/`、`scripts/` | 模型差分、测试与构建脚本 |
+| `runtime/python/` | 生产 Python 后端（安装时部署为 `mujoco_backend/`） |
+| `tools/build/`、`tools/install/`、`tools/docs/` | 构建、注册和生成指南 |
+| `tests/` | 按内容分类的回归、差分、CAD 集成和官方测试 |
 | `docs/` | 当前使用指南、审计和开发说明 |
 | `docs/history/` | 旧版指南与阶段记录，保留在 Git 中 |
 | `dist/` | 当前安装包及校验文件，不进入 Git |
-| `build/stable-audit/` | 当前已验证插件的构建载荷 |
+| `build/runtime-release/` | 当前已验证插件的构建载荷 |
 | `build/native-parity/` | 差分测试运行器 |
 | `build/` 中的报告与隔离 fixture | 最终验收证据，不进入 Git |
 | `_archive/` | 旧安装包、旧构建、实验脚本、备份和诊断，本地归档，不进入 Git |
@@ -36,18 +37,18 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 
 ## 构建与验证
 
-需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8、SolidWorks 2025 API 程序集和已还原的 NuGet 包。使用 MSBuild 构建 `SW2URDF/SW2URDF.csproj`，设置 `Configuration=Release`、`Platform=x64`、`SolutionDir` 为仓库绝对路径、`SolidWorksDir` 为 SolidWorks 安装目录，以及 `OutputPath` 为仓库下的 `build/stable-audit/`。
+需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8、SolidWorks 2025 API 程序集和已还原的 NuGet 包。使用 MSBuild 构建 `SW2URDF/SW2URDF.csproj`，设置 `Configuration=Release`、`Platform=x64`、`SolutionDir` 为仓库绝对路径、`SolidWorksDir` 为 SolidWorks 安装目录，以及 `OutputPath` 为仓库下的 `build/runtime-release/`。
 
-生产安装器入口为 `INSTALL/SW2025-MuJoCo.iss`，默认读取 `build/stable-audit/`；可用 Inno Setup 的 `/DPayload=<绝对路径>` 指定其他载荷。旧 `Install.iss` 和 `SW2025.iss` 保留为历史构建入口。
+生产安装器入口为 `INSTALL/SW2025-MuJoCo.iss`，默认读取 `build/runtime-release/`；可用 Inno Setup 的 `/DPayload=<绝对路径>` 指定其他载荷。旧 `Install.iss` 和 `SW2025.iss` 保留为历史构建入口。
 
-当前身份与界面回归可运行以下脚本，必要时显式传入 `-Payload stable-audit`：
+当前身份与界面回归可运行以下脚本，必要时显式传入 `-Payload runtime-release`：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-StableReferenceAudit.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-CollisionNavigation.ps1 -Payload stable-audit
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-ProductionBoundary.ps1 -Payload stable-audit
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/identity/Test-StableReferenceAudit.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/ui/Test-CollisionNavigation.ps1 -Payload runtime-release
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/architecture/Test-ProductionBoundary.ps1 -Payload runtime-release
 ```
 
-MuJoCo 编译语义和动力学差分见 `tests/parity/run.py`；后端回归见 `mujoco_backend/test_*.py`。COM 验证使用 `scripts/Verify-NativeIncrementalV1.ps1 -Payload stable-audit -NativeOnly -IdentityLifecycle -CadReferenceLifecycle`，须在没有已有 SolidWorks 文档的独立测试环境运行。
+MuJoCo 编译语义和动力学差分见 `tests/parity/run.py`；后端回归见 `tests/backend/test_*.py`。COM 验证使用 `tests/incremental/Verify-NativeIncrementalV1.ps1 -Payload runtime-release -NativeOnly -IdentityLifecycle -CadReferenceLifecycle`，须在没有已有 SolidWorks 文档的独立测试环境运行。
 
 [Python Tool Backend 边界](docs/SW2MuJoCo_ToolBackend.md) · [许可证](LICENSE)

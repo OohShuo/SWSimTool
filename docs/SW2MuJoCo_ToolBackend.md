@@ -1,4 +1,4 @@
-# SW2MuJoCo 3.2.1 Tool Backend 契约
+﻿# SW2MuJoCo 3.2.1 Tool Backend 契约
 
 ## 生产边界
 
@@ -26,7 +26,7 @@ Python reference 留在仓库用于显式差分测试，安装包不含 convert.
 build/native-parity/SW2MuJoCo.CandidateRunner.exe --tooltest D:/Softwaves/python/python.exe tests/parity/fake_tool.py
 python tests/parity/run.py
 python -m unittest discover -s mujoco_backend -p 'test_*.py'
-powershell -File scripts/Test-ToolFormLifecycle.ps1 -Payload 3.2.1-final
+powershell -File tests/ui/Test-ToolFormLifecycle.ps1 -Payload 3.2.1-final
 ```
 
 Windows 宿主存在重复 Path/PATH 环境项时，测试入口通过 Python subprocess 显式传递 dict(os.environ)；测试使用独立暂存目录和偏好，不依赖用户已有文件。fake_tool.py 只用于构造协议/进程故障，预览测试不打开 viewer。

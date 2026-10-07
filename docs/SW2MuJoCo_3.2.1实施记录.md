@@ -1,4 +1,4 @@
-# SW2MuJoCo 3.2.1 稳定 ID 与边界加固
+﻿# SW2MuJoCo 3.2.1 稳定 ID 与边界加固
 
 3.1/3.2 已完成。本轮不改 RobotModel/MJCF/Tool Backend 主体架构，不增加仿真功能，不修改比较容差或 UI 布局。不用 computer-use；COM 验证只使用新建隔离装配，不打开用户已有工程。
 

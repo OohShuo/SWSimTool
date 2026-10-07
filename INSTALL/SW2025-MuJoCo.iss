@@ -1,6 +1,6 @@
 ; Build with Inno Setup 6.5+: ISCC.exe INSTALL\SW2025-MuJoCo.iss
 #ifndef Payload
-#define Payload AddBackslash(SourcePath) + "..\build\stable-audit"
+#define Payload AddBackslash(SourcePath) + "..\build\runtime-release"
 #endif
 #define BuildVersion GetFileVersion(Payload + "\SW2URDF.dll")
 #ifndef ReleaseName
@@ -39,8 +39,12 @@ InfoBeforeFile=MuJoCo-Setup-Readme.txt
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-; The tested assembly also contains upstream test classes: retain their DLL dependencies.
-Source: "{#Payload}\*.dll"; DestDir: "{app}"; Excludes: "SolidWorks.Interop.*.dll"; Flags: ignoreversion
+; Explicit production payload: tests and reference generators are never installed.
+Source: "{#Payload}\SW2URDF.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\CsvHelper.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\MathNet.Numerics.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\log4net.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\solidworkstools.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SW2URDF.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SW2URDF.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
@@ -60,6 +64,19 @@ Source: "..\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags:
 Source: "{#Payload}\mujoco_backend\native_support.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
 [InstallDelete]
+Type: files; Name: "{app}\Castle.Core.dll"
+Type: files; Name: "{app}\Moq.dll"
+Type: files; Name: "{app}\Microsoft.VisualStudio.TestPlatform.TestFramework.dll"
+Type: files; Name: "{app}\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll"
+Type: files; Name: "{app}\xunit.abstractions.dll"
+Type: files; Name: "{app}\xunit.assert.dll"
+Type: files; Name: "{app}\xunit.core.dll"
+Type: files; Name: "{app}\xunit.execution.desktop.dll"
+Type: files; Name: "{app}\xunit.runner.reporters.net452.dll"
+Type: files; Name: "{app}\xunit.runner.utility.net452.dll"
+Type: files; Name: "{app}\xunit.runner.visualstudio.testadapter.dll"
+Type: files; Name: "{app}\System.Runtime.CompilerServices.Unsafe.dll"
+Type: files; Name: "{app}\System.Threading.Tasks.Extensions.dll"
 Type: files; Name: "{app}\mujoco_backend\convert.py"
 Type: files; Name: "{app}\mujoco_backend\equalities.py"
 Type: files; Name: "{app}\mujoco_backend\robot_model.py"

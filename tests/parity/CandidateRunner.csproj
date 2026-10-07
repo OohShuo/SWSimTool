@@ -11,11 +11,11 @@
     <Compile Include="..\..\SW2URDF\RobotModel\UrdfRobotModelImporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationConfigSnapshot.cs"/>
     <Compile Include="..\..\SW2URDF\RobotModel\MjcfExporter.cs"/><Compile Include="..\..\SW2URDF\RobotModel\SimulationExtensions.cs"/><Compile Include="..\..\SW2URDF\RobotModel\LegacySimulationConfigImporter.cs"/>
     <Compile Include="CandidateRunner.cs"/>
-    <Compile Include="ToolBackendTests.cs"/>
+    <Compile Include="..\tools\ToolBackendTests.cs"/><Compile Include="..\tools\Test-MuJoCoTools.cs"/><Compile Include="..\..\SW2URDF\Simulation\MuJoCoSettings.cs"/>
     <Compile Include="..\..\SW2URDF\Simulation\ToolBackend.cs"/>
     <Compile Include="..\..\SW2URDF\Simulation\ExportOutputPaths.cs"/>
     <Compile Include="..\..\SW2URDF\Simulation\BackendProcess.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeBackend.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeAssetPlanner.cs"/><Compile Include="..\..\SW2URDF\Simulation\NativeExportPipeline.cs"/><Compile Include="..\..\SW2URDF\Simulation\PackagePublisher.cs"/><Compile Include="..\..\SW2URDF\Simulation\PythonBackend.cs"/><Compile Include="..\..\SW2URDF\Simulation\MeshExportSettings.cs"/>
-    <Content Include="..\..\mujoco_backend\*.py"><Link>mujoco_backend\%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="..\..\runtime\python\*.py"><Link>mujoco_backend\%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

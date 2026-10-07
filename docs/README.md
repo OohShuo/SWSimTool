@@ -1,4 +1,4 @@
-# 文档导航
+﻿# 文档导航
 
 当前版本：SW2MuJoCo 3.2.1。
 
@@ -8,6 +8,7 @@
 | 稳定引用验收 | [最终审计矩阵](SW2MuJoCo_3.2.1稳定引用审计.md) |
 | 当前版本更改与验证 | [3.2.1 实施记录](SW2MuJoCo_3.2.1实施记录.md) |
 | Python 后端边界 | [Tool Backend](SW2MuJoCo_ToolBackend.md) |
+| 目录整理与测试隔离 | [整理说明](SW2MuJoCo_目录与测试隔离.md) |
 | 官方基线与本地修改 | [源码来源](SOURCE_PROVENANCE.md) |
 | 旧版说明与过程记录 | [历史文档](history/README.md) |
 

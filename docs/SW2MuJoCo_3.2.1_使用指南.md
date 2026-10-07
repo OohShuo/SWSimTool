@@ -1,4 +1,4 @@
-# SW2MuJoCo 3.2.1 使用指南
+﻿# SW2MuJoCo 3.2.1 使用指南
 
 本指南按完整操作顺序介绍如何把 SolidWorks 装配配置为机器人，设置碰撞、传感器、执行器和闭链约束，再导出 URDF 或 MJCF。示例采用 balance2026_gimbal 云台，从未配置的装配副本开始，完成五个 link、四个关节、四个碰撞长方体、IMU、两个电机和一个 connect。
 
