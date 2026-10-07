@@ -71,12 +71,12 @@ internal static class ToolBackendTests
             var urdf=Path.Combine(root,"robot.urdf");File.WriteAllText(urdf,"<robot name='tool'><link name='base'/></robot>");
             var model=NativeBackend.LoadLocal(urdf,null);var output=Path.Combine(root,"robot_mjcf","robot.xml");
             var settingsPath=Path.Combine(root,"no-settings");
-            var code=NativeExportPipeline.RunAsync(python,model,output,false,Console.WriteLine,settingsPath,"test").Result;
+            var code=NativeBackend.RunWithServices(python,model,output,false,Console.WriteLine,settingsPath,"test").Result;
             Check(code==0,"Real typed services publish valid package");var original=File.ReadAllText(output);
-            code=NativeExportPipeline.RunAsync(python,model,output,false,null,settingsPath,"test",validationService:new RejectValidation()).Result;
+            code=NativeBackend.RunWithServices(python,model,output,false,null,settingsPath,"test",validationService:new RejectValidation()).Result;
             Check(code!=0&&File.ReadAllText(output)==original,"Validation failure preserves previous package");
             using(var stop=new CancellationTokenSource()) {
-                code=NativeExportPipeline.RunAsync(python,model,output,false,null,settingsPath,"test",stop.Token,validationService:new CancelValidation(stop)).Result;
+                code=NativeBackend.RunWithServices(python,model,output,false,null,settingsPath,"test",stop.Token,validationService:new CancelValidation(stop)).Result;
                 Check(code!=0&&File.ReadAllText(output)==original,"Cancellation before publication preserves previous package");
             }
             Check(!Directory.EnumerateDirectories(root,".swsimtool-*").Any(),"Export staging cleaned after failure");

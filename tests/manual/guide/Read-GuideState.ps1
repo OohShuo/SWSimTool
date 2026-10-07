@@ -9,7 +9,7 @@ public static class GuideState {
 '@
 [GuideState]::Read('D:\solidworks_urdf_exporter-master\build\guide-demo')
 $bin='C:\Program Files\SolidWorks Corp\SolidWorks\URDFExporter'
-$refs=@($interop,"$bin\SWSimTool.dll","$bin\MathNet.Numerics.dll",'System.Core','System.Web.Extensions','System.Windows.Forms','System.Drawing')
+$refs=@($interop,"$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll",'System.Core','System.Web.Extensions','System.Windows.Forms','System.Drawing')
 $refs|Where-Object {$_ -like '*.dll'}|ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Runtime.InteropServices;using System.Web.Script.Serialization;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;

@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='bin/SWSimTool/Release/net48',[int[]]$OwnedStaleProcessIds=@())
+﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[int[]]$OwnedStaleProcessIds=@())
 $ErrorActionPreference='Stop'
 if(Get-Process SLDWORKS -ErrorAction SilentlyContinue | Where-Object {$_.Id -notin $OwnedStaleProcessIds}){throw 'Refusing compatibility CAD test with an existing SolidWorks session'}
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})
@@ -9,7 +9,7 @@ $folder=Join-Path $root ('build/swsimtool-v2-cad-'+[Guid]::NewGuid().ToString('N
 New-Item -ItemType Directory -Path $folder | Out-Null
 Get-ChildItem -LiteralPath $source -File | Where-Object {$_.Extension -in '.SLDASM','.SLDPRT'} | ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $folder}
 $bin=Join-Path $root ('build/'+$Payload)
-$refs=@("$bin/SWSimTool.dll","$bin/MathNet.Numerics.dll",'D:/sw/sw2025/SOLIDWORKS/SolidWorks.Interop.sldworks.dll','D:/sw/sw2025/SOLIDWORKS/SolidWorks.Interop.swconst.dll','System.Core','System.Xml','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
+$refs=@("$bin/SWSimTool.dll","$bin/SWSimTool.Core.dll","$bin/SWSimTool.Application.dll","$bin/SWSimTool.Infrastructure.dll","$bin/MathNet.Numerics.dll",'D:/sw/sw2025/SOLIDWORKS/SolidWorks.Interop.sldworks.dll','D:/sw/sw2025/SOLIDWORKS/SolidWorks.Interop.swconst.dll','System.Core','System.Xml','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Linq;using System.Web.Script.Serialization;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;using SWSimTool.URDFExport;

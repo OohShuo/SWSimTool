@@ -1,9 +1,9 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48")
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $bin=Join-Path $root ('build\'+$Payload)
-$refs=@("$bin\SWSimTool.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization')
-[Reflection.Assembly]::LoadFrom("$bin\SWSimTool.dll")|Out-Null
+$refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization')
+@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll") | ForEach-Object {[Reflection.Assembly]::LoadFrom($_) | Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Linq;using System.Collections.Generic;using System.Web.Script.Serialization;using SWSimTool.RobotModel;using SWSimTool.Simulation;
 public static class ConfigBuilderProbe {

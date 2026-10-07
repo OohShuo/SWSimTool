@@ -1,11 +1,11 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48")
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $folder=Join-Path $root ('build\configuration-identity-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $folder | Out-Null
 $bin=Join-Path $root ('build\'+$Payload)
 $interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$bin\SWSimTool.dll",'System.Core','System.Runtime.Serialization','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Windows.Forms')
+$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll",'System.Core','System.Runtime.Serialization','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Windows.Forms')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Linq;using System.Collections.Generic;

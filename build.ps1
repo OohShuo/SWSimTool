@@ -34,7 +34,7 @@ function Invoke-Gate([string]$Name,[scriptblock]$Action) {
 Push-Location $root
 try {
     Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /p:RestorePackagesConfig=true "/p:RestoreRepositoryPath=$build/packages" /v:minimal }
-    $projects=@('SWSimTool/SWSimTool.csproj')
+    $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
     if($Test -or $Package -or $Installer) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
     foreach($project in $projects) {
         $name=[IO.Path]::GetFileNameWithoutExtension($project)

@@ -1,12 +1,12 @@
 param([string]$Configuration='Release',[string]$Python='python')
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$source=Join-Path $root "build/bin/SWSimTool/$Configuration/net48"
+$source=Join-Path $root "build/bin/SWSimTool.SolidWorks/$Configuration/net48"
 $payload=Join-Path $root 'build/runtime-release'
 if (!(Test-Path (Join-Path $source 'SWSimTool.dll'))) { throw 'Build the plugin before assembling the release' }
 if (Test-Path $payload) { Remove-Item -LiteralPath $payload -Recurse -Force }
 New-Item -ItemType Directory -Path "$payload/docs","$payload/mujoco_backend","$payload/images" -Force | Out-Null
-foreach($name in @('SWSimTool.dll','SWSimTool.pdb','CsvHelper.dll','MathNet.Numerics.dll','log4net.dll','solidworkstools.dll','SWSimTool.png')) {
+foreach($name in @('SWSimTool.dll','SWSimTool.Core.dll','SWSimTool.Application.dll','SWSimTool.Infrastructure.dll','SWSimTool.pdb','CsvHelper.dll','MathNet.Numerics.dll','log4net.dll','solidworkstools.dll','SWSimTool.png')) {
     Copy-Item -LiteralPath (Join-Path $source $name) -Destination $payload
 }
 Copy-Item "$source/images/*.png" "$payload/images"

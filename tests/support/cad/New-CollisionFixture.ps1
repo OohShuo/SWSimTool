@@ -1,4 +1,4 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48",[switch]$NoUI)
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48",[switch]$NoUI)
 $ErrorActionPreference = 'Stop'
 $workspacePath = $(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $testDirectory = Join-Path $workspacePath ('build\collision-validation-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))

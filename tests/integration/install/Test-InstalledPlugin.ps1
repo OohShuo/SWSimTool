@@ -1,6 +1,6 @@
-﻿param([string]$Installed='C:\Program Files\SWSimTool\SWSimTool.dll')
+﻿param([string]$Installed='C:\Program Files\SWSimTool\SWSimTool.dll',[int[]]$OwnedStaleProcessIds=@())
 $ErrorActionPreference='Stop'
-if(Get-Process SLDWORKS -ErrorAction SilentlyContinue){throw 'Refusing installed addin test with an existing SolidWorks session'}
+if(Get-Process SLDWORKS -ErrorAction SilentlyContinue | Where-Object {$_.Id -notin $OwnedStaleProcessIds}){throw 'Refusing installed addin test with an existing SolidWorks session'}
 $workspacePath=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $fixture=Join-Path $workspacePath ('build\installed-plugin-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null

@@ -21,7 +21,7 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 
 | 路径 | 用途 |
 |---|---|
-| `SWSimTool/`、`SWSimTool.sln` | 插件源码和解决方案；独立产品项目和程序集 |
+| `src/`、`SWSimTool.sln` | Core、Application、Infrastructure、SolidWorks 宿主源码和解决方案 |
 | `runtime/python/` | 生产 Python 后端（安装时部署为 `mujoco_backend/`） |
 | `tools/build/`、`tools/install/`、`tools/docs/` | 构建、注册和生成指南 |
 | `tests/` | 按内容分类的回归、差分、CAD 集成和官方测试 |

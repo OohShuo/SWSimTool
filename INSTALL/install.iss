@@ -39,6 +39,9 @@ InfoBeforeFile={#Payload}\docs\INSTALL.md
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
+Source: "{#Payload}\SWSimTool.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\SWSimTool.Application.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\SWSimTool.Infrastructure.dll"; DestDir: "{app}"; Flags: ignoreversion
 ; Explicit production payload: tests and reference generators are never installed.
 Source: "{#Payload}\SWSimTool.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\CsvHelper.dll"; DestDir: "{app}"; Flags: ignoreversion

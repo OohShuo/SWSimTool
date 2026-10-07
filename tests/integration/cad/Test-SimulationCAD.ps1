@@ -68,7 +68,7 @@ public static class SimulationCADProbe { public static bool MatchesProcess(objec
   string after=Path.Combine(directory,"after.urdf");
   helper.URDFRobot.WriteURDF(new URDFWriter(after).writer);
   if(!File.ReadAllBytes(before).SequenceEqual(File.ReadAllBytes(after))) throw new Exception("URDF changed");
-  SimulationProject.Write(Path.Combine(directory,"simulation_test.sim.json"),output);
+  SimulationProjectSerializer.Write(Path.Combine(directory,"simulation_test.sim.json"),output);
   var loaded=SimulationStorage.Load(model);
   if(loaded.attachments.Count!=2) throw new Exception("Project persistence failed");
   Console.WriteLine("PASS: CAD feature PID resolution, local point/frame export, position-only point, project persistence, byte-identical URDF");

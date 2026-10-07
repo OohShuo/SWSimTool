@@ -37,7 +37,7 @@ public static class SimulationValidationUI {
    helper.PackageName="cad_robot"; helper.SavePath=args[1]; helper.ShowExportLocation=false;
    helper.ExportRobot();
    int errors=0,warnings=0; model.Extension.SaveAs(model.GetPathName(),0,1,null,ref errors,ref warnings);
-   PythonBackend.Launch(service.Project.python,helper.LastURDFPath,helper.LastSimulationPath,true);
+   ReferencePreviewDialog.Launch(service.Project.python,helper.LastURDFPath,helper.LastSimulationPath,true);
    Application.Run(new Form {Text="SWSimTool validation backend host",Width=360,Height=100});
   } catch(Exception error) { File.WriteAllText(Path.Combine(args[1],"ui-error.txt"),error.ToString()); MessageBox.Show(error.ToString(),"Validation error"); }
  }

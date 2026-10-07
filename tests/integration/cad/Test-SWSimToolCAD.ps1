@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[string]$Payload="bin/SWSimTool/Release/net48",[switch]$UI)
+﻿param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[string]$Payload="bin/SWSimTool.SolidWorks/Release/net48",[switch]$UI)
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $fixture=(Resolve-Path -LiteralPath $FixtureDirectory).Path
@@ -7,7 +7,7 @@ if(-not $fixture.StartsWith($owned,[StringComparison]::OrdinalIgnoreCase)){throw
 if([int](Get-Content -LiteralPath (Join-Path $fixture 'solidworks-process.txt')) -ne $ProcessId){throw 'Fixture process mismatch'}
 $bin=Join-Path $root ('build\'+$Payload)
 $interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Core')
+$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Core')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;

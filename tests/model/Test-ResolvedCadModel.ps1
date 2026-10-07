@@ -1,9 +1,9 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48")
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $bin=Join-Path $root ('build\'+$Payload)
-$refs=@("$bin\SWSimTool.dll",'System.Xml','System.Xml.Linq','System.Core','System.Runtime.Serialization','System.Windows.Forms')
-[Reflection.Assembly]::LoadFrom("$bin\SWSimTool.dll") | Out-Null
+$refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll",'System.Xml','System.Xml.Linq','System.Core','System.Runtime.Serialization','System.Windows.Forms')
+@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll") | ForEach-Object {[Reflection.Assembly]::LoadFrom($_) | Out-Null}
 # Pure resolved-data adapter test. Does not instantiate SolidWorks or inspect documents.
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;

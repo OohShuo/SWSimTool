@@ -1,11 +1,11 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $directory | Out-Null
 $bin=Join-Path $root ('build\'+$Payload)
 $interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Xml.Linq','System.Core')
+$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Xml.Linq','System.Core')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 # Native SolidWorks API, no mouse/keyboard automation. Never attach to an existing document.
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'

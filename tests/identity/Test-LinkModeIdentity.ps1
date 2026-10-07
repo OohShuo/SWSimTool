@@ -1,11 +1,11 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48")
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $bin=Join-Path $root ('build\'+$Payload)
 $folder=Join-Path $root ('build\link-mode-lifecycle-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $folder | Out-Null
-[Reflection.Assembly]::LoadFrom("$bin\SWSimTool.dll") | Out-Null
-$refs=@("$bin\SWSimTool.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
+@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll") | ForEach-Object {[Reflection.Assembly]::LoadFrom($_) | Out-Null}
+$refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Linq;using System.Collections.Generic;
 using SWSimTool.URDF;using SWSimTool.URDFExport;using SWSimTool.Simulation;using SWSimTool.RobotModel;

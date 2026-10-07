@@ -18,7 +18,7 @@
       <HintPath>..\..\build\packages\CsvHelper.7.1.1\lib\net45\CsvHelper.dll</HintPath>
     </Reference>
     <Reference Include="log4net">
-      <HintPath>..\..\SWSimTool\lib\log4net.dll</HintPath>
+      <HintPath>..\..\src\SWSimTool.SolidWorks\lib\log4net.dll</HintPath>
     </Reference>
     <Reference Include="MathNet.Numerics, Version=4.7.0.0, Culture=neutral, PublicKeyToken=cd8b63ad3d691a37, processorArchitecture=MSIL">
       <HintPath>..\..\build\packages\MathNet.Numerics.Signed.4.7.0\lib\net40\MathNet.Numerics.dll</HintPath>
@@ -99,7 +99,7 @@
       <HintPath>..\..\build\packages\xunit.runner.utility.2.4.1\lib\net452\xunit.runner.utility.net452.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <ProjectReference Include="..\..\SWSimTool\SWSimTool.csproj" GlobalPropertiesToRemove="OutputPath;IntermediateOutputPath">
+    <ProjectReference Include="..\..\src\SWSimTool.SolidWorks\SWSimTool.SolidWorks.csproj" GlobalPropertiesToRemove="OutputPath;IntermediateOutputPath">
       <Name>SWSimTool</Name>
     </ProjectReference>
   </ItemGroup>

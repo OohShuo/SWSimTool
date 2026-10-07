@@ -1,0 +1,45 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace SWSimTool.Simulation {
+ public sealed class JointConfiguration {
+  public string joint_id {get;set;}
+  public string joint {get;set;}
+  public string type {get;set;}="inherit";
+  public double? damping {get;set;}
+  public double? frictionloss {get;set;}
+  public double? armature {get;set;}
+  public string spring_mode {get;set;}="inherit";
+  public double? stiffness {get;set;}
+  public double? springref {get;set;}
+  public double? @ref {get;set;}
+  public double[] pos {get;set;}
+  public double[] axis {get;set;}
+  public CollisionReference position_reference {get;set;}
+  public CollisionReference axis_reference {get;set;}
+  public string limit_mode {get;set;}="inherit";
+  public double? lower {get;set;}
+  public double? upper {get;set;}
+  public double? margin {get;set;}
+  public ConstraintSettings limit_solver {get;set;}
+  public ConstraintSettings friction_solver {get;set;}
+  public static ConstraintSettings LimitDefaults()=>new ConstraintSettings{timeconst=.003,dmin=.99,dmax=.995};
+  public void Validate(){
+   if(string.IsNullOrWhiteSpace(joint)||!new[]{"inherit","hinge","slide"}.Contains(type)||!new[]{"inherit","none","custom"}.Contains(limit_mode)||!new[]{"inherit","off","custom"}.Contains(spring_mode))throw new InvalidDataException("关节名称、类型或限位模式无效。");
+   foreach(var value in new[]{damping,frictionloss,armature,stiffness,margin})if(value.HasValue&&(!Finite(value.Value)||value<0))throw new InvalidDataException("关节阻尼、摩擦、惯量、刚度、提前量必须是非负有限数字。");
+   foreach(var value in new[]{springref,@ref,lower,upper})if(value.HasValue&&!Finite(value.Value))throw new InvalidDataException("关节位置参数必须为有限数字。");
+   if(limit_mode=="custom"&&(!lower.HasValue||!upper.HasValue||lower>=upper))throw new InvalidDataException("请填写关节限位上下限，且下限小于上限。");
+   limit_solver?.Validate(false);friction_solver?.Validate(false);
+  }
+  static bool Finite(double value)=>!double.IsNaN(value)&&!double.IsInfinity(value);
+ }
+ public sealed class JointForceLimit {
+  public string joint_id {get;set;}
+  public string joint {get;set;}
+  public double? lower {get;set;}
+  public double? upper {get;set;}
+  public void Validate(){if(string.IsNullOrWhiteSpace(joint)||!lower.HasValue||!upper.HasValue||double.IsNaN(lower.Value)||double.IsNaN(upper.Value)||double.IsInfinity(lower.Value)||double.IsInfinity(upper.Value)||lower>=upper)throw new InvalidDataException("请填写关节总驱动力上下限，且下限小于上限。");}
+ }
+}

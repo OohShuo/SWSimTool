@@ -1,8 +1,8 @@
-﻿param([string]$Payload='bin/SWSimTool/Release/net48')
+﻿param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48')
 $ErrorActionPreference='Stop'
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})
 $bin=Join-Path $root ('build/'+$Payload)
-$refs=@("$bin/SWSimTool.dll","$bin/MathNet.Numerics.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
+$refs=@("$bin/SWSimTool.dll","$bin/SWSimTool.Core.dll","$bin/SWSimTool.Application.dll","$bin/SWSimTool.Infrastructure.dll","$bin/MathNet.Numerics.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
 Get-ChildItem $bin -Filter *.dll | ForEach-Object {[Reflection.Assembly]::LoadFrom($_.FullName)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Xml.Linq;using System.Web.Script.Serialization;using SWSimTool.Simulation;using SWSimTool.URDFExport;using SWSimTool.URDF;using SWSimTool.Persistence;

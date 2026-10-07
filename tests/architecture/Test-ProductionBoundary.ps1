@@ -1,4 +1,4 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48")
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $assembly=[Reflection.Assembly]::LoadFrom((Join-Path $root ('build\'+$Payload+'\SWSimTool.dll')))
@@ -8,7 +8,7 @@ if($constructors.Count -ne 1 -or $constructors[0].GetParameters().Count -ne 3 -o
 'PASS: production constructor has no optional/reference selector'
 if(!$type.GetMethod('ForReferenceTests')) {throw 'Explicit reference entry missing'}
 'PASS: reference harness has explicit named entry'
-$source=[IO.File]::ReadAllText((Join-Path $root 'SWSimTool\SW\SwAddin.cs'))
+$source=[IO.File]::ReadAllText((Join-Path $root 'src\SWSimTool.SolidWorks\SW\SwAddin.cs'))
 if($source.Contains('ForReferenceTests') -or $source.Contains('BuildReference')) {throw 'Production addin invokes reference entry'}
 'PASS: production addin never calls reference entry'
 $builder=$assembly.GetType('SWSimTool.Simulation.ProjectSourceBuilder')

@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class CleanWorkspace(unittest.TestCase):
     def test_source_tree_has_no_generated_artifacts(self):
         unwanted = []
-        for folder in ('SWSimTool', 'tests', 'runtime', 'tools'):
+        for folder in ('src', 'tests', 'runtime', 'tools'):
             for path in (ROOT / folder).rglob('*'):
                 if path.name in ('bin', 'obj', '__pycache__', '.pytest_cache'):
                     unwanted.append(str(path.relative_to(ROOT)))

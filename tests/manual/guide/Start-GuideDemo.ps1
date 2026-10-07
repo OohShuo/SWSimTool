@@ -1,9 +1,9 @@
-﻿param([string]$Payload="bin/SWSimTool/Release/net48",[switch]$Installed)
+﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48",[switch]$Installed)
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $bin=if($Installed){'C:\Program Files\SolidWorks Corp\SolidWorks\URDFExporter'}else{Join-Path $root ('build\'+$Payload)}
 $interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\MathNet.Numerics.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms','System.Drawing')
+$refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms','System.Drawing')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @"
 using System;using System.IO;using System.Linq;using System.Web.Script.Serialization;using System.Collections.Generic;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;using SWSimTool.URDFExport;using SWSimTool.URDF;

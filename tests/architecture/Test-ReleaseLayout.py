@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 class LayoutTests(unittest.TestCase):
  def test_production_source_and_dependency_boundary(self):
-  project = ET.parse(ROOT / 'SWSimTool/SWSimTool.csproj')
+  project = ET.parse(ROOT / 'src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
   ns = {'m': 'http://schemas.microsoft.com/developer/msbuild/2003'}
   sources = [x.attrib['Include'].replace('\\','/') for x in project.findall('.//m:Compile', ns)]
   self.assertFalse(any(x.startswith('Test/') or '/tests/' in x for x in sources))
@@ -17,7 +17,7 @@ class LayoutTests(unittest.TestCase):
   self.assertTrue(all('runtime/python/' in x for x in python))
  def test_release_payload(self):
   payload = ROOT / 'build/runtime-release'
-  self.assertEqual({p.name.lower() for p in payload.glob('*.dll')}, {'swsimtool.dll','csvhelper.dll','mathnet.numerics.dll','log4net.dll','solidworkstools.dll'})
+  self.assertEqual({p.name.lower() for p in payload.glob('*.dll')}, {'swsimtool.dll','swsimtool.core.dll','swsimtool.application.dll','swsimtool.infrastructure.dll','csvhelper.dll','mathnet.numerics.dll','log4net.dll','solidworkstools.dll'})
   self.assertEqual({p.name for p in (payload/'mujoco_backend').glob('*.py')}, {'native_support.py','simplify_stl.py','mesh_cache.py','incremental.py','solver.py'})
  def test_source_roots_and_test_split(self):
   self.assertFalse((ROOT/'scripts').exists())
