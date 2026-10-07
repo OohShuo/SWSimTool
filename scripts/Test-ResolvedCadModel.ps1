@@ -30,6 +30,8 @@ public static class ResolvedCadModelProbe {
   int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports;
   var core=SolidWorksRobotModelBuilder.FromResolvedRobot(robot,sources);Check(core.Links.Count==2&&core.Joints.Count==1,"resolved CAD topology extracted directly without URDF serialization");
   Check(core.Joints[0].AxisInJointFrame.X==1&&core.Joints[0].ParentLinkFromJoint.Translation.Y==2,"resolved CAD frame and axis retained");
+  var incomplete=child.Clone();incomplete.Parent=root;incomplete.Name="incomplete";incomplete.Joint=new Joint();incomplete.Joint.Name="missing_range";incomplete.Joint.Type="revolute";incomplete.Joint.Axis.SetXYZ(new[]{0.0,0,1});root.Children.Add(incomplete);
+  try{SolidWorksRobotModelBuilder.FromResolvedRobot(robot,sources);throw new Exception("Missing range accepted");}catch(InvalidDataException error){Check(error.Message.Contains("missing_range")&&error.Message.Contains("URDF"),"missing CAD limit reports the joint and corrective action instead of a null reference");}finally{root.Children.Remove(incomplete);}
   child.Joint.Origin.Y=99;child.Inertial.Mass.Value=99;root.Children.Clear();sources.Clear();Check(core.Links.Count==2&&core.Links[1].Inertial.Mass==2&&core.Joints[0].ParentLinkFromJoint.Translation.Y==2,"resolved snapshot does not retain mutable CAD/URDF objects");
   Check(ExportInstrumentation.GeometryQueries==g&&ExportInstrumentation.StlExports==s,"resolved model adapter makes zero CAD queries and STL exports");
  }

@@ -26,13 +26,17 @@ namespace SW2URDF.RobotModel
                 links.Add(new LinkSnapshot(link.StableId,name,inertial,geometries));
                 if(parent!=null){var j=link.Joint;if(j==null)throw new InvalidDataException("Missing incoming joint");var kind=Kind(j.Type);var limited=kind==JointKind.Revolute||kind==JointKind.Prismatic;MimicSnapshot mimic=null;
                     if(j.Mimic!=null&&j.Mimic.ElementContainsData()){string source;if(!jointIds.TryGetValue(j.Mimic.JointName,out source))throw new InvalidDataException("Unknown mimic joint");mimic=new MimicSnapshot(source,Optional(()=>j.Mimic.Multiplier,1),Optional(()=>j.Mimic.Offset));}
-                    joints.Add(new JointSnapshot(j.StableId,j.Name,parent.StableId,link.StableId,kind,Pose(j.Origin),V(j.Axis.GetXYZ()),limited?(double?)j.Limit.Lower:null,limited?(double?)j.Limit.Upper:null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort),mimic));
+                    joints.Add(new JointSnapshot(j.StableId,j.Name,parent.StableId,link.StableId,kind,Pose(j.Origin),V(j.Axis.GetXYZ()),limited?(double?)RequiredLimit(j,true):null,limited?(double?)RequiredLimit(j,false):null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort),mimic));
                 }
                 foreach(var child in link.Children)visit(child,link);
             };visit(robot.BaseLink,null);
             return new RobotCoreSnapshot(string.IsNullOrWhiteSpace(robot.Name)?"robot":robot.Name,links,joints);
         }
         static double Optional(Func<double> read,double fallback=0) { try{return read();}catch(NullReferenceException){return fallback;} }
+        static double RequiredLimit(Joint joint,bool lower) {
+            try { return lower?joint.Limit.Lower:joint.Limit.Upper; }
+            catch(NullReferenceException error) { throw new InvalidDataException("关节 “"+joint.Name+"” 缺少 URDF 限位"+(lower?"下限":"上限")+"。请在导出 URDF 的关节属性页填写限位；无需限位的旋转关节请选择 continuous。",error); }
+        }
         static Vector3d V(double[] value) { if(value==null||value.Length!=3)throw new InvalidDataException("Invalid resolved XYZ");return new Vector3d(value[0],value[1],value[2]); }
         static RigidTransform Pose(Origin origin) { return origin==null?RigidTransform.Identity:new RigidTransform(V(origin.GetXYZ()),Quaterniond.FromRpy(V(origin.GetRPY()))); }
         static JointKind Kind(string kind) { switch(kind){case "fixed":return JointKind.Fixed;case "revolute":return JointKind.Revolute;case "continuous":return JointKind.Continuous;case "prismatic":return JointKind.Prismatic;case "floating":return JointKind.Floating;default:throw new NotSupportedException("Candidate CAD joint type: "+kind);} }
