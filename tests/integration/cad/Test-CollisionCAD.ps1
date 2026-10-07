@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[switch]$NoUI,[string]$Payload="swsimtool-release")
+﻿param([Parameter(Mandatory=$true)][int]$ProcessId,[Parameter(Mandatory=$true)][string]$FixtureDirectory,[switch]$NoUI,[string]$Payload="bin/SWSimTool/Release/net48")
 $ErrorActionPreference='Stop'
 $workspacePath=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $fixturePath=(Resolve-Path -LiteralPath $FixtureDirectory).Path

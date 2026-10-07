@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='swsimtool-release')
+﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='bin/SWSimTool/Release/net48')
 $ErrorActionPreference='Stop'
 if(Get-Process SLDWORKS -ErrorAction SilentlyContinue){throw 'Refusing compatibility CAD test with an existing SolidWorks session'}
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})

@@ -18,7 +18,7 @@
 | manual | 手动界面检查和指南演示辅助 |
 | upstream | 从官方源码拆出的独立 xUnit 项目与 runner |
 
-先构建生产插件到 `build/swsimtool-release/`。PowerShell 回归默认读取这个载荷；可使用 `-Payload` 显式选择。
+先构建生产插件到 `build/bin/SWSimTool/Release/net48/`。PowerShell 回归默认读取这个载荷；可使用 `-Payload` 显式选择。
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/identity/Test-StableReferenceAudit.ps1

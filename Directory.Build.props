@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <BuildFramework Condition="'$(TargetFramework)' == ''">net48</BuildFramework>
+    <BuildFramework Condition="'$(TargetFramework)' != ''">$(TargetFramework)</BuildFramework>
+    <BaseOutputPath>$(RepositoryRoot)build\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(RepositoryRoot)build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\$(BuildFramework)\</IntermediateOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)\$(BuildFramework)\</OutputPath>
+  </PropertyGroup>
+</Project>

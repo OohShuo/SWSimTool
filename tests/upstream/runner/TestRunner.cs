@@ -23,7 +23,7 @@ namespace TestRunner
 
         public static int Main(string[] args)
         {
-            string testAssembly = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "SWSimTool.Tests.dll"));
+            string testAssembly = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "SWSimTool.Tests", new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory).Parent.Name, "net48", "SWSimTool.Tests.dll"));
             string typeName = null;
 
             using (var runner = AssemblyRunner.WithAppDomain(testAssembly))

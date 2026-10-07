@@ -1,4 +1,5 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="../../Directory.Build.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <AssemblyName>SWSimTool.CandidateRunner</AssemblyName><OutputPath>..\..\build\native-parity\</OutputPath>
@@ -17,5 +18,6 @@
     <Compile Include="..\..\SWSimTool\Simulation\BackendProcess.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeBackend.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeAssetPlanner.cs"/><Compile Include="..\..\SWSimTool\Simulation\NativeExportPipeline.cs"/><Compile Include="..\..\SWSimTool\Simulation\PackagePublisher.cs"/><Compile Include="..\..\SWSimTool\Simulation\PythonBackend.cs"/><Compile Include="..\..\SWSimTool\Simulation\MeshExportSettings.cs"/>
     <Content Include="..\..\runtime\python\*.py"><Link>mujoco_backend\%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
+  <Import Project="../../Directory.Build.targets" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

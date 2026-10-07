@@ -26,6 +26,7 @@ namespace SWSimTool.Simulation
             info.EnvironmentVariables["SWSIMTOOL_EXPORT_ID"]=exportId??Guid.NewGuid().ToString("N");
             info.EnvironmentVariables["PYTHONIOENCODING"]="utf-8";
             info.EnvironmentVariables["PYTHONUNBUFFERED"]="1";
+            info.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
             var log=new StringBuilder();var gate=new object();
             // Bounded diagnostic tail. Reporting failures cannot strand a worker.
             DataReceivedEventHandler receive=(sender,e)=>{if(e.Data==null)return;lock(gate){log.AppendLine(e.Data);if(log.Length>65536)log.Remove(0,log.Length-65536);try{report?.Invoke(e.Data);}catch{}}};

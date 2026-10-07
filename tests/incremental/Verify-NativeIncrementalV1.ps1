@@ -1,4 +1,4 @@
-﻿param([string]$Payload="swsimtool-release",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
+﻿param([string]$Payload="bin/SWSimTool/Release/net48",[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))

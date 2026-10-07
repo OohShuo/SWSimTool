@@ -4,7 +4,7 @@
 
 | 阅读目的 | 文档 |
 |---|---|
-| 使用插件 | [离线图文指南](SWSimTool_3.2.1_使用指南.html)、[Markdown 指南](SWSimTool_3.2.1_使用指南.md) |
+| 使用插件 | [离线图文指南](../build/docs/SWSimTool_3.2.1_使用指南.html)、[Markdown 指南](SWSimTool_3.2.1_使用指南.md) |
 | 稳定引用验收 | [最终审计矩阵](SWSimTool_3.2.1稳定引用审计.md) |
 | 当前版本更改与验证 | [3.2.1 实施记录](SWSimTool_3.2.1实施记录.md) |
 | Python 后端边界 | [Tool Backend](SWSimTool_ToolBackend.md) |

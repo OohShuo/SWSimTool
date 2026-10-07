@@ -77,6 +77,7 @@ figure{margin:30px 0}img{display:block;width:100%;height:auto}figcaption{font-si
 @media print{body{background:white;font-size:11pt}main{max-width:none;padding:0}h2,h3{break-after:avoid}figure,table{break-inside:avoid}img{max-height:220mm;object-fit:contain}a{color:inherit}@page{size:A4;margin:18mm}}'''
 document = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SWSimTool '+args.version+' 使用指南</title><style>'+css+'</style><main>'
 document += parts[0] + parts[1] + toc + ''.join(parts[2:]) + '</main></html>'
-output = source.with_suffix('.html')
+output = ROOT / 'build/docs' / source.with_suffix('.html').name
+output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(document, encoding='utf-8')
 print(f'{output}: {len(contents)} sections, {len(images)} real screenshots, {output.stat().st_size} bytes')

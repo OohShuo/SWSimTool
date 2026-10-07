@@ -1,6 +1,6 @@
 ﻿; Build with Inno Setup 6.5+: ISCC.exe INSTALL\install.iss
 #ifndef Payload
-#define Payload AddBackslash(SourcePath) + "..\build\swsimtool-release"
+#define Payload AddBackslash(SourcePath) + "..\build\runtime-release"
 #endif
 #define BuildVersion GetFileVersion(Payload + "\SWSimTool.dll")
 #ifndef ReleaseName
@@ -24,7 +24,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
-OutputDir=..\dist
+OutputDir=..\build\dist
 OutputBaseFilename=SWSimTool_{#ReleaseName}_SW2025_x64_Setup
 Compression=lzma2
 SolidCompression=yes
@@ -32,8 +32,8 @@ WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
 UninstallDisplayIcon={app}\SWSimTool.dll
-LicenseFile=..\LICENSE
-InfoBeforeFile=..\docs\INSTALL.md
+LicenseFile={#Payload}\LICENSE
+InfoBeforeFile={#Payload}\docs\INSTALL.md
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -48,8 +48,8 @@ Source: "{#Payload}\solidworkstools.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SWSimTool.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\SWSimTool.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Payload}\images\*.png"; DestDir: "{app}\images"; Flags: ignoreversion
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docs\INSTALL.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#Payload}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Payload}\docs\INSTALL.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\simplify_stl.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\mesh_cache.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
@@ -57,9 +57,9 @@ Source: "{#Payload}\mujoco_backend\incremental.py"; DestDir: "{app}\mujoco_backe
 Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
-Source: "..\docs\SWSimTool_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\SWSimTool_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags: ignoreversion
+Source: "{#Payload}\docs\SWSimTool_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#Payload}\docs\SWSimTool_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "{#Payload}\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\native_support.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 

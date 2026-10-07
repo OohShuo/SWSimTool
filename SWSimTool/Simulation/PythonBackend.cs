@@ -31,6 +31,7 @@ namespace SWSimTool.Simulation
                 info.EnvironmentVariables["SWSIMTOOL_EXPORT_ID"] = exportId ?? Guid.NewGuid().ToString("N");
                 info.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
                 info.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
+            info.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
                 var log = new StringBuilder();
                 object gate = new object();
                 DataReceivedEventHandler receive = (s, e) => {

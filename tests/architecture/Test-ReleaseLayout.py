@@ -16,7 +16,7 @@ class LayoutTests(unittest.TestCase):
   self.assertEqual({Path(x).name for x in python}, {'native_support.py','simplify_stl.py','mesh_cache.py','incremental.py','solver.py'})
   self.assertTrue(all('runtime/python/' in x for x in python))
  def test_release_payload(self):
-  payload = ROOT / 'build/swsimtool-release'
+  payload = ROOT / 'build/runtime-release'
   self.assertEqual({p.name.lower() for p in payload.glob('*.dll')}, {'swsimtool.dll','csvhelper.dll','mathnet.numerics.dll','log4net.dll','solidworkstools.dll'})
   self.assertEqual({p.name for p in (payload/'mujoco_backend').glob('*.py')}, {'native_support.py','simplify_stl.py','mesh_cache.py','incremental.py','solver.py'})
  def test_source_roots_and_test_split(self):

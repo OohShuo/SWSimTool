@@ -22,7 +22,7 @@ from convert import convert, load_mjcf
 from test_convert import URDF
 from semantic_compare import compiled_semantics, dynamics, inertia_in_body, mesh_world_vertices, close
 
-EXE = ROOT / 'build/native-parity/SWSimTool.CandidateRunner.exe'
+EXE = ROOT / 'build/bin/CandidateRunner' / os.getenv('SWSIMTOOL_TEST_CONFIGURATION', 'Release') / 'net48/SWSimTool.CandidateRunner.exe'
 RESULTS = []
 
 

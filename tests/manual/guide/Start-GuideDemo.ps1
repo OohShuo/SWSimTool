@@ -1,4 +1,4 @@
-﻿param([string]$Payload="swsimtool-release",[switch]$Installed)
+﻿param([string]$Payload="bin/SWSimTool/Release/net48",[switch]$Installed)
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $bin=if($Installed){'C:\Program Files\SolidWorks Corp\SolidWorks\URDFExporter'}else{Join-Path $root ('build\'+$Payload)}

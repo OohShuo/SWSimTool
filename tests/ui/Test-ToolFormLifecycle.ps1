@@ -1,4 +1,4 @@
-﻿param([string]$Payload="swsimtool-release")
+﻿param([string]$Payload="bin/SWSimTool/Release/net48")
 $ErrorActionPreference='Stop'
 $workspacePath=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $payloadPath=Join-Path $workspacePath ('build\'+$Payload)

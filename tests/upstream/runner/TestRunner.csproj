@@ -1,4 +1,5 @@
 ﻿<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="../../../Directory.Build.props" />
   <PropertyGroup>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
@@ -15,10 +16,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="xunit.runner.utility.net452">
-      <HintPath>../../../packages/xunit.runner.utility.2.4.1/lib/net452/xunit.runner.utility.net452.dll</HintPath>
+      <HintPath>../../../build\packages/xunit.runner.utility.2.4.1/lib/net452/xunit.runner.utility.net452.dll</HintPath>
     </Reference>
     <Reference Include="xunit.abstractions">
-      <HintPath>../../../packages/xunit.abstractions.2.0.3/lib/net35/xunit.abstractions.dll</HintPath>
+      <HintPath>../../../build\packages/xunit.abstractions.2.0.3/lib/net35/xunit.abstractions.dll</HintPath>
     </Reference>
     <Reference Include="SolidWorks.Interop.sldworks">
       <HintPath>$(SolidWorksDir)\SolidWorks.Interop.sldworks.dll</HintPath>
@@ -43,5 +44,6 @@
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="TestRunner.cs" />
   </ItemGroup>
+  <Import Project="../../../Directory.Build.targets" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -331,7 +331,6 @@ ASALocalRun/
 # Ignore installer zip files
 *.zip
 
-SWSimTool/Versioning/VersionInfo.cs
 
 # Local SW2025 build, investigation and downloaded tools (kept on disk)
 /diagnostics/
