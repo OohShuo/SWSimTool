@@ -55,6 +55,23 @@ def mesh_world_vertices(model, data, geom):
     return vertices @ data.geom_xmat[geom].reshape(3, 3).T + data.geom_xpos[geom]
 
 
+def nearest_distances(source, target):
+    """Exact point-set comparison without allocating a full CAD-sized N x M array."""
+    try:
+        from scipy.spatial import cKDTree
+    except ImportError:
+        result = np.full(len(source), np.inf)
+        for start in range(0, len(source), 256):
+            block = source[start:start + 256]
+            best = np.full(len(block), np.inf)
+            for offset in range(0, len(target), 1024):
+                delta = block[:, None, :] - target[None, offset:offset + 1024, :]
+                best = np.minimum(best, np.linalg.norm(delta, axis=2).min(axis=1))
+            result[start:start + len(block)] = best
+        return result
+    return cKDTree(target).query(source, k=1, eps=0)[0]
+
+
 def compiled_semantics(a, b, precision=1e-9):
     compare = lambda x, y, label, **kwargs: close(x, y, label, **{**dict(atol=precision, rtol=precision), **kwargs})
     for count in ('nbody', 'njnt', 'ngeom', 'nsite', 'nu', 'nsensor', 'neq', 'ntendon', 'nq', 'nv', 'ncam'):
@@ -85,8 +102,8 @@ def compiled_semantics(a, b, precision=1e-9):
             av, bv = mesh_world_vertices(a, ad, i), mesh_world_vertices(b, bd, j)
             assert len(av) == len(bv)
             # Vertex indices and principal-axis signs need not agree. Compare point sets.
-            compare(np.linalg.norm(bv[:, None, :] - av[None, :, :], axis=2).min(axis=1), np.zeros(len(bv)), name + '/mesh', atol=2e-7)
-            compare(np.linalg.norm(av[:, None, :] - bv[None, :, :], axis=2).min(axis=1), np.zeros(len(av)), name + '/mesh', atol=2e-7)
+            compare(nearest_distances(bv, av), np.zeros(len(bv)), name + '/mesh', atol=max(2e-7, precision))
+            compare(nearest_distances(av, bv), np.zeros(len(av)), name + '/mesh', atol=max(2e-7, precision))
         else:
             compare(ad.geom_xpos[i], bd.geom_xpos[j], name + '/world_pose')
             compare(ad.geom_xmat[i], bd.geom_xmat[j], name + '/world_rotation')

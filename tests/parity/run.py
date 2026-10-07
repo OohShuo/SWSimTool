@@ -23,6 +23,16 @@ RESULTS = []
 
 
 class NativeParity(unittest.TestCase):
+    def test_nearest_mesh_points_exact_with_and_without_scipy(self):
+        from unittest.mock import patch
+        from semantic_compare import nearest_distances
+        rng = np.random.default_rng(20261007)
+        source, target = rng.normal(size=(257, 3)), rng.normal(size=(1030, 3))
+        expected = np.linalg.norm(source[:, None, :] - target[None, :, :], axis=2).min(axis=1)
+        close(nearest_distances(source, target[::-1]), expected, 'nearest points', atol=1e-12, rtol=1e-12)
+        with patch.dict(sys.modules, {'scipy.spatial': None}):
+            close(nearest_distances(source, target), expected, 'bounded fallback', atol=1e-12, rtol=1e-12)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name)
