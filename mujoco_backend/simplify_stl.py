@@ -11,6 +11,10 @@ import subprocess
 import sys
 import tempfile
 
+class TriangleBudgetExceeded(ValueError):
+    """A valid simplification attempt cannot meet the requested face budget."""
+    pass
+
 
 def triangles(path, data=None):
     import numpy as np
@@ -147,7 +151,7 @@ def simplify(source, maximum, backend, blender=None, output=None, raw=None):
             if target == 4:
                 break
             target = next_target
-        raise ValueError(f'Unable to meet triangle budget {maximum}; original STL retained')
+        raise TriangleBudgetExceeded(f'Unable to meet triangle budget {maximum}; original STL retained')
 
 
 def main():

@@ -26,6 +26,8 @@ elif args.prepare:
                            sha256=hashlib.sha256(target.read_bytes()).hexdigest()))
     if mode == 'source-change':
         Path(data['meshes'][0]['source']).write_bytes(b'changed')
+    if mode == 'settings-change':
+        Path(args.mesh_settings).write_text('{"Enabled": false}', encoding='utf-8')
     if mode == 'bad-id':
         assets[0]['id'] = 'unknown'
     if mode == 'bad-hash':
@@ -41,6 +43,9 @@ else:
     if mode == 'exit':
         print('expected error', file=sys.stderr, flush=True)
         sys.exit(7)
+    if mode == 'bad-error-json':
+        print('SW2MUJOCO_TOOL_ERROR:invalid json', file=sys.stderr, flush=True)
+        sys.exit(1)
     if mode == 'modify':
         path.write_text('rewritten', encoding='utf-8')
     if mode == 'sleep':

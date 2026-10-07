@@ -17,3 +17,9 @@
 ## 阶段 3：入口与缓存来源
 
 ProjectExport 唯一 public 构造固定为 native，reference 仅能显式调用 ForReferenceTests；source builder 对外分别提供 BuildNative/BuildReference，无公开模式开关。缓存记录 nativeSource，不能跨 reference/native 复用核心。4 项边界检查、125 项导航及新建装配的 0/0/0/1/1 验收通过，冷暖严格语义和 1/10/100 步动力学比较通过。新建装配目录 build/native-incremental-7ba959f805264f45a5350d2068933ab7。
+
+## 阶段 4：工具故障契约
+
+保留接口/进程结构，仅补充结构化错误协议及分类：EnvironmentMissing、DependencyMissing、InvalidInput、InputChanged、BudgetExceeded、ToolFailed、ValidationFailed，以及既有 Timeout/Cancelled/Protocol。官方 compile 不接受的 XML 单独归类；无结构化诊断的异常退出仍保存退出码/stderr。无法达到面数预算抛出明确异常而非猜测错误文本。C# 对输出面数独立检查。
+
+35 项工具检查及 96 项后端回归通过。缺 MuJoCo/fast-simplification/PyMeshLab 由隔离测试进程拦截模块导入复现，不卸载或修改用户依赖；减面无效、超预算、设置变动、损坏错误协议、超时/取消、进程树清理、验证失败保护旧包均覆盖。日志 build/3.2.1-tools.log、build/3.2.1-backend.log。

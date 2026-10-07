@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 
 namespace SW2URDF.Simulation
 {
-    public enum ToolFailure { None, Start, Exit, Cancelled, Timeout, Protocol, InputChanged }
+    public enum ToolFailure { None, Start, Exit, Cancelled, Timeout, Protocol, InputChanged, EnvironmentMissing, DependencyMissing, InvalidInput, BudgetExceeded, ToolFailed, ValidationFailed }
     public class ToolResult
     {
         public int ExitCode {get;}
@@ -64,7 +64,19 @@ namespace SW2URDF.Simulation
         public PythonToolBackend(string supportScript=null){script=supportScript??Path.Combine(Path.GetDirectoryName(typeof(PythonToolBackend).Assembly.Location),"mujoco_backend","native_support.py");}
         ToolResult Execute(ToolContext context,string arguments)
         {
-            try{return BackendProcess.Execute(context.Python,script,arguments,context.Report,context.ExportId,context.Cancellation,context.Timeout);}
+            try{
+                if(Path.IsPathRooted(context.Python)&&!File.Exists(context.Python))return ToolResult.Failure(ToolFailure.EnvironmentMissing,"Local Python is missing: "+context.Python);
+                var result=BackendProcess.Execute(context.Python,script,arguments,context.Report,context.ExportId,context.Cancellation,context.Timeout);
+                if(result.FailureKind!=ToolFailure.Exit)return result;
+                var line=result.Diagnostic.Split(new[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries).LastOrDefault(x=>x.StartsWith("SW2MUJOCO_TOOL_ERROR:",StringComparison.Ordinal));
+                if(line==null)return new ToolResult(result.ExitCode,ToolFailure.ToolFailed,result.Diagnostic);
+                Dictionary<string,object> data;
+                try{data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(line.Substring("SW2MUJOCO_TOOL_ERROR:".Length));if(data==null||!data.ContainsKey("category"))throw new InvalidDataException();}
+                catch{return ToolResult.Failure(ToolFailure.Protocol,"Malformed structured tool error: "+result.Diagnostic);}
+                ToolFailure category;
+                if(!Enum.TryParse(Convert.ToString(data["category"]),out category)||!new[]{ToolFailure.EnvironmentMissing,ToolFailure.DependencyMissing,ToolFailure.InvalidInput,ToolFailure.InputChanged,ToolFailure.BudgetExceeded,ToolFailure.ToolFailed,ToolFailure.ValidationFailed}.Contains(category))return ToolResult.Failure(ToolFailure.Protocol,"Invalid tool error category");
+                return new ToolResult(result.ExitCode,category,result.Diagnostic);
+            }
             catch(Exception error){return ToolResult.Failure(ToolFailure.Start,error.Message);}
         }
         public Task<MeshPreparationResult> PrepareAsync(MeshPreparationRequest request)=>Task.Run(()=>{
@@ -85,7 +97,10 @@ namespace SW2URDF.Simulation
                     File.WriteAllText(manifest,serializer.Serialize(new{staging=request.Staging,result,meshes=request.Meshes.Select(m=>new{id=m.Id,source=m.Source,relative=m.Relative,sha256=m.Sha256}).ToArray()}),new UTF8Encoding(false));
                     var settings=request.Settings??MeshExportSettings.DefaultPath;
                     var settingsHash=File.Exists(settings)?NativeAssetPlanner.Hash(settings):null;
-                    var preferences=MeshExportSettings.Load(settings);preferences.Validate();
+                    MeshExportSettings preferences;
+                    try{preferences=MeshExportSettings.Load(settings);preferences.Validate();}
+                    catch(FileNotFoundException error){return new MeshPreparationResult(ToolResult.Failure(ToolFailure.DependencyMissing,error.Message));}
+                    catch(ArgumentException error){return new MeshPreparationResult(ToolResult.Failure(ToolFailure.InvalidInput,error.Message));}
                     var budget=preferences.Enabled?preferences.MaximumTriangles:200000;
                     var run=Execute(request.Context,"--prepare "+BackendProcess.Quote(manifest)+(settingsHash==null?"":" --mesh-settings "+BackendProcess.Quote(settings)));
                     if(!run.Success)return new MeshPreparationResult(run);
@@ -103,7 +118,8 @@ namespace SW2URDF.Simulation
                         using(var stream=File.OpenRead(path))using(var reader=new BinaryReader(stream)){
                             if(stream.Length<84)throw new InvalidDataException("Prepared STL is not binary");
                             stream.Position=80;var triangles=reader.ReadUInt32();
-                            if(triangles<1||triangles>budget||stream.Length!=84L+50L*triangles)throw new InvalidDataException("Prepared STL exceeds budget or has invalid length");
+                            if(triangles>budget)return new MeshPreparationResult(ToolResult.Failure(ToolFailure.BudgetExceeded,"Prepared STL exceeds requested triangle budget"));
+                            if(triangles<1||stream.Length!=84L+50L*triangles)throw new InvalidDataException("Prepared STL has invalid length");
                         }
                     }
                     var counts=((Dictionary<string,object>)response["counts"]).ToDictionary(p=>p.Key,p=>StrictCount(p.Value));
@@ -121,7 +137,8 @@ namespace SW2URDF.Simulation
                 var before=NativeAssetPlanner.Hash(request.Xml);var result=Execute(request.Context,operation+" "+BackendProcess.Quote(request.Xml));
                 if(!File.Exists(request.Xml)||NativeAssetPlanner.Hash(request.Xml)!=before)return ToolResult.Failure(ToolFailure.InputChanged,"Tool modified candidate XML");
                 return result;
-            }catch(Exception error){return ToolResult.Failure(ToolFailure.Protocol,error.Message);}
+            }catch(FileNotFoundException error){return ToolResult.Failure(ToolFailure.InvalidInput,error.Message);}
+            catch(Exception error){return ToolResult.Failure(ToolFailure.Protocol,error.Message);}
         });
         public Task<ToolResult> ValidateAsync(ModelToolRequest request)=>ModelOperation(request,"--validate");
         public Task<ToolResult> PreviewAsync(ModelToolRequest request)=>ModelOperation(request,"--preview");

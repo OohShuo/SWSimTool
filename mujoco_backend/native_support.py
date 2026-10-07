@@ -12,10 +12,27 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
+class ToolError(ValueError):
+    def __init__(self, category, message):
+        super().__init__(message)
+        self.category = category
+
+def error_category(error):
+    from simplify_stl import TriangleBudgetExceeded
+    if isinstance(error, ToolError):
+        return error.category
+    if isinstance(error, ImportError):
+        return 'DependencyMissing'
+    if isinstance(error, TriangleBudgetExceeded):
+        return 'BudgetExceeded'
+    if isinstance(error, (ValueError, FileNotFoundError, KeyError, TypeError, ET.ParseError)):
+        return 'InvalidInput'
+    return 'ToolFailed'
+
 
 def runtime(preview=False):
     if sys.version_info < (3, 10):
-        raise RuntimeError('Local Python 3.10 or newer is required')
+        raise ToolError('EnvironmentMissing', 'Local Python 3.10 or newer is required')
     import mujoco
     if preview:
         import mujoco.viewer
@@ -74,7 +91,7 @@ def prepare(manifest_path, settings_path=None):
             seen.add(relative)
             data=source.read_bytes()
             if hashlib.sha256(data).hexdigest().lower()!=entry['sha256'].lower():
-                raise ValueError('Source mesh changed before preparation')
+                raise ToolError('InputChanged', 'Source mesh changed before preparation')
             key=fingerprint(dict(schema=1,settings=settings,
                 backend=identity(data,maximum,settings.get('Backend','pymeshlab'),settings.get('Blender')),
                 support=file_hash(Path(__file__))))
@@ -95,9 +112,9 @@ def prepare(manifest_path, settings_path=None):
                     vertices,indices=indexed_mesh(None,raw=ascii_triangles)
                     write_binary(target,vertices,indices)
                 if not 1<=faces<=200000:
-                    raise ValueError(f'STL has {faces} triangles; enable preprocessing before loading')
+                    raise ToolError('BudgetExceeded', f'STL has {faces} triangles; enable preprocessing before loading')
                 if settings.get('Enabled',False) and faces>maximum:
-                    raise ValueError('Simplifier did not meet the requested triangle budget')
+                    raise ToolError('BudgetExceeded', 'Simplifier did not meet the requested triangle budget')
                 report['after']=faces
                 cached.save(target,report)
             results.append(dict(id=entry['id'],relative=relative,report=report,sha256=file_hash(target)))
@@ -107,7 +124,10 @@ def prepare(manifest_path, settings_path=None):
 
 
 def main():
-    parser=argparse.ArgumentParser()
+    class ToolParser(argparse.ArgumentParser):
+        def error(self, message):
+            raise ToolError('InvalidInput', message)
+    parser=ToolParser()
     parser.add_argument('--prepare')
     parser.add_argument('--mesh-settings')
     parser.add_argument('--validate')
@@ -118,7 +138,12 @@ def main():
     if args.prepare:
         prepare(args.prepare,args.mesh_settings)
     else:
-        model=load_model(args.validate or args.preview)
+        try:
+            model=load_model(args.validate or args.preview)
+        except (ImportError, ToolError):
+            raise
+        except Exception as error:
+            raise ToolError('ValidationFailed', str(error)) from error
         if args.validate:
             print(f'Validated: bodies={model.nbody}, joints={model.njnt}, sites={model.nsite}, actuators={model.nu}, sensors={model.nsensor}, equalities={model.neq}',flush=True)
         else:
@@ -129,5 +154,6 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as error:
+        print('SW2MUJOCO_TOOL_ERROR:'+json.dumps(dict(category=error_category(error),message=str(error)),ensure_ascii=False),file=sys.stderr,flush=True)
         print(f'ERROR: {error}',file=sys.stderr)
         sys.exit(1)
