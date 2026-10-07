@@ -13,7 +13,6 @@ namespace SW2URDF.Simulation
         internal readonly PreparedMeshAsset[] Assets;
         readonly IDictionary<string,string> hashes;
         internal NativeAssetPlan(MeshSource[] sources,PreparedMeshAsset[] assets,IDictionary<string,string> sourceHashes){Sources=sources;Assets=assets;hashes=sourceHashes;}
-        internal object Manifest(string staging,string result)=>new{staging,result,meshes=Sources.Select((m,i)=>new{id=m.Id,source=m.SourcePath,relative=Assets[i].RelativePath,sha256=hashes[m.SourcePath]}).ToArray()};
         internal void VerifySources(){foreach(var item in hashes)if(NativeAssetPlanner.Hash(item.Key)!=item.Value)throw new IOException("Source mesh changed during export: "+item.Key);}
     }
     internal static class NativeAssetPlanner

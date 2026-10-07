@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using System.Threading;
 using SW2URDF.Simulation;
 namespace SW2URDF.UI
 {
@@ -18,6 +19,8 @@ namespace SW2URDF.UI
         readonly MuJoCoToolMode toolMode;
         readonly Func<ProjectExport> exportProject;
         bool busy;
+        bool closeWhenStopped;
+        CancellationTokenSource operation;
         public MuJoCoToolsForm() : this(MuJoCoSettings.DefaultPath) { }
         public MuJoCoToolsForm(string preferencesPath, string meshPreferencesPath = null,MuJoCoToolMode mode=MuJoCoToolMode.Local,Func<ProjectExport> projectExporter=null)
         {
@@ -45,14 +48,14 @@ namespace SW2URDF.UI
                 var settings = MuJoCoSettings.Load(settingsPath);
                 python.Text = settings.Python; urdf.Text = settings.Urdf; sidecar.Text = settings.Sidecar;
                 output.Text = settings.Output; existing.Text = settings.ExistingMjcf;
-                if (!string.IsNullOrWhiteSpace(urdf.Text) && output.Text == Path.ChangeExtension(urdf.Text, ".mjcf.xml")) output.Text = PythonBackend.DefaultOutput(urdf.Text);
+                if (!string.IsNullOrWhiteSpace(urdf.Text) && output.Text == Path.ChangeExtension(urdf.Text, ".mjcf.xml")) output.Text = ExportOutputPaths.DefaultOutput(urdf.Text);
             } catch (Exception error) { python.Text = "python"; Append("读取设置失败：" + error.Message); }
             urdf.TextChanged += (s, e) => {
-                    try { if (!string.IsNullOrWhiteSpace(urdf.Text)) { string candidate=Path.ChangeExtension(urdf.Text.Trim(), ".sim.json");sidecar.Text=File.Exists(candidate)?candidate:""; output.Text = PythonBackend.DefaultOutput(urdf.Text.Trim()); } }
+                    try { if (!string.IsNullOrWhiteSpace(urdf.Text)) { string candidate=Path.ChangeExtension(urdf.Text.Trim(), ".sim.json");sidecar.Text=File.Exists(candidate)?candidate:""; output.Text = ExportOutputPaths.DefaultOutput(urdf.Text.Trim()); } }
                 catch (ArgumentException) { }
             };
             status.Text=mode==MuJoCoToolMode.Project?"从当前装配导出，最终仅保存 XML 和 meshes/STL。":"请选择本地文件，无需打开 SolidWorks 工程。";
-            FormClosing += (s, e) => {if(busy){e.Cancel=true;status.Text="后端仍在运行，请关闭 viewer 或等待导出结束。";}else SaveSettings();};
+            FormClosing += (s, e) => {if(busy){e.Cancel=true;closeWhenStopped=true;operation?.Cancel();status.Text="正在取消并清理后端…";}else SaveSettings();};
         }
         public void SetProjectName(string name){output.Text=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),name+"_mjcf",name+".xml");}
         private void AddPath(string label, TextBox field, string filter, bool save)
@@ -95,19 +98,19 @@ namespace SW2URDF.UI
                 else {
                     if(toolMode==MuJoCoToolMode.Local){RequireFile(urdf.Text);if(!string.IsNullOrWhiteSpace(sidecar.Text))RequireFile(sidecar.Text);}
                     if (string.IsNullOrWhiteSpace(output.Text)) throw new ArgumentException("请选择 MJCF 保存位置。");
-                    output.Text = PythonBackend.PackageOutput(toolMode==MuJoCoToolMode.Project?Path.GetFileNameWithoutExtension(output.Text)+".urdf":urdf.Text.Trim(), output.Text.Trim());
+                    output.Text = ExportOutputPaths.PackageOutput(toolMode==MuJoCoToolMode.Project?Path.GetFileNameWithoutExtension(output.Text)+".urdf":urdf.Text.Trim(), output.Text.Trim());
                     string destination = Path.GetFullPath(output.Text.Trim());
                     foreach (string source in new[] { urdf.Text, sidecar.Text })if(!string.IsNullOrWhiteSpace(source)&&toolMode==MuJoCoToolMode.Local)
                         if (string.Equals(destination, Path.GetFullPath(source.Trim()), StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MJCF 保存位置不能覆盖输入文件。");
                 }
-                SaveSettings(); log.Clear();busy=true; inputs.Enabled = actions.Enabled = false;
+                SaveSettings(); log.Clear();busy=true;operation=new CancellationTokenSource(); inputs.Enabled = actions.Enabled = false;
                 if(toolMode==MuJoCoToolMode.Project){status.Text="正在读取当前工程配置…";project=exportProject();Append("Export "+project.ExportId+": "+(project.Plan.RebuildSource?"重建工程源数据":"复用工程源数据")+"; "+project.Plan.Dirty);}
                 status.Text = preview ? "正在启动预览；关闭 viewer 后可继续操作。" : "正在保存 MJCF…";
-                int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId);
+                int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append,operation.Token) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId,operation.Token);
                 if(code==0)project?.MarkSucceeded();
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
             } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.Message); }
-            finally {try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}busy=false;if (!IsDisposed) inputs.Enabled = actions.Enabled = true; }
+            finally {try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}operation?.Dispose();operation=null;busy=false;if (!IsDisposed){inputs.Enabled = actions.Enabled = true;if(closeWhenStopped)Close();} }
         }
         private static void RequireFile(string path)
         {

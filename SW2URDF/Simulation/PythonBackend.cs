@@ -8,6 +8,8 @@ namespace SW2URDF.Simulation
 {
     public static class PythonBackend
     {
+        // Explicit legacy reference harness only; installed packages omit convert.py.
+        // Production native orchestration does not call this generator.
         public static Task<int> RunAsync(string python, string urdf, string json, string output,
             bool preview, string existingMjcf, Action<string> report, string meshSettingsPath = null, string exportId = null)
         {
@@ -54,13 +56,11 @@ namespace SW2URDF.Simulation
         }
         public static string DefaultOutput(string urdf)
         {
-            return Path.Combine(Path.GetDirectoryName(urdf), Path.GetFileNameWithoutExtension(urdf) + "_mjcf", Path.GetFileNameWithoutExtension(urdf) + ".xml");
+            return ExportOutputPaths.DefaultOutput(urdf);
         }
         public static string PackageOutput(string urdf, string output)
         {
-            string full = Path.GetFullPath(output), directory = Path.GetDirectoryName(full);
-            return new DirectoryInfo(directory).Name.EndsWith("_mjcf", StringComparison.Ordinal) ? full :
-                Path.Combine(directory, Path.GetFileNameWithoutExtension(urdf) + "_mjcf", Path.GetFileName(full));
+            return ExportOutputPaths.PackageOutput(urdf,output);
         }
         private static string Quote(string value)
         {

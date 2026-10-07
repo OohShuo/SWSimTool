@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Web.Script.Serialization;
 using SW2URDF.RobotModel;
 
@@ -12,9 +13,11 @@ namespace SW2URDF.Simulation
 {
     public static class NativeBackend
     {
-        static string Support => Path.Combine(Path.GetDirectoryName(typeof(NativeBackend).Assembly.Location),"mujoco_backend","native_support.py");
         static string Hash(string path) {using(var algorithm=SHA256.Create())using(var stream=File.OpenRead(path))return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-","").ToLowerInvariant();}
-        public static Task<int> PreviewAsync(string python,string xml,Action<string> report) => Task.Run(()=>NativeToolSteps.Preview(python,Path.GetFullPath(xml),report,null));
+        public static async Task<int> PreviewAsync(string python,string xml,Action<string> report,CancellationToken cancellation=default(CancellationToken)) {
+            var result=await new PythonToolBackend().PreviewAsync(new ModelToolRequest(new ToolContext(python,null,Timeout.InfiniteTimeSpan,cancellation,report),xml)).ConfigureAwait(false);
+            if(!result.Success)NativeExportPipeline.ReportFailure(result,report);return result.ExitCode;
+        }
         public static SW2URDF.RobotModel.RobotModel LoadLocal(string urdf,string jsonPath)
         {
             var serializer=new JavaScriptSerializer{MaxJsonLength=64*1024*1024};
@@ -25,7 +28,7 @@ namespace SW2URDF.Simulation
             var core=LegacySimulationConfigImporter.IdentifyImportedCore(UrdfRobotModelImporter.Load(urdf),json);
             return new SW2URDF.RobotModel.RobotModel(core,LegacySimulationConfigImporter.Import(json,core));
         }
-        public static Task<int> RunAsync(string python,SW2URDF.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null)
-            => NativeExportPipeline.RunAsync(python,model,output,preview,report,meshSettingsPath,exportId);
+        public static Task<int> RunAsync(string python,SW2URDF.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null,CancellationToken cancellation=default(CancellationToken))
+            => NativeExportPipeline.RunAsync(python,model,output,preview,report,meshSettingsPath,exportId,cancellation);
     }
 }

@@ -4,52 +4,47 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Web.Script.Serialization;
 using SW2URDF.RobotModel;
 
 namespace SW2URDF.Simulation
 {
-    internal static class NativeToolSteps
-    {
-        internal static string Support=>Path.Combine(Path.GetDirectoryName(typeof(NativeToolSteps).Assembly.Location),"mujoco_backend","native_support.py");
-        internal static int Prepare(string python,NativeAssetPlan plan,NativeExportWorkspace workspace,string settings,Action<string> report,string exportId,out Dictionary<string,object> counts)
-        {
-            counts=null;var serializer=new JavaScriptSerializer{MaxJsonLength=64*1024*1024};
-            var result=Path.Combine(workspace.Work,"prepared.json");var manifest=Path.Combine(workspace.Work,"assets.json");
-            File.WriteAllText(manifest,serializer.Serialize(plan.Manifest(workspace.Staging,result)),new UTF8Encoding(false));
-            var preferences=settings??MeshExportSettings.DefaultPath;
-            var args="--prepare "+BackendProcess.Quote(manifest)+(File.Exists(preferences)?" --mesh-settings "+BackendProcess.Quote(preferences):"");
-            var code=BackendProcess.Run(python,Support,args,report,exportId);
-            if(code==0)counts=(Dictionary<string,object>)serializer.Deserialize<Dictionary<string,object>>(File.ReadAllText(result))["counts"];
-            return code;
-        }
-        internal static int Validate(string python,string xml,Action<string> report,string exportId)=>BackendProcess.Run(python,Support,"--validate "+BackendProcess.Quote(xml),report,exportId);
-        internal static int Preview(string python,string xml,Action<string> report,string exportId)=>BackendProcess.Run(python,Support,"--preview "+BackendProcess.Quote(xml),report,exportId);
-    }
     internal static class NativeExportPipeline
     {
         static readonly object publishGate=new object();
-        internal static Task<int> RunAsync(string python,SW2URDF.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath,string exportId)
+        internal static Task<int> RunAsync(string python,SW2URDF.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath,string exportId,CancellationToken cancellation=default(CancellationToken),IMeshPreparationService meshService=null,IMuJoCoValidationService validationService=null,IPreviewService previewService=null)
         {
-            return Task.Run(()=>{
-                output=PythonBackend.PackageOutput(model.Core.Name+".urdf",output);
+            return Task.Run(async()=>{
+                var backend=new PythonToolBackend();meshService=meshService??backend;validationService=validationService??backend;previewService=previewService??backend;
+                if(cancellation.IsCancellationRequested){ReportFailure(ToolResult.Failure(ToolFailure.Cancelled,"Export cancelled"),report);return 1;}
+                output=ExportOutputPaths.PackageOutput(model.Core.Name+".urdf",output);
                 if(!string.Equals(Path.GetExtension(output),".xml",StringComparison.OrdinalIgnoreCase))throw new ArgumentException("MJCF output must have an .xml extension");
                 var root=Path.GetDirectoryName(Path.GetFullPath(output));
                 using(var workspace=new NativeExportWorkspace(Path.GetDirectoryName(root))) {
                     var plan=NativeAssetPlanner.Create(model,root);
                     var xml=MjcfExporter.Generate(model,new PreparedAssets(plan.Assets),new ExportContext(model.Core.Name));
-                    Dictionary<string,object> counts;
-                    if(NativeToolSteps.Prepare(python,plan,workspace,meshSettingsPath,report,exportId,out counts)!=0)return 1;
+                    var meshRequest=new MeshPreparationRequest(new ToolContext(python,exportId,TimeSpan.FromMinutes(10),cancellation,report),workspace.Work,workspace.Staging,meshSettingsPath,
+                        plan.Sources.Select((m,i)=>new MeshToolInput(m.Id,m.SourcePath,plan.Assets[i].RelativePath,NativeAssetPlanner.Hash(m.SourcePath))));
+                    var prepared=await meshService.PrepareAsync(meshRequest).ConfigureAwait(false);
+                    if(!prepared.Success){ReportFailure(prepared,report);return 1;}
+                    var counts=prepared.Counts.ToDictionary(p=>p.Key,p=>p.Value);
                     var stagedXml=Path.Combine(workspace.Staging,Path.GetFileName(output));
                     File.WriteAllText(stagedXml,xml,new UTF8Encoding(false));counts["mjcf_generation"]=1;
-                    if(NativeToolSteps.Validate(python,stagedXml,report,exportId)!=0)return 1;
+                    var preparedHashes=plan.Assets.ToDictionary(a=>Path.Combine(workspace.Staging,a.RelativePath),a=>NativeAssetPlanner.Hash(Path.Combine(workspace.Staging,a.RelativePath)));
+                    var validation=await validationService.ValidateAsync(new ModelToolRequest(new ToolContext(python,exportId,TimeSpan.FromMinutes(2),cancellation,report),stagedXml)).ConfigureAwait(false);
+                    if(!validation.Success){ReportFailure(validation,report);return 1;}
+                    if(preparedHashes.Any(p=>!File.Exists(p.Key)||NativeAssetPlanner.Hash(p.Key)!=p.Value)){ReportFailure(ToolResult.Failure(ToolFailure.InputChanged,"Validation modified prepared meshes"),report);return 1;}
                     counts["mujoco_validation"]=1;plan.VerifySources();
-                    lock(publishGate)PackagePublisher.Publish(workspace.Staging,output);
+                    lock(publishGate){if(cancellation.IsCancellationRequested){ReportFailure(ToolResult.Failure(ToolFailure.Cancelled,"Export cancelled before publication"),report);return 1;}PackagePublisher.Publish(workspace.Staging,output);}
                     report?.Invoke("Native export metrics: "+new JavaScriptSerializer().Serialize(new{export_id=exportId,counts}));
                     report?.Invoke("MJCF package saved: "+output);
-                    return preview?NativeToolSteps.Preview(python,output,report,exportId):0;
+                    if(!preview)return 0;
+                    var shown=await previewService.PreviewAsync(new ModelToolRequest(new ToolContext(python,exportId,Timeout.InfiniteTimeSpan,cancellation,report),output)).ConfigureAwait(false);
+                    if(!shown.Success)ReportFailure(shown,report);return shown.ExitCode;
                 }
             });
         }
+        internal static void ReportFailure(ToolResult result,Action<string> report)=>report?.Invoke("Tool failed ["+result.FailureKind+"]: "+result.Diagnostic);
     }
 }
