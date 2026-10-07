@@ -15,13 +15,17 @@ try {
         if($code -ne 0){Get-Content "build/logs/$Tier-$name.log" -Tail 20;throw "$Tier/$name failed"}
     }
     if($Tier -in 'Fast','Medium') {
-        Gate 'build' { & dotnet build tests/parity/CandidateRunner.csproj -c $Configuration -f net48 }
+        Gate 'build' { & dotnet build tests/parity/CandidateRunner.csproj -c $Configuration }
         $candidate=Join-Path $root "build/bin/CandidateRunner/$Configuration/net48/SWSimTool.CandidateRunner.exe"
         Gate 'domain' { & $candidate --selftest }
+        Gate 'domain-net8' { & dotnet "$root/build/bin/CandidateRunner/$Configuration/net8.0/SWSimTool.CandidateRunner.dll" --selftest }
         Gate 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
         Gate 'sdk' { & $Python -B tests/architecture/Test-SdkBuild.py }
         Gate 'publication-receipt' { & $Python -B tests/architecture/Test-ValidationReceipt.py }
         if($Tier -eq 'Medium') {
+            Gate 'cli-build' { & dotnet build src/SWSimTool.Cli/SWSimTool.Cli.csproj -c $Configuration -f net8.0 }
+            Gate 'modern-host' { & $Python -B tests/targets/Test-ModernHost.py }
+            Gate 'cross-target-parity' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call([sys.executable,'-B','tests/parity/run.py'],env=dict(os.environ,SWSIMTOOL_TEST_FRAMEWORK='net8.0',SWSIMTOOL_CROSS_TARGET='1')))" }
             Gate 'backend' { & $Python -B -m unittest discover -s tests/backend -v }
             Gate 'parity' { & $Python -B tests/parity/run.py }
             Gate 'tools' { & $candidate --tooltest $Python tests/tools/fake_tool.py }

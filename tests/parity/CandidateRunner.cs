@@ -10,6 +10,14 @@ public static class CandidateRunner
     public static int Main(string[] args)
     {
         try {
+            if(args.Length==3&&args[0]=="--storage"){
+                var serializer=SWSimTool.Persistence.DocumentEnvelopeSerializer.Serializer();
+                var raw=SWSimTool.Persistence.DocumentEnvelopeSerializer.Deserialize<Dictionary<string,object>>(File.ReadAllText(args[1]),2);
+                var entries=(Dictionary<string,object>)raw["configurations"];
+                var typed=new Dictionary<string,SWSimTool.Simulation.SimulationProject>();
+                foreach(var entry in entries)typed[entry.Key]=serializer.ConvertToType<SWSimTool.Simulation.SimulationProject>(((Dictionary<string,object>)entry.Value)["simulation"]);
+                File.WriteAllText(args[2],serializer.Serialize(new{raw,typed}),new UTF8Encoding(false));return 0;
+            }
             if(args.Length==3&&args[0]=="--tooltest"){MuJoCoSettingsTests.Run();ToolBackendTests.Run(args[1],args[2]);return 0;}
             if(args.Length==1&&args[0]=="--selftest"){SelfTest();return 0;}
             if(args.Length==6&&args[0]=="--package"){

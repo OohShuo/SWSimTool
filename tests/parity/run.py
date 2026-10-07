@@ -23,6 +23,9 @@ from test_convert import URDF
 from semantic_compare import compiled_semantics, dynamics, inertia_in_body, mesh_world_vertices, close
 
 EXE = ROOT / 'build/bin/CandidateRunner' / os.getenv('SWSIMTOOL_TEST_CONFIGURATION', 'Release') / 'net48/SWSimTool.CandidateRunner.exe'
+FRAMEWORK = os.getenv('SWSIMTOOL_TEST_FRAMEWORK', 'net48')
+COMMAND = ['dotnet', str(EXE.parent.parent / 'net8.0/SWSimTool.CandidateRunner.dll')] if FRAMEWORK == 'net8.0' else [str(EXE)]
+CROSS_COMMAND = [str(EXE)] if os.getenv('SWSIMTOOL_CROSS_TARGET') == '1' else None
 RESULTS = []
 
 
@@ -53,9 +56,17 @@ class NativeParity(unittest.TestCase):
         config = self.config if config is None else config
         sidecar.write_text(json.dumps(config), encoding='utf-8')
         output = self.folder / 'candidate/robot.xml'
-        result = subprocess.run([str(EXE), str(self.urdf), str(sidecar), str(output)], capture_output=True, text=True)
+        result = subprocess.run(COMMAND+[ str(self.urdf), str(sidecar), str(output)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        return load_mjcf(output)
+        model = load_mjcf(output)
+        if CROSS_COMMAND:
+            cross_output = self.folder / 'cross/robot.xml'
+            result = subprocess.run(CROSS_COMMAND+[str(self.urdf), str(sidecar), str(cross_output)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            other = load_mjcf(cross_output)
+            compiled_semantics(model, other)
+            dynamics(model, other, steps=(1, 10, 100))
+        return model
 
     def parity(self, name, source, config, steps=(1, 10, 100), precision=1e-9, dynamic_precision=2e-7):
         b = self.candidate(source, config)
@@ -201,7 +212,7 @@ class NativeParity(unittest.TestCase):
         env=dict(os.environ,SWSIMTOOL_CACHE=str(self.folder/'cache'),SWSIMTOOL_MESH_CACHE=str(self.folder/'mesh-cache'))
         def run():
             sidecar.write_text(json.dumps(config),encoding='utf-8')
-            result=subprocess.run([str(EXE),'--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],env=env,capture_output=True,text=True,encoding='utf-8')
+            result=subprocess.run(COMMAND+['--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],env=env,capture_output=True,text=True,encoding='utf-8')
             return result
         first=run();self.assertEqual(first.returncode,0,first.stderr+first.stdout)
         original_inputs=(mesh.read_bytes(),self.urdf.read_bytes())
@@ -248,7 +259,7 @@ class NativeParity(unittest.TestCase):
                 self.urdf.write_text(source)
                 config = self.folder / 'bad.json'; config.write_text(json.dumps(self.config))
                 output = self.folder / f'bad_{index}.xml'
-                result = subprocess.run([str(EXE), str(self.urdf), str(config), str(output)], capture_output=True)
+                result = subprocess.run(COMMAND+[ str(self.urdf), str(config), str(output)], capture_output=True)
                 self.assertNotEqual(result.returncode, 0); self.assertFalse(output.exists())
 
     def test_local_identity_registry_and_stale_pair(self):
@@ -259,7 +270,7 @@ class NativeParity(unittest.TestCase):
         output=self.folder/'local_mjcf'/'robot.xml'
         def run():
             sidecar.write_text(json.dumps(config),encoding='utf-8')
-            return subprocess.run([str(EXE),'--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],capture_output=True,text=True,encoding='utf-8')
+            return subprocess.run(COMMAND+['--package',sys.executable,str(self.urdf),str(sidecar),str(output),str(settings)],capture_output=True,text=True,encoding='utf-8')
         result=run();self.assertEqual(result.returncode,0,result.stderr+result.stdout)
         model=load_mjcf(output);self.assertEqual(model.nu,1);self.assertEqual(model.actuator_gear[0,0],2)
         before=output.read_bytes()
@@ -271,12 +282,12 @@ class NativeParity(unittest.TestCase):
         RESULTS.append(dict(case='local_stable_identity_and_stale_pair',preserved=True))
 
     def test_csharp_immutable_and_invariant_checks(self):
-        result = subprocess.run([str(EXE), '--selftest'], capture_output=True, text=True)
+        result = subprocess.run(COMMAND+[ '--selftest'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == '__main__':
-    report = ROOT / 'build/native-parity-report.json'
+    report = ROOT / ('build/native-parity-report.json' if FRAMEWORK == 'net48' else 'build/reports/target-parity-net8.json')
     report.unlink(missing_ok=True)
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(NativeParity))
     report.write_text(json.dumps(dict(status='passed' if result.wasSuccessful() else 'failed', mujoco=mujoco.__version__, scope='synthetic candidate; no production backend switch or native CAD access', tests=result.testsRun, failures=len(result.failures), errors=len(result.errors), results=RESULTS), indent=2), encoding='utf-8')

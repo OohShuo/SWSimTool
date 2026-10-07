@@ -1,10 +1,14 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+#if NET8_0_OR_GREATER
+using JavaScriptSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
 using System.Web.Script.Serialization;
+#endif
 namespace SWSimTool.Simulation {
  public static class ExportFingerprint {
   public static JavaScriptSerializer Serializer(){return new JavaScriptSerializer{MaxJsonLength=64*1024*1024};}

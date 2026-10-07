@@ -5,7 +5,8 @@ $workspacePath=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test
 if(Get-ActiveSolidWorksProcesses){throw 'Refusing installed addin test with an existing SolidWorks session'}
 $fixture=Join-Path $workspacePath ('build\installed-plugin-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
-$interop='D:\sw\sw2025\SOLIDWORKS\SolidWorks.Interop.sldworks.dll'
+$sdk=if($env:SOLIDWORKS_DIR){$env:SOLIDWORKS_DIR}else{'D:/sw/sw2025/SOLIDWORKS'}
+$interop=Join-Path $sdk 'SolidWorks.Interop.sldworks.dll'
 [Reflection.Assembly]::LoadFrom($interop) | Out-Null
 Add-Type -ReferencedAssemblies @($interop) -TypeDefinition @'
 using System;

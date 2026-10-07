@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -7,7 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+#if NET8_0_OR_GREATER
+using JavaScriptSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
 using System.Web.Script.Serialization;
+#endif
 
 namespace SWSimTool.Simulation
 {

@@ -6,7 +6,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+#if NET8_0_OR_GREATER
+using JavaScriptSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
 using System.Web.Script.Serialization;
+#endif
 using SWSimTool.RobotModel;
 
 namespace SWSimTool.Simulation

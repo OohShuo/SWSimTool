@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
 $testConfiguration=if($env:SWSIMTOOL_TEST_CONFIGURATION){$env:SWSIMTOOL_TEST_CONFIGURATION}else{'Release'}
 $bin=Join-Path $root ('build\'+$Payload)
-$interop='D:\sw\sw2025\SOLIDWORKS'
+$interop=if($env:SOLIDWORKS_DIR){$env:SOLIDWORKS_DIR}else{'D:\sw\sw2025\SOLIDWORKS'}
 $refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Moq.dll")","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Castle.Core.dll")",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Core')
 @("build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Threading.Tasks.Extensions.dll","build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Runtime.CompilerServices.Unsafe.dll") | ForEach-Object { [Reflection.Assembly]::LoadFrom((Join-Path $root $_)) | Out-Null }
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}

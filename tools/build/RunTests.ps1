@@ -20,4 +20,6 @@ foreach($path in @('integration/install/Test-CadProcessGuard.ps1','architecture/
     Run ([IO.Path]::GetFileNameWithoutExtension($path)) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/$path" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 }
 
+Run 'modern-host' { & $Python -B tests/targets/Test-ModernHost.py }
+Run 'cross-target-parity' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call([sys.executable,'-B','tests/parity/run.py'],env=dict(os.environ,SWSIMTOOL_TEST_FRAMEWORK='net8.0',SWSIMTOOL_CROSS_TARGET='1')))" }
 & "$root/tools/build/ValidationReceipt.ps1" -Mode Write -Configuration $Configuration

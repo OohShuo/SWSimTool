@@ -11,7 +11,8 @@ class ValidationReceipt(unittest.TestCase):
             root=Path(folder)
             binary=root/'build/bin/SWSimTool.SolidWorks/Release/net48/fixture.dll'
             script=root/'runtime/python/tool.py'
-            for p in (binary,script): p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'first')
+            cli=root/'build/bin/SWSimTool.Cli/Release/net8.0/fixture.dll'
+            for p in (binary,script,cli): p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'first')
             (root/'build/reports').mkdir()
             def run(mode):
                 return subprocess.run(['powershell','-NoProfile','-File',str(ROOT/'tools/build/ValidationReceipt.ps1'),'-Mode',mode,'-Root',str(root)],capture_output=True)

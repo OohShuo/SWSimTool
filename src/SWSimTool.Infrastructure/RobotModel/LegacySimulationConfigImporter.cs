@@ -1,9 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+#if NET8_0_OR_GREATER
+using JavaScriptSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
 using System.Web.Script.Serialization;
+#endif
 
 namespace SWSimTool.RobotModel
 {

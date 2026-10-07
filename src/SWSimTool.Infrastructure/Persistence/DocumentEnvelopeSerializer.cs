@@ -1,6 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
+#if NET8_0_OR_GREATER
+using JavaScriptSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
 using System.Web.Script.Serialization;
+#endif
 namespace SWSimTool.Persistence {
     public static class DocumentEnvelopeSerializer {
         public static JavaScriptSerializer Serializer()=>new JavaScriptSerializer{MaxJsonLength=16*1024*1024};

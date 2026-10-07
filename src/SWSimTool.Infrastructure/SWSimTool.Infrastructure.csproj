@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
     <AssemblyName>SWSimTool.Infrastructure</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Core" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Xml" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Xml.Linq" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Web.Extensions" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../SWSimTool.Core/SWSimTool.Core.csproj">

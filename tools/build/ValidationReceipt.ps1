@@ -8,7 +8,7 @@ function Hash([string]$Path) {
     try {[BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','')}finally{$stream.Dispose();$algorithm.Dispose()}
 }
 $inputs=@()
-foreach($directory in @("build/bin/SWSimTool.SolidWorks/$Configuration/net48",'runtime/python')) {
+foreach($directory in @("build/bin/SWSimTool.SolidWorks/$Configuration/net48","build/bin/SWSimTool.Cli/$Configuration/net8.0",'runtime/python')) {
     foreach($file in Get-ChildItem -LiteralPath (Join-Path $root $directory) -Recurse -File | Where-Object {$_.Extension -in '.dll','.py','.txt'}) {
         $inputs+=@{path=$file.FullName.Substring($root.Length+1);sha256=(Hash $file.FullName)}
     }

@@ -58,3 +58,5 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 [Python Tool Backend 边界](docs/SWSimTool_ToolBackend.md) · [许可证](LICENSE)
 
 构建验证与 CI 的分层入口见 [测试说明](docs/Testing.md)。
+
+独立的 .NET 8 命令行宿主见 [CLI 使用方法](docs/CLI.md)。SolidWorks 插件继续使用 net48。

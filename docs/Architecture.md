@@ -1,6 +1,6 @@
 # Project boundaries
 
-All four production projects currently target .NET Framework 4.8. The SolidWorks COM assembly remains `SWSimTool.dll`; its CLSID and on-document v2 schema are unchanged by extraction.
+Core, Application and Infrastructure target net48 and net8.0. SolidWorks remains net48; CLI targets net8.0. The SolidWorks COM assembly remains `SWSimTool.dll`; its CLSID and on-document v2 schema are unchanged by extraction.
 
 - **Core** owns immutable robot and simulation snapshots, SI transforms/full inertia, editable configuration records, scalar validation and stable-ID mode semantics. It has no CAD, UI, serializer, process or filesystem implementation.
 - **Application** owns typed tool contracts, simulation assembly, native CAD source coordination, export planning and the stage/prepare/write/validate/publish workflow. Its native CAD source interface cannot select reference generation. File and package operations are supplied through `IAssetStore` / `IPackageStore`; export generation uses `IMjcfWriter`.
@@ -12,3 +12,7 @@ All four production projects currently target .NET Framework 4.8. The SolidWorks
 The independent parity runner references the actual reusable projects rather than compiling copies of production source. `tests/architecture/Test-LayeredArchitecture.py` enforces the project graph, CAD/UI/process/filesystem boundaries, native-only production contract and compile-before-publication ordering.
 
 The projects use SDK-style MSBuild and pinned PackageReference dependencies. `Version.props` is the product-version authority; common build properties isolate each project/configuration/framework below build/. The net48 COM host remains unchanged. Source archives restore from NuGet without repository packages or vendored log4net. Two independent source-archive builds produced identical payload file sets, metadata and all eight DLL hashes; deterministic MJCF and strict compiled/dynamics parity passed. Old dependency versions are retained for this migration, including NuGet-audited log4net 2.0.8.
+
+The compatibility audit found no reusable-layer COM/UI dependence. The remaining framework-specific pieces were System.Web JSON, Windows process ownership and platform filesystem comparisons. Dual net48/net8 targets avoid changing the existing CAD host ABI and preserve its exact on-document JavaScriptSerializer implementation; only the portable target uses a bounded System.Text.Json adapter that returns CLR dictionaries/arrays and preserves integer envelope versions. Frozen old JSON and typed simulation fields are compared across targets.
+
+The CLI consumes existing local URDF/sidecar adapters and the shared NativeBackend composition root. It has no CAD access, mesh model implementation or independent XML generator. Local sidecars require the current SWSimTool product identity; retained on-document v2 compatibility does not imply importing old external preferences or sidecars. net8 Windows and net48 share the same process ownership behavior.

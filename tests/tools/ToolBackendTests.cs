@@ -1,3 +1,8 @@
+﻿#if NET8_0_OR_GREATER
+using JsonSerializer = SWSimTool.Persistence.PortableJsonSerializer;
+#else
+using JsonSerializer = System.Web.Script.Serialization.JavaScriptSerializer;
+#endif
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -85,7 +90,7 @@ internal static class ToolBackendTests
     }
     static PythonToolBackend FaultTool(string root,string fault){
         var path=Path.Combine(root,"fault-"+fault+".py");var support=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"mujoco_backend","native_support.py");
-        var literal=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(support);
+        var literal=new JsonSerializer().Serialize(support);
         var code="import sys, os, runpy, importlib.abc\nsys.path.insert(0, os.path.dirname("+literal+"))\n";
         if(fault=="budget")code+="import simplify_stl\nsimplify_stl.reduce_python=lambda vertices, faces, target, backend: (vertices, faces)\n";
         else code+="class Block(importlib.abc.MetaPathFinder):\n def find_spec(self, fullname, path=None, target=None):\n  if fullname == '"+fault+"': raise ModuleNotFoundError('Controlled missing dependency: '+fullname)\nsys.meta_path.insert(0, Block())\n";

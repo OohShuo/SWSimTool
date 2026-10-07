@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
     <AssemblyName>SWSimTool.Core</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <Reference Include="System" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Core" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@ $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -Li
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $directory | Out-Null
 $bin=Join-Path $root ('build\'+$Payload)
-$interop='D:\sw\sw2025\SOLIDWORKS'
+$interop=if($env:SOLIDWORKS_DIR){$env:SOLIDWORKS_DIR}else{'D:\sw\sw2025\SOLIDWORKS'}
 $refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.swconst.dll","$interop\SolidWorks.Interop.swpublished.dll","$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll",'System.Windows.Forms','System.Drawing','System.Runtime.Serialization','System.Web.Extensions','System.Xml','System.Xml.Linq','System.Core')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 # Native SolidWorks API, no mouse/keyboard automation. Never attach to an existing document.

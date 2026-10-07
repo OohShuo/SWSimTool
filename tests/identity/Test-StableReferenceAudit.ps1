@@ -5,7 +5,7 @@ $testConfiguration=if($env:SWSIMTOOL_TEST_CONFIGURATION){$env:SWSIMTOOL_TEST_CON
 $folder=Join-Path $root ('build\stable-reference-audit-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $folder | Out-Null
 $bin=Join-Path $root ('build\'+$Payload)
-$interop='D:\sw\sw2025\SOLIDWORKS'
+$interop=if($env:SOLIDWORKS_DIR){$env:SOLIDWORKS_DIR}else{'D:\sw\sw2025\SOLIDWORKS'}
 $refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Moq.dll")","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Castle.Core.dll")","$interop\SolidWorks.Interop.sldworks.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
 @("build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Threading.Tasks.Extensions.dll","build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Runtime.CompilerServices.Unsafe.dll") | ForEach-Object { [Reflection.Assembly]::LoadFrom((Join-Path $root $_)) | Out-Null }
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}

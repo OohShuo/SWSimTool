@@ -20,6 +20,7 @@ if(!$MSBuild) {
     if(Test-Path $vswhere) {$MSBuild=(& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1)}
     if(!$MSBuild) {$MSBuild=(Get-Command MSBuild.exe -ErrorAction Stop).Source}
 }
+$env:SOLIDWORKS_DIR=$SolidWorksDir
 New-Item -ItemType Directory -Path "$build/logs","$build/reports","$build/test-results","$build/test-work","$build/native-parity","$build/integration","$build/dist" -Force | Out-Null
 $env:PYTHONDONTWRITEBYTECODE='1'
 $env:SWSIMTOOL_TEST_CONFIGURATION=$Configuration
@@ -34,7 +35,7 @@ function Invoke-Gate([string]$Name,[scriptblock]$Action) {
 Push-Location $root
 try {
     Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /v:minimal }
-    $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
+    $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj','src/SWSimTool.Cli/SWSimTool.Cli.csproj')
     if($Test -or $Package -or $Installer) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
     foreach($project in $projects) {
         $name=[IO.Path]::GetFileNameWithoutExtension($project)
@@ -45,6 +46,7 @@ try {
     }
     if($Package -or $Installer) {
         & "$root/tools/build/AssembleRelease.ps1" -Configuration $Configuration -Python $Python
+        & "$root/tools/build/AssemblePortable.ps1" -Configuration $Configuration
         Invoke-Gate 'payload-validation' { & $Python -B tests/architecture/Test-ReleaseLayout.py }
     }
     if($Installer) {

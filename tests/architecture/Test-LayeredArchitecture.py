@@ -34,6 +34,18 @@ class Architecture(unittest.TestCase):
         self.assertNotRegex(text, r'<Compile Include="[^\"]*src[\\/]')
         for layer in ('Core', 'Application', 'Infrastructure'):
             self.assertIn('SWSimTool.' + layer + '.csproj', text)
+    def test_modern_hosts_share_layers(self):
+        for layer in ('Core', 'Application', 'Infrastructure'):
+            _, project = self.project(layer)
+            self.assertEqual(project.findtext('.//TargetFrameworks'), 'net48;net8.0')
+        _, host = self.project('SolidWorks')
+        self.assertEqual(host.findtext('.//TargetFramework'), 'net48')
+        _, cli = self.project('Cli')
+        self.assertEqual(cli.findtext('.//TargetFramework'), 'net8.0')
+        source = (ROOT / 'src/SWSimTool.Cli/Program.cs').read_text(encoding='utf-8-sig')
+        self.assertIn('NativeBackend.RunAsync', source)
+        self.assertNotRegex(source, r'SolidWorks\.Interop|MjcfExporter\.Generate|BuildReference')
+
     def test_production_contract_is_native_only(self):
         source = (ROOT / 'src/SWSimTool.Application/Simulation/ProjectSourceCoordinator.cs').read_text(encoding='utf-8')
         contract = source[source.index('public interface ICadSource'):source.index('public sealed class ProjectSourceCoordinator')]
