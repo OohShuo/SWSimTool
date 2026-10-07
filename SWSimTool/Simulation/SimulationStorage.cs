@@ -22,7 +22,9 @@ namespace SWSimTool.Simulation {
    }return null;
   }
   public static Document Parse(string data){using(var timing=new SWSimTool.Utilities.PerformanceScope("storage.parse_validate")){
-   ParseCount++;var d=Serializer().Deserialize<Document>(data);
+   ParseCount++;var serializer=Serializer();var envelope=serializer.Deserialize<Dictionary<string,object>>(data);object version;
+   if(envelope==null||!envelope.TryGetValue("version",out version)||!(version is int)||(int)version!=SWSimTool.Persistence.DocumentStorageSchema.SupportedVersion||!envelope.ContainsKey("configurations"))throw new InvalidDataException("SWSimTool requires an explicit version 2 document envelope.");
+   var d=serializer.ConvertToType<Document>(envelope);
    ValidateDocument(d);return d;}
   }
   static void ValidateDocument(Document d){

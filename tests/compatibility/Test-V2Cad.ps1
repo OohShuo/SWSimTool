@@ -1,10 +1,10 @@
-param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='swsimtool-release')
+﻿param([Parameter(Mandatory=$true)][string]$OwnedLegacyFixture,[string]$Payload='swsimtool-release')
 $ErrorActionPreference='Stop'
 if(Get-Process SLDWORKS -ErrorAction SilentlyContinue){throw 'Refusing compatibility CAD test with an existing SolidWorks session'}
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})
 $source=(Resolve-Path -LiteralPath $OwnedLegacyFixture).Path
 $allowed=(Join-Path $root 'build')+[IO.Path]::DirectorySeparatorChar
-if(-not $source.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)){throw 'Only an owned fixture under repository build/ is accepted'}
+if(-not $source.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -and $source -ne [IO.Path]::GetFullPath((Join-Path $root 'tests/fixtures/sw2mujoco-v2/cad'))){throw 'Only owned build fixtures or the frozen compatibility fixture are accepted'}
 $folder=Join-Path $root ('build/swsimtool-v2-cad-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $folder | Out-Null
 Get-ChildItem -LiteralPath $source -File | Where-Object {$_.Extension -in '.SLDASM','.SLDPRT'} | ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $folder}

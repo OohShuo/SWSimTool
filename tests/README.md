@@ -1,4 +1,4 @@
-﻿# 测试目录
+# 测试目录
 
 | 目录 | 内容 |
 |---|---|
@@ -31,3 +31,7 @@ python tests/architecture/Test-ReleaseLayout.py
 `tests/core/CoreTests.csproj`、`tests/parity/CandidateRunner.csproj` 和 `tests/upstream/SWSimTool.Tests.csproj` 是独立测试构建入口。测试依赖不会进入生产 DLL 或安装包。
 
 CAD、官方及安装集成测试不会随上述纯回归自动运行。需要 SolidWorks 的测试仅可在独立空会话和明确指定的隔离 fixture 上执行，不得使用用户已有工程；官方 runner 会在会话已有文档时拒绝运行。
+
+## Modernization compatibility gates
+
+`tests/compatibility/Test-V2Persistence.ps1` reads immutable old JSON/XML. `tests/compatibility/Test-V2Cad.ps1 -OwnedLegacyFixture tests/fixtures/sw2mujoco-v2/cad` copies the frozen old CAD fixture into build/ and checks read-only load, save/reopen, stable identities and validated native export. No user project is used.

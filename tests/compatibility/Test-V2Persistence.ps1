@@ -1,4 +1,4 @@
-param([string]$Payload='swsimtool-release')
+﻿param([string]$Payload='swsimtool-release')
 $ErrorActionPreference='Stop'
 $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Path $p 'SWSimTool.sln')){$p;break}})
 $bin=Join-Path $root ('build/'+$Payload)
@@ -23,6 +23,7 @@ public static class V2Compatibility {
   Check(before==new JavaScriptSerializer().Serialize(reopened.simulation),"Simulation survives save/reopen");
   Check(DocumentStorageSchema.AttributeName=="SW2MuJoCo Configuration","Storage identifier retained");
   foreach(int version in new[]{1,3}){bool rejected=false;try{SimulationStorage.Parse(raw.Replace("\"version\":2","\"version\":"+version));}catch(Exception){rejected=true;}Check(rejected,"Unsupported version "+version+" rejected");}
+  foreach(string bad in new[]{"{}",raw.Replace("\"version\":2,", ""),"{\"version\":2}"}){bool rejected=false;try{SimulationStorage.Parse(bad);}catch(Exception){rejected=true;}Check(rejected,"Missing explicit storage envelope rejected");}
   bool invalid=false;try{ConfigurationSerialization.ReadTree("<broken/>",1.4);}catch(InvalidDataException){invalid=true;}Check(invalid,"Invalid XML explicitly rejected");
   arm.Name=arm.Text=arm.Link.Name="renamed_arm";StableReferences.Normalize(original.simulation,tree);Check(arm.Link.StableId==id&&original.simulation.actuators[0].joint_id==jointId,"Rename retains identity");
   Check(MuJoCoSettings.DefaultPath.Contains("SWSimTool")&&MeshExportSettings.DefaultPath.Contains("SWSimTool"),"Local preferences isolated");
