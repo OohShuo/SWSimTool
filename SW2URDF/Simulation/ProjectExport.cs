@@ -13,7 +13,9 @@ namespace SW2URDF.Simulation {
   public string ExportId{get;}=Guid.NewGuid().ToString("N");
   public static int SourceBuildCount{get;private set;}
   public ExportPlan Plan{get;private set;}
-  public ProjectExport(SldWorks app,ModelDoc2 expected,string configuration,bool nativeOnly=false){
+  public ProjectExport(SldWorks app,ModelDoc2 expected,string configuration):this(app,expected,configuration,true){}
+  public static ProjectExport ForReferenceTests(SldWorks app,ModelDoc2 expected,string configuration)=>new ProjectExport(app,expected,configuration,false);
+  private ProjectExport(SldWorks app,ModelDoc2 expected,string configuration,bool nativeOnly){
    if(!ReferenceEquals(app.ActiveDoc,expected)||expected.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("当前装配或 Configuration 已切换，请重新打开工程导出。");
    document=expected;temporary=Path.Combine(Path.GetTempPath(),"SW2MuJoCo-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
    try{
@@ -21,7 +23,7 @@ namespace SW2URDF.Simulation {
     var entry=SimulationStorage.LoadEntry(expected);double treeVersion;string treeData=entry==null?ConfigurationSerialization.GetLegacyConfigTreeData(expected,out treeVersion):entry.urdf_xml;
     string source=ProjectSourceCache.Source(app,expected,treeData),geometry=ProjectSourceCache.Geometry(current);
     var cached=ProjectSourceCache.Find(expected,source,geometry);
-    if(cached!=null&&(nativeOnly?cached.core==null||cached.resolvedGeometry==null:cached.urdf==null))cached=null;
+    if(cached!=null&&(cached.nativeSource!=nativeOnly||(nativeOnly?cached.core==null||cached.resolvedGeometry==null:cached.urdf==null)))cached=null;
     Plan=ExportPlan.Build(cached!=null,SimulationSession.Dirty(expected)|ExportFingerprint.Changed(cached?.project,current));
     if(cached!=null){
      Core=cached.core;
@@ -45,12 +47,12 @@ namespace SW2URDF.Simulation {
      if(Core!=null&&cached.resolvedGeometry!=null)simulation=SimulationConfigBuilder.Build(current,Core,cached.resolvedGeometry);return;
     }
     SourceBuildCount++;CadRevision.Invalidate(expected);
-    var built=ProjectSourceBuilder.Build(app,expected,temporary,current,nativeOnly);
+    var built=nativeOnly?ProjectSourceBuilder.BuildNative(app,expected,temporary,current):ProjectSourceBuilder.BuildReference(app,expected,temporary,current);
     Core=built.Core;Urdf=built.Urdf;Sidecar=built.Sidecar;
     simulation=SimulationConfigBuilder.Build(current,Core,built.Geometry);
     // CAD/export preferences may change the stamp: cache the final revision.
     source=ProjectSourceCache.Source(app,expected,treeData);
-    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,built.LegacyData,built.Frames,Core,built.Geometry);
+    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,built.LegacyData,built.Frames,Core,built.Geometry,nativeOnly);
     var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=stored.urdf==null?null:Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }

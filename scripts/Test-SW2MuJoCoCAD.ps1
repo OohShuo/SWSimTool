@@ -52,7 +52,7 @@ public static class SW2MuJoCoProbe {
   helper.Simulation.Project.attachments.RemoveAll(a=>a.name=="unfinished");
   helper.PackageName="with_config";helper.ExportSimulationInformation=true;helper.ExportRobot();Check(File.Exists(helper.LastSimulationPath),"optional URDF sidecar export remains available");
   var service=helper.GetSimulation();var source=service.Sources().First(s=>s.Type=="frame");service.Project.attachments.Add(service.Capture(source,"arm","probe_frame"));service.Save();
-  using(var output=new ProjectExport(sw,model,first)){
+  using(var output=ProjectExport.ForReferenceTests(sw,model,first)){
    var sidecar=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(output.Sidecar));Check(sidecar.ContainsKey("attachments"),"engineering export resolves sites against exported robot frames");
    string final=Path.Combine(directory,"engineering_mjcf","engineering.xml");
    int code=PythonBackend.RunAsync(@"D:\Softwaves\python\python.exe",output.Urdf,output.Sidecar,final,false,null,Console.WriteLine).GetAwaiter().GetResult();

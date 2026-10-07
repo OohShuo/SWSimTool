@@ -37,7 +37,7 @@ public static class NativeIncrementalProbe {
  }
  static object Stage(SldWorks sw,ModelDoc2 model,string directory,string label,string settings){
   int g=ExportInstrumentation.GeometryQueries,s=ExportInstrumentation.StlExports,b=ProjectExport.SourceBuildCount;
-  using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name,NativeOnly)){
+  using(var export=NativeOnly?new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name):ProjectExport.ForReferenceTests(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){
    if(NativeOnly){
     Check(export.Urdf==null,"engineering export has no intermediate URDF");
     Check(export.Sidecar==null,"engineering model construction has no sidecar JSON bridge");

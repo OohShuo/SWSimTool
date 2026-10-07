@@ -277,7 +277,7 @@ namespace SW2URDF.SW
         public void OpenExistingPreview(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Preview));}
         public void OpenProjectExport(){
             ModelDoc2 model=SwApp.ActiveDoc;if(model==null)return;string configuration=model.ConfigurationManager.ActiveConfiguration.Name;
-            var form=new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Project,()=>new ProjectExport((SldWorks)SwApp,model,configuration,true));
+            var form=new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Project,()=>new ProjectExport((SldWorks)SwApp,model,configuration));
             form.SetProjectName(System.IO.Path.GetFileNameWithoutExtension(model.GetTitle()));ShowTools(form);
         }
         void ShowTools(MuJoCoToolsForm form){if(muJoCoTools!=null&&!muJoCoTools.IsDisposed){muJoCoTools.Close();if(!muJoCoTools.IsDisposed){form.Dispose();return;}}muJoCoTools=form;form.Show();form.BringToFront();}

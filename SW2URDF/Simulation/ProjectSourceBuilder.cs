@@ -18,14 +18,16 @@ namespace SW2URDF.Simulation
     }
     internal static class ProjectSourceBuilder
     {
-        internal static ProjectSourceResult Build(SldWorks app,ModelDoc2 document,string workspace,SimulationProject project,bool native)
+        internal static ProjectSourceResult BuildNative(SldWorks app,ModelDoc2 document,string workspace,SimulationProject project)=>Build(app,document,workspace,project,BuildNative);
+        internal static ProjectSourceResult BuildReference(SldWorks app,ModelDoc2 document,string workspace,SimulationProject project)=>Build(app,document,workspace,project,BuildReference);
+        static ProjectSourceResult Build(SldWorks app,ModelDoc2 document,string workspace,SimulationProject project,Func<ExportHelper,SW2URDF.URDF.LinkNode,string,ProjectSourceResult> buildSource)
         {
             bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(document,out error);
             if(error||tree==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
             CommonSwOperations.LoadSWComponents(document,tree,new List<string>());
             var helper=new ExportHelper(app){SavePath=workspace,PackageName="robot",ShowExportLocation=false,ExportSimulationInformation=true};
             helper.GetSimulation().Project=project;
-            var result=native?BuildNative(helper,tree,workspace):BuildReference(helper,tree,workspace);
+            var result=buildSource(helper,tree,workspace);
             result.Frames=helper.GetSimulation().LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray());
             helper.GetSimulation().UseExportFrames(result.Frames);
             result.Geometry=helper.GetSimulation().ResolveNativeGeometry(result.Core);
