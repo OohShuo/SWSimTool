@@ -134,13 +134,14 @@ namespace SW2URDF.Simulation
             // Newly exported sidecars use the safe internal-collision default;
             // already exported legacy sidecars remain unchanged on disk.
             Project.collision = Project.collision ?? new CollisionConfiguration();
+            var modeIdentities=LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(Project,modeIdentities);
             // The caller chooses the configured tree or actual exported robot frames.
             foreach (var geometry in Project.collision.geometries) ResolveCollision(geometry);
 
             Project.assembly=Model.GetPathName();Project.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
             var result = new Dictionary<string, object> { { "schema_version", 1 }, { "assembly", Project.assembly }, { "configuration", Project.configuration },
                 { "urdf", Path.GetFileName(urdfPath) }, { "units", "m,rad" }, { "attachments", items },
-                { "site_forces", Project.site_forces }, { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision }, { "solver", Project.solver }, { "joint_defaults", Project.joint_defaults }, { "joints", Project.joints }, { "base_mode", Project.base_mode }, { "joint_force_limits", Project.joint_force_limits } };
+                { "site_forces", Project.site_forces }, { "actuators", Project.actuators }, { "sensors", Project.sensors }, { "equalities", Project.equalities }, { "collision", Project.collision.LegacyExport(modeIdentities) }, { "solver", Project.solver }, { "joint_defaults", Project.joint_defaults }, { "joints", Project.joints }, { "base_mode", Project.base_mode }, { "joint_force_limits", Project.joint_force_limits } };
             if(exporter.URDFRobot?.BaseLink!=null) {
                 var links=new Dictionary<string,string>();var joints=new Dictionary<string,string>();
                 Action<Link> visit=null;visit=link=>{links.Add(link.Name,link.StableId);if(link.Parent!=null)joints.Add(link.Joint.Name,link.Joint.StableId);foreach(var child in link.Children)visit(child);};visit(exporter.URDFRobot.BaseLink);

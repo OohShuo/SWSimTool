@@ -58,6 +58,16 @@ namespace SW2URDF.Simulation
     {
         public bool disable_internal { get; set; } = true;
         public Dictionary<string, string> link_modes { get; set; } = new Dictionary<string, string>();
+        // link_modes is legacy input/export projection only; never runtime identity.
+        public Dictionary<string, string> link_modes_by_id { get; set; } = new Dictionary<string, string>();
+        public bool link_modes_migrated { get; set; }
+        public string Mode(string id){string value;return link_modes_by_id.TryGetValue(id,out value)?value:"mesh";}
+        public void SetMode(string id,string value){if(string.IsNullOrWhiteSpace(id)||!new[]{"mesh","primitive","none"}.Contains(value))throw new InvalidOperationException("Invalid collision mode binding");link_modes_by_id[id]=value;link_modes_migrated=true;link_modes.Clear();}
+        public CollisionConfiguration LegacyExport(IDictionary<string,string> namesById){
+            var projection=new Dictionary<string,string>();
+            foreach(var pair in link_modes_by_id){string name;if(!namesById.TryGetValue(pair.Key,out name))throw new InvalidOperationException("Collision mode link ID is unresolved: "+pair.Key);projection.Add(name,pair.Value);}
+            return new CollisionConfiguration{disable_internal=disable_internal,link_modes=projection,link_modes_by_id=new Dictionary<string,string>(link_modes_by_id),link_modes_migrated=true,geometries=geometries,allowed_pairs=allowed_pairs};
+        }
         public List<CollisionGeometry> geometries { get; set; } = new List<CollisionGeometry>();
         public List<CollisionPair> allowed_pairs { get; set; } = new List<CollisionPair>();
     }

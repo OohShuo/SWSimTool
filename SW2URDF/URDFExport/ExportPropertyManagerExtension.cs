@@ -326,7 +326,9 @@ namespace SW2URDF.URDFExport
                         string oldName=previouslySelectedNode.Link.Name,newName=PMTextBoxLinkName.Text;
                         foreach(var geometry in collision.geometries)if(geometry.link==oldName)geometry.link=newName;
                         foreach(var pair in collision.allowed_pairs){if(pair.link1==oldName)pair.link1=newName;if(pair.link2==oldName)pair.link2=newName;}
-                        string mode;if(collision.link_modes.TryGetValue(oldName,out mode)){collision.link_modes.Remove(oldName);collision.link_modes[newName]=mode;}
+                        // Bind any legacy modes to the unchanged tree before renaming; ID modes need no rename.
+                        var modeRoot=previouslySelectedNode;while(modeRoot.Parent is LinkNode)modeRoot=(LinkNode)modeRoot.Parent;
+                        SW2URDF.Simulation.StableReferences.MigrateLegacyLinkModesByName(Exporter.Simulation.Project,SW2URDF.Simulation.StableReferences.LinkNames(modeRoot));
                     }
                 previouslySelectedNode.Link.Name = PMTextBoxLinkName.Text;
                 if (!previouslySelectedNode.IsBaseNode)

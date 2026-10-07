@@ -49,7 +49,8 @@ namespace SW2URDF.Simulation
             Func<string,string,string> site=(id,name)=>Reference(id,name,sites);
             var solver=p.solver==null?null:new SolverSnapshot(p.solver.timestep,p.solver.iterations,p.solver.tolerance,p.solver.noslip_iterations,p.solver.impratio,p.solver.enabled,Constraint(p.solver.equality),Constraint(p.solver.contact));
             var collision=p.collision??new CollisionConfiguration();
-            var modes=collision.link_modes.ToDictionary(x=>Reference(links.ContainsKey(x.Key)?x.Key:null,x.Key,links),x=>x.Value);
+            StableReferences.MigrateLegacyLinkModesByName(p,links);
+            var modes=collision.link_modes_by_id.ToDictionary(x=>Reference(x.Key,null,links),x=>x.Value);
             var pairs=collision.allowed_pairs.Select(x=>new ContactPairSnapshot(Link1:link(x.link1_id,x.link1),Link1Id:link(x.link1_id,x.link1),Link2:link(x.link2_id,x.link2),Link2Id:link(x.link2_id,x.link2),Solver:Constraint(x.solver)));
             var collisionSnapshot=new CollisionSnapshot(collision.disable_internal,geometry.Collisions,pairs,modes);
             var settings=p.joints.Select(x=>new JointSettingsSnapshot(Joint:joint(x.joint_id,x.joint),JointId:joint(x.joint_id,x.joint),Type:x.type,LimitMode:x.limit_mode,SpringMode:x.spring_mode,Damping:x.damping,Frictionloss:x.frictionloss,Armature:x.armature,Stiffness:x.stiffness,Springref:x.springref,Ref:x.@ref,Margin:x.margin,Lower:x.lower,Upper:x.upper,Pos:x.pos,Axis:x.axis,LimitSolver:Constraint(x.limit_solver),FrictionSolver:Constraint(x.friction_solver)));

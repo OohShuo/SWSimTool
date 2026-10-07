@@ -34,6 +34,7 @@ namespace SW2URDF.UI
     {
         readonly AttachmentService service;
         readonly SimulationProject draft;
+        readonly Dictionary<string,string> linkIds;
         readonly CollisionPreview preview;
         readonly ComboBox link=new CollisionComboBox(),shape=new CollisionComboBox(),definition=new CollisionComboBox(),mode=new CollisionComboBox(),extrusion=new CollisionComboBox(),axis=new CollisionComboBox(),axisSign=new CollisionComboBox();
         readonly ComboBox[] signs={new CollisionComboBox(),new CollisionComboBox(),new CollisionComboBox()};
@@ -60,6 +61,7 @@ namespace SW2URDF.UI
         public CollisionEditorControl(AttachmentService service,string selectedLink)
         {
             this.service=service;draft=Clone(service.Project);draft.collision=draft.collision??new CollisionConfiguration();
+            var identities=service.LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(draft,identities);linkIds=identities.ToDictionary(x=>x.Value,x=>x.Key);
             preview=new CollisionPreview(service);Dock=DockStyle.Fill;AutoScroll=false;
             configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
             var tabs=new TabControl{Dock=DockStyle.Fill};Controls.Add(tabs);
@@ -96,12 +98,12 @@ namespace SW2URDF.UI
             name.TextChanged+=(s,e)=>{if(loading||current==null)return;current.name=name.Text.Trim();RefreshNames();};
             foreach(var combo in new[]{extrusion,axis,axisSign}.Concat(signs))combo.SelectedIndexChanged+=(s,e)=>Schedule();show.CheckedChanged+=(s,e)=>Schedule();
             link.SelectedIndexChanged+=(s,e)=>{if(loading)return;try{ReadCurrent(true);RefreshList();}catch(Exception ex){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text=ex.Message;}};
-            mode.SelectedIndexChanged+=(s,e)=>{if(loading||link.SelectedItem==null)return;draft.collision.link_modes[(string)link.SelectedItem]=new[]{"mesh","primitive","none"}[mode.SelectedIndex];};
+            mode.SelectedIndexChanged+=(s,e)=>{if(loading||link.SelectedItem==null)return;draft.collision.SetMode(linkIds[(string)link.SelectedItem],new[]{"mesh","primitive","none"}[mode.SelectedIndex]);};
             list.SelectedIndexChanged+=(s,e)=>{if(loading)return;try{ReadCurrent(true);current=list.SelectedItem as CollisionGeometry;LoadCurrent();}catch(Exception ex){loading=true;list.SelectedItem=current;loading=false;status.Text=ex.Message;}};
             shape.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;current.type=(string)shape.SelectedItem;current.size=current.type=="box"?new[]{.05,.04,.03}:current.type=="sphere"?new[]{.01}:new[]{.01,.05};current.definition="manual";current.references.Clear();current.dimension_references.Clear();LoadCurrent();RefreshNames();};
             definition.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;Guard(()=>ReadCurrent(true));current.definition=((Choice)definition.SelectedItem).Key;current.references.Clear();current.dimension_references.Clear();LoadCurrent();};
-            create.Click+=(s,e)=>Guard(()=>{ReadCurrent(true);if(link.SelectedItem==null)return;var g=new CollisionGeometry{link=(string)link.SelectedItem,name="collision_"+Guid.NewGuid().ToString("N").Substring(0,8)};draft.collision.geometries.Add(g);draft.collision.link_modes[g.link]="primitive";RefreshList(g);});
-            remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.link_modes[owner]=="primitive")draft.collision.link_modes[owner]="none";current=null;RefreshList();};
+            create.Click+=(s,e)=>Guard(()=>{ReadCurrent(true);if(link.SelectedItem==null)return;var g=new CollisionGeometry{link=(string)link.SelectedItem,link_id=linkIds[(string)link.SelectedItem],name="collision_"+Guid.NewGuid().ToString("N").Substring(0,8)};draft.collision.geometries.Add(g);draft.collision.SetMode(g.link_id,"primitive");RefreshList(g);});
+            remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.Mode(linkIds[owner])=="primitive")draft.collision.SetMode(linkIds[owner],"none");current=null;RefreshList();};
             allow.Click+=(s,e)=>Guard(()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请先修正当前碰撞对的无效数字。");string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
@@ -121,7 +123,7 @@ namespace SW2URDF.UI
         static void Values(TextBox[] fields,double[] values,double scale){for(int i=0;i<fields.Length;i++)fields[i].Text=(i<values.Length?values[i]*scale:0).ToString("G12",CultureInfo.InvariantCulture);}
         void Visible(Control c,bool visible){rows[c].Visible=visible;}
         void RefreshNames(){loading=true;int selected=list.SelectedIndex;for(int i=0;i<list.Items.Count;i++)list.Items[i]=list.Items[i];list.SelectedIndex=selected;loading=false;}
-        void RefreshList(CollisionGeometry select=null){loading=true;displayedLink=(string)link.SelectedItem;list.Items.Clear();foreach(var g in draft.collision.geometries.Where(g=>g.link==displayedLink))list.Items.Add(g);string m;draft.collision.link_modes.TryGetValue(displayedLink,out m);mode.SelectedIndex=m=="primitive"?1:m=="none"?2:0;list.SelectedItem=select??list.Items.Cast<CollisionGeometry>().FirstOrDefault();current=list.SelectedItem as CollisionGeometry;loading=false;LoadCurrent();}
+        void RefreshList(CollisionGeometry select=null){loading=true;displayedLink=(string)link.SelectedItem;list.Items.Clear();foreach(var g in draft.collision.geometries.Where(g=>g.link==displayedLink))list.Items.Add(g);string m=draft.collision.Mode(linkIds[displayedLink]);mode.SelectedIndex=m=="primitive"?1:m=="none"?2:0;list.SelectedItem=select??list.Items.Cast<CollisionGeometry>().FirstOrDefault();current=list.SelectedItem as CollisionGeometry;loading=false;LoadCurrent();}
         void LoadCurrent(){JointEditorControl.PreserveScroll(this,LoadCurrentCore);}
   void LoadCurrentCore(){
             loading=true;armed=-1;armedDimension=null;definition.Items.Clear();
@@ -194,8 +196,8 @@ namespace SW2URDF.UI
         public void Save(){
             if(solverInvalid.Count>0)throw new InvalidOperationException("请修正求解参数中的无效数字。");draft.ValidateSolver();timer.Stop();if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("SW Configuration 已切换，请重新进入碰撞配置。");ReadCurrent();
             var frames=service.LinkTransforms();var names=new HashSet<string>();foreach(var g in draft.collision.geometries){service.ResolveCollision(g);if(!names.Add(g.name))throw new InvalidOperationException("碰撞几何体名称重复："+g.name);}
-            foreach(var m in draft.collision.link_modes){if(!frames.ContainsKey(m.Key))throw new InvalidOperationException("link 已失效："+m.Key);if(m.Value=="primitive"&&!draft.collision.geometries.Any(g=>g.link==m.Key))throw new InvalidOperationException("简单几何体模式至少需要一个几何体。");}
-            foreach(var p in draft.collision.allowed_pairs){string a,b;if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");draft.collision.link_modes.TryGetValue(p.link1,out a);draft.collision.link_modes.TryGetValue(p.link2,out b);if(a=="none"||b=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}
+            foreach(var m in draft.collision.link_modes_by_id){var owner=linkIds.SingleOrDefault(x=>x.Value==m.Key);if(owner.Key==null)throw new InvalidOperationException("碰撞模式 link ID 已失效："+m.Key);if(m.Value=="primitive"&&!draft.collision.geometries.Any(g=>g.link==owner.Key))throw new InvalidOperationException("简单几何体模式至少需要一个几何体。");}
+            foreach(var p in draft.collision.allowed_pairs){if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");if(draft.collision.Mode(linkIds[p.link1])=="none"||draft.collision.Mode(linkIds[p.link2])=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}
             draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=Clone(draft);try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
         }
         protected override void Dispose(bool disposing){if(disposing){timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}

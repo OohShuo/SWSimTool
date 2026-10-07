@@ -9,15 +9,28 @@ namespace SW2URDF.Simulation
     // Persist identity in the saved tree; refresh export names only at the storage boundary.
     public static class StableReferences
     {
-        public static void RemapModes(SimulationProject project, LinkNode previous, LinkNode current)
+        public static Dictionary<string,string> LinkNames(LinkNode tree)
         {
-            if(project?.collision==null||previous==null||current==null)return;
             var names=new Dictionary<string,string>();
-            Action<LinkNode> visit=null;visit=n=>{names.Add(n.Link.StableId,n.Name);foreach(LinkNode c in n.Nodes)visit(c);};visit(current);
-            var modes=project.collision.link_modes;var updated=new Dictionary<string,string>();
-            visit=n=>{string mode,name;if(modes.TryGetValue(n.Name,out mode)&&names.TryGetValue(n.Link.StableId,out name))updated[name]=mode;foreach(LinkNode c in n.Nodes)visit(c);};visit(previous);
-            foreach(var pair in modes)if(!updated.ContainsKey(pair.Key)&&names.Values.Contains(pair.Key))updated[pair.Key]=pair.Value;
-            project.collision.link_modes=updated;
+            if(tree!=null){Action<LinkNode> visit=null;visit=n=>{names.Add(n.Link.StableId,n.Name);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);}return names;
+        }
+        public static void MigrateLegacyLinkModesByName(SimulationProject project,IDictionary<string,string> namesById)
+        {
+            var collision=project?.collision;if(collision==null)return;
+            if(collision.link_modes==null||collision.link_modes_by_id==null)throw new InvalidDataException("Collision modes are corrupt");
+            if(!collision.link_modes_migrated&&collision.link_modes_by_id.Count==0){
+                var migrated=new Dictionary<string,string>();
+                foreach(var pair in collision.link_modes){var matches=namesById.Where(x=>x.Value==pair.Key).ToArray();if(matches.Length!=1)throw new InvalidDataException("Unknown or ambiguous legacy collision link: "+pair.Key);migrated.Add(matches[0].Key,pair.Value);}
+                collision.link_modes_by_id=migrated;
+            }
+            collision.link_modes_migrated=true;collision.link_modes.Clear();
+        }
+        public static void RemapLinkModesByStableId(SimulationProject project)
+        {
+            var collision=project?.collision;if(collision==null)return;
+            if(!collision.link_modes_migrated)throw new InvalidDataException("Migrate legacy collision modes before remapping");
+            // Deleted IDs remain unresolved. Never transfer their settings to a same-name link.
+            collision.link_modes_by_id=new Dictionary<string,string>(collision.link_modes_by_id);collision.link_modes.Clear();
         }
         public static void Normalize(SimulationProject project, LinkNode tree)
         {
@@ -32,6 +45,7 @@ namespace SW2URDF.Simulation
                 foreach (LinkNode child in node.Nodes) visit(child);
             };
             visit(tree);
+            MigrateLegacyLinkModesByName(project,links);
             foreach (var item in project.attachments) { var r = Resolve(links,item.link_id,item.link); item.link_id=r.Key; item.link=r.Value; }
             foreach (var item in project.actuators) { item.id=Identity(item.id);var r=Resolve(joints,item.joint_id,item.joint);item.joint_id=r.Key;item.joint=r.Value; }
             foreach (var item in project.sensors) item.id=Identity(item.id);

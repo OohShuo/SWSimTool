@@ -48,7 +48,10 @@ namespace SW2URDF.Simulation {
    var serializer=ExportFingerprint.Serializer();var result=serializer.Deserialize<Dictionary<string,object>>(serializer.Serialize(entry.sidecar));var fields=serializer.Deserialize<Dictionary<string,object>>(serializer.Serialize(current));
    foreach(string key in new[]{"site_forces","actuators","sensors","equalities","solver","joint_defaults","joints","base_mode","joint_force_limits"})result[key]=fields[key];
    var collision=serializer.Deserialize<CollisionConfiguration>(serializer.Serialize(result["collision"]));
-   collision.disable_internal=current.collision.disable_internal;collision.link_modes=current.collision.link_modes;collision.allowed_pairs=current.collision.allowed_pairs;result["collision"]=collision;
+   var identities=entry.core?.Links.ToDictionary(x=>x.Id,x=>x.Name)??new Dictionary<string,string>();
+   if(identities.Count==0&&result.ContainsKey("identities")){var identity=(Dictionary<string,object>)result["identities"];foreach(var p in (Dictionary<string,object>)identity["links"])identities.Add(Convert.ToString(p.Value),p.Key);}
+   StableReferences.MigrateLegacyLinkModesByName(current,identities);var projected=current.collision.LegacyExport(identities);
+   collision.disable_internal=current.collision.disable_internal;collision.link_modes=projected.link_modes;collision.link_modes_by_id=projected.link_modes_by_id;collision.link_modes_migrated=true;collision.allowed_pairs=current.collision.allowed_pairs;result["collision"]=collision;
    return result;
   }
  }

@@ -63,7 +63,10 @@ namespace SW2URDF.RobotModel
             if(collision!=null) {
                 foreach(var item in Config.Items(collision,"geometries"))bind(item,"link",links);
                 foreach(var item in Config.Items(collision,"allowed_pairs")){bind(item,"link1",links);bind(item,"link2",links);}
-                var modes=Config.D(collision,"link_modes");if(modes!=null){var normalized=new Dictionary<string,object>();foreach(var pair in modes){var name=pair.Key;var key=links.ContainsKey(name)?name:links.SingleOrDefault(p=>p.Value==name).Key;if(key==null)throw new InvalidDataException("Unknown collision link: "+name);normalized.Add(key,pair.Value);}collision["link_modes"]=normalized;}
+                var stable=Config.B(collision,"link_modes_migrated",false)||Config.D(collision,"link_modes_by_id")?.Count>0;
+                var modes=Config.D(collision,stable?"link_modes_by_id":"link_modes");
+                if(stable&&modes==null)throw new InvalidDataException("Missing stable collision mode map");
+                if(modes!=null){var normalized=new Dictionary<string,object>();foreach(var pair in modes){var key=stable?(links.ContainsKey(pair.Key)?pair.Key:null):links.ContainsKey(pair.Key)?pair.Key:links.SingleOrDefault(p=>p.Value==pair.Key).Key;if(key==null)throw new InvalidDataException("Unknown collision link: "+pair.Key);normalized.Add(key,pair.Value);}collision["link_modes"]=normalized;}
             }
             return ReadSimulationConfigSnapshot(input);
         }

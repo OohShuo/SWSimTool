@@ -27,6 +27,12 @@ namespace SW2URDF.Simulation
         {
             collisionTree=tree;InvalidateCADCache(false);
         }
+        public Dictionary<string,string> LinkIdentities(){
+            if(collisionTree!=null)return StableReferences.LinkNames(collisionTree);
+            var names=new Dictionary<string,string>();var root=exporter.URDFRobot?.BaseLink;
+            if(root==null)throw new InvalidOperationException("Configured link identities are unavailable");
+            Action<SW2URDF.URDF.Link> visit=null;visit=l=>{names.Add(l.StableId,l.Name);foreach(var child in l.Children)visit(child);};visit(root);return names;
+        }
         public Dictionary<string, Matrix<double>> LinkTransforms()
         {
             if(exportFrames!=null)return exportFrames;

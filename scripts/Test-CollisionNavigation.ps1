@@ -35,7 +35,9 @@ public static class CollisionNavigationProbe {
   var second=new CollisionGeometry{link="yaw",name="second"};var other=new CollisionGeometry{link="pitch",name="other"};
   service.Project.collision.geometries.AddRange(new[]{first,second,other});service.Project.collision.link_modes["yaw"]="primitive";
   service.Project.collision.allowed_pairs.AddRange(new[]{new CollisionPair{link1="yaw",link2="pitch"},new CollisionPair{link1="yaw",link2="base"}});
-  Set(service,"collisionTree",FormatterServices.GetUninitializedObject(typeof(SW2URDF.URDF.LinkNode)));
+  var identityRoot=new SW2URDF.URDF.Robot().BaseLink;identityRoot.Name="yaw";
+  foreach(var n in new[]{"pitch","base"}){var l=new SW2URDF.URDF.Link(identityRoot);l.Name=n;identityRoot.Children.Add(l);}
+  Set(service,"collisionTree",new SW2URDF.URDF.LinkNode(identityRoot));
   Set(service,"cachedRevision",service.CollisionRevision);Set(service,"cachedFrames",new Dictionary<string,Matrix<double>>{{"yaw",DenseMatrix.CreateIdentity(4)},{"pitch",DenseMatrix.CreateIdentity(4)},{"base",DenseMatrix.CreateIdentity(4)}});
   using(var editor=new CollisionEditorControl(service,"yaw")){
    ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
