@@ -24,7 +24,8 @@ namespace SW2URDF.Simulation
         {
             bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(document,out error);
             if(error||tree==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
-            CommonSwOperations.LoadSWComponents(document,tree,new List<string>());
+            CadTreeReferences.Normalize(document,tree,true);
+            LoadComponents(document,tree);
             var helper=new ExportHelper(app){SavePath=workspace,PackageName="robot",ShowExportLocation=false,ExportSimulationInformation=true};
             helper.GetSimulation().Project=project;
             var result=buildSource(helper,tree,workspace);
@@ -32,6 +33,11 @@ namespace SW2URDF.Simulation
             helper.GetSimulation().UseExportFrames(result.Frames);
             result.Geometry=helper.GetSimulation().ResolveNativeGeometry(result.Core);
             return result;
+        }
+        static void LoadComponents(ModelDoc2 document,SW2URDF.URDF.LinkNode tree)
+        {
+            var unresolved=new List<string>();CommonSwOperations.LoadSWComponents(document,tree,unresolved);
+            if(unresolved.Count!=0)throw new InvalidDataException("Unresolved CAD component reference in link: "+string.Join(", ",unresolved));
         }
         static ProjectSourceResult BuildNative(ExportHelper helper,SW2URDF.URDF.LinkNode tree,string workspace)
         {

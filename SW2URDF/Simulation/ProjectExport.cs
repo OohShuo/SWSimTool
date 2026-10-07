@@ -30,20 +30,20 @@ namespace SW2URDF.Simulation {
      bool geometryChanged=cached.geometry!=geometry;
      if(nativeOnly){
       var resolvedGeometry=cached.resolvedGeometry;
-      if(cached.geometry!=geometry){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);resolvedGeometry=resolver.ResolveNativeGeometry(Core);cached.resolvedGeometry=resolvedGeometry;cached.geometry=geometry;}
+      if(cached.geometry!=geometry){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);resolvedGeometry=resolver.ResolveNativeGeometry(Core);cached.resolvedGeometry=resolvedGeometry;cached.geometry=geometry;}
       simulation=SimulationConfigBuilder.Build(current,Core,resolvedGeometry);return;
      }
      Urdf=cached.urdf==null?null:Path.Combine(cached.folder,cached.urdf);Sidecar=Path.Combine(temporary,"robot.sim.json");
      System.Collections.Generic.Dictionary<string,object> data;
      if(cached.geometry==geometry)data=ProjectSourceCache.Overlay(cached,current);
      else{
-      var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);
+      var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);
       data=resolver.Export(Urdf??"robot.urdf");if(cached.sidecar.ContainsKey("urdf_sha256"))data["urdf_sha256"]=cached.sidecar["urdf_sha256"];
       if(cached.sidecar.ContainsKey("identities"))data["identities"]=cached.sidecar["identities"];
       cached.geometry=geometry;cached.sidecar=data;
      }
      SimulationProject.Write(Sidecar,data);
-     if(geometryChanged&&Core!=null){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames);cached.resolvedGeometry=resolver.ResolveNativeGeometry(Core);}
+     if(geometryChanged&&Core!=null){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);cached.resolvedGeometry=resolver.ResolveNativeGeometry(Core);}
      if(Core!=null&&cached.resolvedGeometry!=null)simulation=SimulationConfigBuilder.Build(current,Core,cached.resolvedGeometry);return;
     }
     SourceBuildCount++;CadRevision.Invalidate(expected);

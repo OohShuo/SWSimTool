@@ -6,6 +6,8 @@ namespace SW2URDF.URDF
     [DataContract(Name = "Mimic", Namespace = "http://schemas.datacontract.org/2004/07/SW2URDF")]
     public class Mimic : URDFElement
     {
+        [DataMember(IsRequired = false)]
+        public string SourceJointId { get; set; }
         [DataMember]
         private readonly URDFAttribute JointNameAttribute;
 
@@ -71,6 +73,7 @@ namespace SW2URDF.URDF
         /// <param name="offsetText"></param>
         public void Update(string mimicJointName, string multiplierText, string offsetText)
         {
+            if (JointName != mimicJointName) SourceJointId = null;
             JointName = mimicJointName;
             MultiplierAttribute.SetDoubleValueFromString(multiplierText);
             OffsetAttribute.SetDoubleValueFromString(offsetText);
@@ -78,6 +81,7 @@ namespace SW2URDF.URDF
 
         public void Clear()
         {
+            SourceJointId = null;
             JointNameAttribute.Value = null;
             MultiplierAttribute.Value = null;
             OffsetAttribute.Value = null;
@@ -87,6 +91,11 @@ namespace SW2URDF.URDF
         {
             textBoxMimicMultiplier.Text = MultiplierAttribute.GetTextFromDoubleValue();
             textBoxMimicOffset.Text = OffsetAttribute.GetTextFromDoubleValue();
+        }
+        public override void SetElement(URDFElement element)
+        {
+            base.SetElement(element);
+            SourceJointId = ((Mimic)element).SourceJointId;
         }
     }
 }

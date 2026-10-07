@@ -34,6 +34,7 @@ namespace SW2URDF.Simulation
         }
         public static void Normalize(SimulationProject project, LinkNode tree)
         {
+            NormalizeTree(tree);
             if (project == null || tree == null) return;
             var links = new Dictionary<string, string>();
             var joints = new Dictionary<string, string>();
@@ -76,7 +77,20 @@ namespace SW2URDF.Simulation
             if(string.IsNullOrWhiteSpace(name))return new KeyValuePair<string,string>(id,name);
             var found=objects.Where(p=>p.Value==name).ToArray();
             if(found.Length>1)throw new InvalidDataException("Ambiguous reference: "+name);
-            return found.Length==1?found[0]:new KeyValuePair<string,string>(id,name);
+            // An unresolved legacy name gets a persistent tombstone, never a future name retry.
+            return found.Length==1?found[0]:new KeyValuePair<string,string>(Guid.NewGuid().ToString("N"),name);
+        }
+        public static void NormalizeTree(LinkNode tree)
+        {
+            if(tree==null)return;
+            var nodes=new List<LinkNode>();Action<LinkNode> visit=null;visit=n=>{nodes.Add(n);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);
+            var joints=nodes.Where(n=>n.Parent!=null).ToDictionary(n=>n.Link.Joint.StableId,n=>n.Link.Joint.Name);
+            foreach(var node in nodes){var mimic=node.Link.Joint?.Mimic;if(mimic==null||!mimic.ElementContainsData())continue;var r=Resolve(joints,mimic.SourceJointId,mimic.JointName);mimic.SourceJointId=r.Key;mimic.JointName=r.Value;}
+        }
+        public static void ValidateTree(LinkNode tree)
+        {
+            NormalizeTree(tree);if(tree==null)return;var joints=new Dictionary<string,string>();Action<LinkNode> collect=null;collect=n=>{if(n.Parent!=null)joints.Add(n.Link.Joint.StableId,n.Link.Joint.Name);foreach(LinkNode c in n.Nodes)collect(c);};collect(tree);
+            Action<LinkNode> check=null;check=n=>{var mimic=n.Link.Joint?.Mimic;if(mimic!=null&&mimic.ElementContainsData())SimulationConfigBuilder.Reference(mimic.SourceJointId,mimic.JointName,joints);foreach(LinkNode c in n.Nodes)check(c);};check(tree);
         }
     }
 }

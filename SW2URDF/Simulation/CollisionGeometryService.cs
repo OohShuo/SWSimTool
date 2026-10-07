@@ -17,7 +17,8 @@ namespace SW2URDF.Simulation
         Dictionary<string, Matrix<double>> cachedFrames;
         string cachedRevision;
         Dictionary<string,Matrix<double>> exportFrames;
-        public void UseExportFrames(Dictionary<string,double[]> frames){exportFrames=frames.ToDictionary(x=>x.Key,x=>Matrix<double>.Build.DenseOfRowMajor(4,4,x.Value));}
+        Dictionary<string,string> exportLinkIdentities;
+        public void UseExportFrames(Dictionary<string,double[]> frames,SW2URDF.RobotModel.RobotCoreSnapshot core=null){exportFrames=frames.ToDictionary(x=>x.Key,x=>Matrix<double>.Build.DenseOfRowMajor(4,4,x.Value));if(core!=null)exportLinkIdentities=core.Links.ToDictionary(x=>x.Id,x=>x.Name);}
         int cadGeneration;
         public string CollisionRevision => CadRevision.Get(Model)+":"+cadGeneration;
         Dictionary<string,CollisionGeometry> resolvedGeometry;string geometryRevision;
@@ -25,9 +26,11 @@ namespace SW2URDF.Simulation
         public void InvalidateCADCache(bool invalidateDocument=true){if(invalidateDocument)CadRevision.Invalidate(Model);cadGeneration++;cachedFrames=null;cachedRevision=null;cachedSources=null;sourcesRevision=null;resolvedGeometry=null;geometryRevision=null;}
         public void SetCollisionTree(SW2URDF.URDF.LinkNode tree)
         {
+            exportFrames=null;exportLinkIdentities=null;
             collisionTree=tree;InvalidateCADCache(false);
         }
         public Dictionary<string,string> LinkIdentities(){
+            if(exportLinkIdentities!=null)return new Dictionary<string,string>(exportLinkIdentities);
             if(collisionTree!=null)return StableReferences.LinkNames(collisionTree);
             var names=new Dictionary<string,string>();var root=exporter.URDFRobot?.BaseLink;
             if(root==null)throw new InvalidOperationException("Configured link identities are unavailable");
@@ -154,6 +157,7 @@ namespace SW2URDF.Simulation
             return length;
         }
         public void ResolveCollision(CollisionGeometry geometry){
+            if(!string.IsNullOrWhiteSpace(geometry.link_id)){var identities=LinkIdentities();geometry.link=identities[SimulationConfigBuilder.Reference(geometry.link_id,geometry.link,identities)];}
             string revision=CollisionRevision;if(resolvedGeometry==null||geometryRevision!=revision){resolvedGeometry=new Dictionary<string,CollisionGeometry>();geometryRevision=revision;}
             var serializer=new JavaScriptSerializer();string key=serializer.Serialize(geometry);CollisionGeometry saved;
             if(!resolvedGeometry.TryGetValue(key,out saved)){GeometryResolutionCount++;using(var timing=new PerformanceScope("cad.resolve_collision")){var frameData=LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray());saved=CadSnapshotCache.Get(Model).Resolve("collision:"+ExportFingerprint.Hash(new{geometry,frames=frameData}),()=>{var copy=serializer.Deserialize<CollisionGeometry>(serializer.Serialize(geometry));ResolveCollisionCore(copy);return copy;});geometry.xyz=(double[])saved.xyz.Clone();geometry.rpy=(double[])saved.rpy.Clone();geometry.size=(double[])saved.size.Clone();geometry.length_input=saved.length_input;geometry.thickness=saved.thickness;}if(resolvedGeometry.Count>512)resolvedGeometry.Clear();resolvedGeometry[key]=saved;resolvedGeometry[serializer.Serialize(geometry)]=saved;return;}

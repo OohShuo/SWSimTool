@@ -5,6 +5,13 @@ using System.Windows.Forms;
 
 namespace SW2URDF.URDF
 {
+    [DataContract]
+    public sealed class JointCadReference
+    {
+        [DataMember] public string FeatureId { get; set; }
+        [DataMember] public string ComponentId { get; set; }
+        [DataMember] public string Name { get; set; }
+    }
     //The joint class. There is one for every link but the base link
     [DataContract(IsReference = true, Namespace = "http://schemas.datacontract.org/2004/07/SW2URDF")]
     public class Joint : URDFElement
@@ -62,11 +69,16 @@ namespace SW2URDF.URDF
         [DataMember(IsRequired = false)]
         public readonly Mimic Mimic;
 
+        private string coordinateSystemName,axisName;
+        [DataMember(IsRequired=false)] public JointCadReference CoordinateReference;
+        [DataMember(IsRequired=false)] public JointCadReference AxisReference;
         [DataMember]
-        public string CoordinateSystemName;
-
+        public string CoordinateSystemName {get=>coordinateSystemName;set{if(coordinateSystemName!=null&&coordinateSystemName!=value)CoordinateReference=null;coordinateSystemName=value;}}
         [DataMember]
-        public string AxisName;
+        public string AxisName {get=>axisName;set{if(axisName!=null&&axisName!=value)AxisReference=null;axisName=value;}}
+        public void BindCoordinate(JointCadReference reference){CoordinateReference=reference;coordinateSystemName=reference.Name;}
+        public void BindAxis(JointCadReference reference){AxisReference=reference;axisName=reference.Name;}
+        static JointCadReference CopyReference(JointCadReference reference)=>reference==null?null:new JointCadReference{FeatureId=reference.FeatureId,ComponentId=reference.ComponentId,Name=reference.Name};
 
         public Joint() : base("joint", false)
         {
@@ -146,6 +158,8 @@ namespace SW2URDF.URDF
             // These strings aren't kept as URDFAttribute objects and so they are tracked separately
             CoordinateSystemName = joint.CoordinateSystemName;
             AxisName = joint.AxisName;
+            CoordinateReference = CopyReference(joint.CoordinateReference);
+            AxisReference = CopyReference(joint.AxisReference);
         }
 
         public override void SetElementFromData(List<string> context, StringDictionary dictionary)
@@ -165,6 +179,8 @@ namespace SW2URDF.URDF
         {
             CoordinateSystemName = joint.CoordinateSystemName;
             AxisName = joint.AxisName;
+            CoordinateReference = CopyReference(joint.CoordinateReference);
+            AxisReference = CopyReference(joint.AxisReference);
             Type = joint.Type;
             Axis.SetElement(joint.Axis);
             Origin.SetElement(joint.Origin);

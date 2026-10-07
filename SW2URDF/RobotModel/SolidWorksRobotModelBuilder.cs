@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,7 +26,7 @@ namespace SW2URDF.RobotModel
                 }
                 links.Add(new LinkSnapshot(link.StableId,name,inertial,geometries));
                 if(parent!=null){var j=link.Joint;if(j==null)throw new InvalidDataException("Missing incoming joint");var kind=Kind(j.Type);var limited=kind==JointKind.Revolute||kind==JointKind.Prismatic;MimicSnapshot mimic=null;
-                    if(j.Mimic!=null&&j.Mimic.ElementContainsData()){string source;if(!jointIds.TryGetValue(j.Mimic.JointName,out source))throw new InvalidDataException("Unknown mimic joint");mimic=new MimicSnapshot(source,Optional(()=>j.Mimic.Multiplier,1),Optional(()=>j.Mimic.Offset));}
+                    if(j.Mimic!=null&&j.Mimic.ElementContainsData()){string source=SW2URDF.Simulation.SimulationConfigBuilder.Reference(j.Mimic.SourceJointId,j.Mimic.JointName,jointIds.ToDictionary(x=>x.Value,x=>x.Key));mimic=new MimicSnapshot(source,Optional(()=>j.Mimic.Multiplier,1),Optional(()=>j.Mimic.Offset));}
                     joints.Add(new JointSnapshot(j.StableId,j.Name,parent.StableId,link.StableId,kind,Pose(j.Origin),V(j.Axis.GetXYZ()),limited?(double?)RequiredLimit(j,true):null,limited?(double?)RequiredLimit(j,false):null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort),mimic));
                 }
                 foreach(var child in link.Children)visit(child,link);

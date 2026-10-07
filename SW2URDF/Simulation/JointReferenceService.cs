@@ -6,6 +6,33 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SW2URDF.Simulation {
+ public static class CadTreeReferences {
+  static bool Automatic(string name)=>string.IsNullOrWhiteSpace(name)||name=="Automatically Generate"||name=="None";
+  public static void Normalize(ModelDoc2 model,SW2URDF.URDF.LinkNode tree,bool strict=false){
+   if(tree==null)return;Action<SW2URDF.URDF.LinkNode> visit=null;visit=node=>{
+    var joint=node.Link.Joint;
+    if(!Automatic(joint.CoordinateSystemName))joint.BindCoordinate(Resolve(model,joint.CoordinateReference,joint.CoordinateSystemName,"CoordSys",strict));
+    if(joint.Type!="fixed"&&joint.Type!="floating"&&!Automatic(joint.AxisName))joint.BindAxis(Resolve(model,joint.AxisReference,joint.AxisName,"RefAxis",strict));
+    foreach(SW2URDF.URDF.LinkNode child in node.Nodes)visit(child);
+   };visit(tree);
+  }
+  static SW2URDF.URDF.JointCadReference Resolve(ModelDoc2 model,SW2URDF.URDF.JointCadReference saved,string name,string type,bool strict){
+   ModelDoc2 doc=model;Component2 component=null;Feature feature=null;int error;
+   if(saved!=null){
+    if(!string.IsNullOrEmpty(saved.ComponentId)){component=model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(saved.ComponentId),out error) as Component2;doc=component?.GetModelDoc2() as ModelDoc2;}
+    if(doc!=null&&!string.IsNullOrEmpty(saved.FeatureId))feature=doc.Extension.GetObjectByPersistReference3(Convert.FromBase64String(saved.FeatureId),out error) as Feature;
+   }else{
+    string local=name;int start=name.IndexOf('<'),end=name.LastIndexOf('>');
+    if(start>=0&&end>start){string owner=name.Substring(start+1,end-start-1);local=name.Substring(0,start).Trim();var assembly=model as AssemblyDoc;component=((object[])assembly?.GetComponents(false)??new object[0]).Cast<Component2>().FirstOrDefault(c=>c.Name2==owner);doc=component?.GetModelDoc2() as ModelDoc2;}
+    if(doc!=null)for(var candidate=doc.FirstFeature();candidate!=null;candidate=candidate.GetNextFeature())if(candidate.Name==local&&candidate.GetTypeName2()==type){feature=candidate;break;}
+    // Record the attempted migration even when unresolved; never retry by name.
+    saved=new SW2URDF.URDF.JointCadReference{Name=name,ComponentId=component==null?null:Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(component))};
+    if(feature!=null)saved.FeatureId=Convert.ToBase64String((byte[])doc.Extension.GetPersistReference3(feature));
+   }
+   if(feature==null||feature.GetTypeName2()!=type){if(strict)throw new System.IO.InvalidDataException("CAD reference is unresolved; explicitly select it again: "+saved.Name);return saved;}
+   return new SW2URDF.URDF.JointCadReference{FeatureId=saved.FeatureId,ComponentId=saved.ComponentId,Name=feature.Name+(component==null?"":" <"+component.Name2+">")};
+  }
+ }
  public sealed partial class AttachmentService {
   public double[] JointPosition(CollisionReference reference,string child)=>MathOps.GetXYZ(LinkTransforms()[child].Inverse()*ReferenceFrame(reference));
   public double[] JointAxis(CollisionReference reference,string child){return CadSnapshotCache.Get(Model).Resolve("axis:"+ExportFingerprint.Hash(new{reference,child,frames=LinkTransforms()[child].ToRowMajorArray()}),()=>JointAxisCore(reference,child));}

@@ -1,4 +1,4 @@
-﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SW2URDF.Legacy;
 using SW2URDF.URDF;
@@ -48,7 +48,7 @@ namespace SW2URDF.URDFExport
             "URDF Export Configuration"
             };
         public static LinkNode ReadTree(string data, double version)
-        { return version >= MinDataContractVersion ? DeserializeFromString(data) : LoadConfigFromStringXML(data); }
+        { var tree=version >= MinDataContractVersion ? DeserializeFromString(data) : LoadConfigFromStringXML(data); SW2URDF.Simulation.StableReferences.NormalizeTree(tree); return tree; }
         public static string WriteTree(LinkNode tree) { return tree==null?null:SerializeToString(tree); }
         public static void ValidateTreeData(string data,double version){
             if(string.IsNullOrWhiteSpace(data))return;
@@ -91,7 +91,7 @@ namespace SW2URDF.URDFExport
             }
 
             error = false;
-            return basenode;
+            SW2URDF.Simulation.StableReferences.NormalizeTree(basenode); SW2URDF.Simulation.CadTreeReferences.Normalize(model,basenode); return basenode;
         }
 
         /// <summary>
@@ -118,6 +118,7 @@ namespace SW2URDF.URDFExport
                 warnUser = false;
             }
 
+            SW2URDF.Simulation.CadTreeReferences.Normalize(model,BaseNode);
             string newData = SerializeToString(BaseNode);
             if (BaseNode != null && string.IsNullOrEmpty(newData))
             {
@@ -172,6 +173,7 @@ namespace SW2URDF.URDFExport
         private static string SerializeToString(LinkNode node)
         {
             SavePropertiesLinkNodeToLink(node);
+            SW2URDF.Simulation.StableReferences.NormalizeTree(node);
             Link link = node.UpdateLinkTree(null);
             string data = "";
             using (MemoryStream stream = new MemoryStream())

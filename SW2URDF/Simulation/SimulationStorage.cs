@@ -10,7 +10,7 @@ using System.Web.Script.Serialization;
 namespace SW2URDF.Simulation {
  public static class SimulationStorage {
   public const string NodeName="SW2MuJoCo Configuration",LegacyNodeName="MuJoCo Simulation Configuration (v1)";
-  public sealed class Entry {public string urdf_xml{get;set;} public double urdf_version{get;set;}=1.4; public SimulationProject simulation{get;set;}}
+  public sealed class Entry {public string configuration_id{get;set;} public string configuration_name{get;set;} public string urdf_xml{get;set;} public double urdf_version{get;set;}=1.4; public SimulationProject simulation{get;set;}}
   public sealed class Document {public int version{get;set;}=2;public Dictionary<string,Entry> configurations{get;set;}=new Dictionary<string,Entry>();}
   sealed class LegacyDocument {public int version{get;set;} public Dictionary<string,SimulationProject> configurations{get;set;}}
   sealed class CachedDocument {public string data;}
@@ -30,8 +30,17 @@ namespace SW2URDF.Simulation {
    if(d==null||d.version!=2||d.configurations==null||d.configurations.Values.Any(e=>e==null))throw new InvalidDataException("SW2MuJoCo 配置损坏或版本不支持。");
    foreach(var e in d.configurations.Values){ConfigurationSerialization.ValidateTreeData(e.urdf_xml,e.urdf_version);ValidateProject(e.simulation);}
   }
+  public static void RemapConfigurations(Document document,IDictionary<string,string> namesById){
+   var mapped=new Dictionary<string,Entry>();var seen=new HashSet<string>();foreach(var pair in document.configurations){var entry=pair.Value;
+    if(string.IsNullOrWhiteSpace(entry.configuration_id)){var match=namesById.Where(x=>x.Value==pair.Key).ToArray();if(match.Length>1)throw new InvalidDataException("Ambiguous configuration identity");entry.configuration_id=match.Length==1?match[0].Key:Guid.NewGuid().ToString("N");}
+    if(!seen.Add(entry.configuration_id))throw new InvalidDataException("Duplicate configuration identity");string name;bool live=namesById.TryGetValue(entry.configuration_id,out name);entry.configuration_name=live?name:entry.configuration_name??pair.Key;
+    mapped.Add(live?name:"__unresolved_configuration_"+entry.configuration_id,entry);if(live&&entry.simulation!=null)entry.simulation.configuration=name;
+   }document.configurations=mapped;
+  }
+  static string ConfigurationId(Configuration configuration)=>"swcfg:"+configuration.GetID().ToString(System.Globalization.CultureInfo.InvariantCulture);
+  static Document Identify(Document document,ModelDoc2 model){var names=new Dictionary<string,string>();foreach(string name in (string[])model.GetConfigurationNames()??new[]{model.ConfigurationManager.ActiveConfiguration.Name}){var configuration=model.GetConfigurationByName(name) as Configuration;if(configuration==null&&name==model.ConfigurationManager.ActiveConfiguration.Name)configuration=model.ConfigurationManager.ActiveConfiguration;if(configuration!=null)names.Add(ConfigurationId(configuration),name);}RemapConfigurations(document,names);return document;}
   static Document Read(ModelDoc2 model,SolidWorks.Interop.sldworks.Attribute known=null){
-   var a=known??Find(model,NodeName);if(a!=null){var data=((Parameter)a.GetParameter("data")).GetStringValue();var saved=cache.GetValue(model,key=>new CachedDocument());if(saved.data==data)return Serializer().Deserialize<Document>(data);var parsed=Parse(data);saved.data=data;return parsed;}
+   var a=known??Find(model,NodeName);if(a!=null){var data=((Parameter)a.GetParameter("data")).GetStringValue();var saved=cache.GetValue(model,key=>new CachedDocument());if(saved.data==data)return Identify(Serializer().Deserialize<Document>(data),model);var parsed=Parse(data);saved.data=data;return Identify(parsed,model);}
    var d=new Document();double version;string xml=ConfigurationSerialization.GetLegacyConfigTreeData(model,out version);ConfigurationSerialization.ValidateTreeData(xml,version);
    // Old URDF data applied to every configuration. Preserve it without activating configurations.
    foreach(string key in (string[])model.GetConfigurationNames()??new[]{model.ConfigurationManager.ActiveConfiguration.Name})d.configurations[key]=new Entry{urdf_xml=xml,urdf_version=version};
@@ -40,7 +49,7 @@ namespace SW2URDF.Simulation {
     var old=Serializer().Deserialize<LegacyDocument>(((Parameter)legacy.GetParameter("data")).GetStringValue());
     if(old==null||old.version!=1||old.configurations==null)throw new InvalidDataException("旧仿真配置损坏，不能迁移。");
     foreach(var p in old.configurations){ValidateProject(p.Value);Entry e;if(!d.configurations.TryGetValue(p.Key,out e))d.configurations[p.Key]=e=new Entry{urdf_xml=xml,urdf_version=version};e.simulation=p.Value;}
-   }return d;
+   }return Identify(d,model);
   }
   static void ValidateProject(SimulationProject p){if(p!=null&&(p.schema_version!=1||p.attachments==null||p.sensors==null||p.actuators==null||p.equalities==null))throw new InvalidDataException("仿真配置损坏或版本不支持。");}
   public static Entry LoadEntry(ModelDoc2 model){
@@ -48,9 +57,9 @@ namespace SW2URDF.Simulation {
    Entry e;return Read(model,attribute).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e:new Entry();
   }
   public static SimulationProject Load(ModelDoc2 model){Entry e;if(!Read(model).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e))return null;StableReferences.Normalize(e.simulation,ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version));return e.simulation;}
-  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);var previous=ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version);var current=ConfigurationSerialization.ReadTree(xml,version);StableReferences.MigrateLegacyLinkModesByName(e.simulation,StableReferences.LinkNames(previous??current));StableReferences.RemapLinkModesByStableId(e.simulation);e.urdf_xml=xml;e.urdf_version=version;StableReferences.Normalize(e.simulation,current);Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
-  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);StableReferences.Normalize(project,tree);if(tree!=null){entry.urdf_xml=ConfigurationSerialization.WriteTree(tree);entry.urdf_version=1.4;}entry.simulation=project;Write(app,model,d);SimulationSession.Applied(model,before,project);}
-  static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry();return e;}
+  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version){var d=Read(model);var e=Current(d,model);var previous=ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version);var current=ConfigurationSerialization.ReadTree(xml,version);StableReferences.Normalize(e.simulation,previous??current);StableReferences.RemapLinkModesByStableId(e.simulation);e.urdf_version=version;CadTreeReferences.Normalize(model,current);StableReferences.Normalize(e.simulation,current);e.urdf_xml=ConfigurationSerialization.WriteTree(current);Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
+  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);CadTreeReferences.Normalize(model,tree);StableReferences.Normalize(project,tree);if(tree!=null){entry.urdf_xml=ConfigurationSerialization.WriteTree(tree);entry.urdf_version=1.4;}entry.simulation=project;Write(app,model,d);SimulationSession.Applied(model,before,project);}
+  static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry{configuration_id=ConfigurationId(model.ConfigurationManager.ActiveConfiguration),configuration_name=key};return e;}
   static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SW2URDF.Utilities.PerformanceScope("storage.save")){
    int cadStamp=CadRevision.BeforeConfigurationWrite(model);
    ValidateDocument(d);string data=Serializer().Serialize(d);

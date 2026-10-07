@@ -36,6 +36,22 @@ if report['stages'][0].get('nativeOnly'):
         compiled_semantics(identity_warm,identity_cold)
         dynamics(identity_warm,identity_cold,steps=(1,10,100))
         report.update(identity_lifecycle=identity,identity_cold_warm_semantics_and_dynamics=True)
+    if (folder/'configuration-reference-counts.json').is_file():
+        configuration=json.loads((folder/'configuration-reference-counts.json').read_text(encoding='utf-8-sig'))
+        cfg_warm=load_mjcf(folder/'configuration_warm_native_mjcf/robot.xml')
+        cfg_cold=load_mjcf(folder/'configuration_cold_native_mjcf/robot.xml')
+        compiled_semantics(cfg_warm,cfg_cold)
+        dynamics(cfg_warm,cfg_cold,steps=(1,10,100))
+        compiled_semantics(cfg_warm,load_mjcf(folder/'identity_warm_native_mjcf/robot.xml'))
+        report.update(configuration_lifecycle=configuration,configuration_cold_warm_semantics_and_dynamics=True)
+    if (folder/'cad-reference-counts.json').is_file():
+        cad_reference=json.loads((folder/'cad-reference-counts.json').read_text(encoding='utf-8-sig'))
+        cad_warm=load_mjcf(folder/'cad_reference_warm_native_mjcf/robot.xml')
+        cad_cold=load_mjcf(folder/'cad_reference_cold_native_mjcf/robot.xml')
+        compiled_semantics(cad_warm,cad_cold)
+        dynamics(cad_warm,cad_cold,steps=(1,10,100))
+        compiled_semantics(cad_warm,load_mjcf(folder/'identity_warm_native_mjcf/robot.xml'))
+        report.update(cad_reference_lifecycle=cad_reference,cad_reference_cold_warm_semantics_and_dynamics=True)
     report_path=root/'build/native-production-v1.json'
     report_path.write_text(json.dumps(report,indent=2),encoding='utf-8')
     print('Native-only production incremental semantics and dynamics: PASS')

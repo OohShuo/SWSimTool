@@ -112,6 +112,7 @@ namespace SW2URDF.Simulation
         }
         public Dictionary<string, object> Export(string urdfPath)
         {
+            if(exporter.URDFRobot?.BaseLink!=null)StableReferences.Normalize(Project,new LinkNode(exporter.URDFRobot.BaseLink));
             Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             var transforms = new Dictionary<string, Matrix<double>>();
@@ -121,13 +122,15 @@ namespace SW2URDF.Simulation
                 AddTransforms(root, global, transforms);}
 
             var items = new List<Dictionary<string, object>>();
+            var identities=LinkIdentities();
             var names = new HashSet<string>();
             foreach (var attachment in Project.attachments)
             {
                 if (string.IsNullOrWhiteSpace(attachment.name) || !names.Add(attachment.name)) throw new InvalidOperationException("Attachment names must be nonempty and unique.");
+                string linkId=SimulationConfigBuilder.Reference(attachment.link_id,attachment.link,identities);attachment.link=identities[linkId];
                 if (!transforms.TryGetValue(attachment.link, out Matrix<double> transform)) throw new InvalidOperationException("Unknown attachment link: " + attachment.link);
                 var relative = transform.Inverse() * Resolve(attachment);
-                var item = new Dictionary<string, object> { { "id", attachment.id }, { "name", attachment.name }, { "link", attachment.link }, { "type", attachment.type }, { "xyz", MathOps.GetXYZ(relative) } };
+                var item = new Dictionary<string, object> { { "id", attachment.id }, { "name", attachment.name }, { "link", attachment.link }, { "link_id", linkId }, { "type", attachment.type }, { "xyz", MathOps.GetXYZ(relative) } };
                 if (attachment.type == "frame") item.Add("rpy", MathOps.GetRPY(relative));
                 items.Add(item);
             }
@@ -154,6 +157,7 @@ namespace SW2URDF.Simulation
             return new Attachment{name=name,link=link,type=type,reference=reference,source_name=reference.label};
         }
         public Matrix<double> AttachmentPose(Attachment attachment){
+            if(!string.IsNullOrWhiteSpace(attachment.link_id)){var identities=LinkIdentities();attachment.link=identities[SimulationConfigBuilder.Reference(attachment.link_id,attachment.link,identities)];}
             Matrix<double> frame;if(!LinkTransforms().TryGetValue(attachment.link,out frame))throw new InvalidOperationException("附着点所属 link 已失效："+attachment.name);
             return frame.Inverse()*Resolve(attachment);
         }

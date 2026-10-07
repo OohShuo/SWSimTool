@@ -12,6 +12,7 @@ namespace SW2URDF.Simulation
         public ResolvedSimulationGeometry ResolveNativeGeometry(RobotCoreSnapshot core)
         {
             var links=core.Links.ToDictionary(x=>x.Id,x=>x.Name);
+            exportLinkIdentities=links;
             var sites=new List<SiteSnapshot>();
             var names=new HashSet<string>();
             foreach(var item in Project.attachments) {

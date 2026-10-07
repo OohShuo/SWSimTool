@@ -47,6 +47,7 @@ namespace SW2URDF.Simulation
         }
         public static RobotCoreSnapshot Build(string name,AttachmentService service,LinkNode root,IDictionary<string,MeshSource> meshes)
         {
+            StableReferences.ValidateTree(root);
             var frames=service.LinkTransforms();
             var descriptors=JointDescriptor.FromTree(root).ToDictionary(x=>x.name);
             var nodes=new List<LinkNode>();Action<LinkNode> collect=null;collect=n=>{nodes.Add(n);foreach(LinkNode c in n.Nodes)collect(c);};collect(root);
@@ -66,7 +67,7 @@ namespace SW2URDF.Simulation
                 if(node.Parent==null)continue;
                 var parent=(LinkNode)node.Parent;var j=config.Joint;var kind=config.isFixedFrame?JointKind.Fixed:Kind(j.Type);bool limited=kind==JointKind.Revolute||kind==JointKind.Prismatic;
                 var axis=kind==JointKind.Fixed||kind==JointKind.Floating?new Vector3d():Vector(service.OriginalJointAxis(descriptors[j.Name]));
-                MimicSnapshot mimic=null;if(j.Mimic!=null&&j.Mimic.ElementContainsData()){string id;if(!jointIds.TryGetValue(j.Mimic.JointName,out id))throw new InvalidDataException("Unknown mimic joint: "+j.Mimic.JointName);mimic=new MimicSnapshot(id,Optional(()=>j.Mimic.Multiplier,1),Optional(()=>j.Mimic.Offset));}
+                MimicSnapshot mimic=null;if(j.Mimic!=null&&j.Mimic.ElementContainsData()){string id=SW2URDF.Simulation.SimulationConfigBuilder.Reference(j.Mimic.SourceJointId,j.Mimic.JointName,jointIds.ToDictionary(x=>x.Value,x=>x.Key));mimic=new MimicSnapshot(id,Optional(()=>j.Mimic.Multiplier,1),Optional(()=>j.Mimic.Offset));}
                 joints.Add(new JointSnapshot(j.StableId,j.Name,parent.Link.StableId,config.StableId,kind,Pose(frames[parent.Name].Inverse()*frame),axis,limited?(double?)Limit(j,true):null,limited?(double?)Limit(j,false):null,Optional(()=>j.Dynamics.Damping),Optional(()=>j.Dynamics.Friction),Optional(()=>j.Limit.Effort),mimic));
             }
             return new RobotCoreSnapshot(name,links,joints);

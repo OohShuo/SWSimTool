@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -157,6 +157,8 @@ namespace SW2URDF.URDFExport
         // The one used by the Assembly Exporter
         public bool CreateRobotFromTreeView(LinkNode baseNode)
         {
+            SW2URDF.Simulation.StableReferences.ValidateTree(baseNode);
+            SW2URDF.Simulation.CadTreeReferences.Normalize(ActiveSWModel,baseNode,true);
             ExportErrorWhy = "";
             URDFRobot = new Robot();
 

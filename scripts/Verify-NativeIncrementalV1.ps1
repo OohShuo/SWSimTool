@@ -1,4 +1,4 @@
-﻿param([string]$Payload='native-candidate',[switch]$NativeOnly,[switch]$IdentityLifecycle)
+﻿param([string]$Payload='native-candidate',[switch]$NativeOnly,[switch]$IdentityLifecycle,[switch]$CadReferenceLifecycle)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
@@ -22,6 +22,7 @@ using SW2URDF.Simulation;
 public static class NativeIncrementalProbe {
  public static bool NativeOnly;
  public static bool IdentityLifecycle;
+ public static bool CadReferenceLifecycle;
  static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
  static void CoreParity(SldWorks sw,ModelDoc2 model,string directory){
@@ -79,6 +80,27 @@ public static class NativeIncrementalProbe {
  static void ClearOwnedCaches(string directory){
   foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
  }
+ static ModelDoc2 CadReferences(SldWorks sw,ModelDoc2 model,string directory,string settings){
+  bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];var joint=node.Link.Joint;string coordinateId=joint.CoordinateReference.FeatureId,axisId=joint.AxisReference.FeatureId;int pidError;
+  var coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);var axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);
+  coordinate.Name="audit_coordinate";axis.Name="audit_axis";tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateSystemName=="audit_coordinate"&&joint.AxisName=="audit_axis"&&joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate and axis rename retain persistent identities");
+  ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateReference.FeatureId==coordinateId&&joint.AxisReference.FeatureId==axisId,"CAD coordinate/axis save/reopen retain identities");
+  var warm=Stage(sw,model,directory,"cad_reference_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"cad_reference_cold",settings);
+  axis=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(axisId),out pidError);model.ClearSelection2(true);Check(axis.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD axis");
+  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);var segment=model.SketchManager.CreateLine(0,0,0,0,0,.05);model.SketchManager.Insert3DSketch(true);var names=new HashSet<string>(((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().Select(f=>f.Name));
+  Check(segment.Select4(false,((SelectionMgr)model.SelectionManager).CreateSelectData())&&model.InsertAxis2(true),"create same-name replacement CAD axis");var replacement=((object[])model.FeatureManager.GetFeatures(true)).Cast<Feature>().First(f=>f.GetTypeName2()=="RefAxis"&&!names.Contains(f.Name));replacement.Name="audit_axis";string replacementId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacement));
+  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;Check(joint.AxisReference.FeatureId==axisId&&replacementId!=axisId,"CAD same-name axis recreate never rebinds stored PID");
+  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_axis");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name axis");}
+  coordinate=(Feature)model.Extension.GetObjectByPersistReference3(Convert.FromBase64String(coordinateId),out pidError);model.ClearSelection2(true);Check(coordinate.Select2(false,0)&&model.Extension.DeleteSelection2(0),"delete owned CAD coordinate system");
+  model.ClearSelection2(true);model.SketchManager.Insert3DSketch(true);model.SketchManager.CreatePoint(.1,.2,.3);model.SketchManager.Insert3DSketch(true);Check(model.Extension.SelectByID2("","EXTSKETCHPOINT",.1,.2,.3,false,1,null,0),"select owned point for replacement coordinate");
+  var replacementCoordinate=model.FeatureManager.InsertCoordinateSystem(false,false,false);Check(replacementCoordinate!=null,"create same-name replacement coordinate");replacementCoordinate.Name="audit_coordinate";
+  string replacementCoordinateId=Convert.ToBase64String((byte[])model.Extension.GetPersistReference3(replacementCoordinate));model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);joint=((LinkNode)tree.Nodes[0]).Link.Joint;
+  Check(joint.CoordinateReference.FeatureId==coordinateId&&replacementCoordinateId!=coordinateId,"CAD same-name coordinate recreate never rebinds stored PID");
+  foreach(bool clear in new[]{false,true}){if(clear)ClearOwnedCaches(directory);bool rejected=false;try{using(var export=new ProjectExport(sw,model,model.ConfigurationManager.ActiveConfiguration.Name)){export.NativeModel();}}catch(InvalidDataException e){rejected=e.Message.Contains("audit_coordinate");}Check(rejected,(clear?"cold":"warm")+" production rejects missing CAD PID despite same-name coordinate");}
+  File.WriteAllText(Path.Combine(directory,"cad-reference-counts.json"),json.Serialize(new{status="passed",coordinateId,axisId,stages=new[]{warm,cold}}));return model;
+ }
  static void Identity(SldWorks sw,ModelDoc2 model,string directory,string settings){
   model=Reopen(sw,model,directory);bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];string id=node.Link.StableId;var project=SimulationStorage.Load(model);
   Check(project.collision.Mode(id)=="primitive","CAD save/reopen preserves A collision mode");
@@ -86,6 +108,11 @@ public static class NativeIncrementalProbe {
   model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);node=(LinkNode)tree.Nodes[0];project=SimulationStorage.Load(model);
   Check(node.Link.StableId==id&&node.Link.Name=="left_arm"&&project.collision.Mode(id)=="primitive","CAD rename/save/reopen retains identity A and mode");
   var warm=Stage(sw,model,directory,"identity_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"identity_cold",settings);
+  var configuration=model.ConfigurationManager.ActiveConfiguration;int configurationId=configuration.GetID();configuration.Name="audit_renamed_configuration";
+  model=Reopen(sw,model,directory);Check(model.ConfigurationManager.ActiveConfiguration.GetID()==configurationId&&SimulationStorage.Load(model)!=null,"configuration rename/save/reopen retains production project by CAD ID");
+  var configWarm=Stage(sw,model,directory,"configuration_warm",settings);ClearOwnedCaches(directory);var configCold=Stage(sw,model,directory,"configuration_cold",settings);
+  File.WriteAllText(Path.Combine(directory,"configuration-reference-counts.json"),json.Serialize(new{status="passed",configurationId,stages=new[]{configWarm,configCold}}));
+  if(CadReferenceLifecycle)model=CadReferences(sw,model,directory,settings);
   tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);tree.Nodes.Clear();tree.Link.Children.Clear();
   var replacement=new Link(tree.Link);replacement.Name="left_arm";replacement.Joint.Name="hinge";tree.Link.Children.Add(replacement);tree.Nodes.Add(new LinkNode(replacement));string replacementId=replacement.StableId;
   SimulationStorage.SaveTree(sw,model,ConfigurationSerialization.WriteTree(tree),1.4);model=Reopen(sw,model,directory);
@@ -166,5 +193,6 @@ public static class NativeIncrementalProbe {
 '@
 [NativeIncrementalProbe]::NativeOnly=$NativeOnly.IsPresent
 [NativeIncrementalProbe]::IdentityLifecycle=$IdentityLifecycle.IsPresent
+[NativeIncrementalProbe]::CadReferenceLifecycle=$CadReferenceLifecycle.IsPresent
 [NativeIncrementalProbe]::Run($directory)
 $directory | Set-Content -LiteralPath (Join-Path $root 'build\native-incremental-directory.txt')

@@ -399,6 +399,7 @@ namespace SW2URDF.UI
         //Converts a TreeView back into a robot
         public Robot CreateRobotFromTreeView(TreeView tree)
         {
+            SW2URDF.Simulation.StableReferences.ValidateTree((LinkNode)tree.Nodes[0]);
             Robot Robot = Exporter.URDFRobot;
             Link baseLink = CreateLinkFromLinkNode((LinkNode)tree.Nodes[0]);
             Robot.SetBaseLink(baseLink);

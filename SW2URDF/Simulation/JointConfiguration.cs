@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -43,12 +43,12 @@ namespace SW2URDF.Simulation {
   public void Validate(){if(string.IsNullOrWhiteSpace(joint)||!lower.HasValue||!upper.HasValue||double.IsNaN(lower.Value)||double.IsNaN(upper.Value)||double.IsInfinity(lower.Value)||double.IsInfinity(upper.Value)||lower>=upper)throw new InvalidDataException("请填写关节总驱动力上下限，且下限小于上限。");}
  }
  public sealed class JointDescriptor {
-  public string name,parent,child,type,axis_name;
+  public string id,name,parent,child,type,axis_name;
   public double[] axis;
   public double? lower,upper;
   public static List<JointDescriptor> FromTree(SW2URDF.URDF.LinkNode root){
    var result=new List<JointDescriptor>();Action<SW2URDF.URDF.LinkNode> visit=null;
-   visit=n=>{foreach(SW2URDF.URDF.LinkNode c in n.Nodes){var j=c.Link.Joint;var d=new JointDescriptor{name=j.Name,parent=n.Link.Name,child=c.Link.Name,type=j.Type,axis_name=j.AxisName,axis=j.Axis.GetXYZ()};try{d.lower=j.Limit.Lower;d.upper=j.Limit.Upper;}catch(NullReferenceException){}result.Add(d);visit(c);}};visit(root);return result;
+   visit=n=>{foreach(SW2URDF.URDF.LinkNode c in n.Nodes){var j=c.Link.Joint;var d=new JointDescriptor{id=j.StableId,name=j.Name,parent=n.Link.Name,child=c.Link.Name,type=j.Type,axis_name=j.AxisName,axis=j.Axis.GetXYZ()};try{d.lower=j.Limit.Lower;d.upper=j.Limit.Upper;}catch(NullReferenceException){}result.Add(d);visit(c);}};visit(root);return result;
   }
  }
 }

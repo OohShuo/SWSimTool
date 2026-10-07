@@ -451,7 +451,7 @@ public readonly ReadOnlyCollection<SiteSnapshot> Sites;
         public RobotCoreSnapshot Core { get; private set; }
         public SimulationConfigSnapshot Simulation { get; private set; }
         public RobotModel(RobotCoreSnapshot core,SimulationConfigSnapshot simulation)
-        { Core=core??throw new ArgumentNullException("core");Simulation=simulation??throw new ArgumentNullException("simulation");foreach(var s in simulation.Sites){RobotModelValidator.ValidatePose(s.LinkFromSite);if(!core.Links.Any(l=>l.Id==s.LinkId))throw new InvalidDataException("Unknown site link: "+s.LinkId);} }
+        { Core=core??throw new ArgumentNullException("core");Simulation=simulation??throw new ArgumentNullException("simulation");RobotModelValidator.ValidateBindings(core,simulation); }
     }
 
 }

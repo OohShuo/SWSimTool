@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -171,9 +171,9 @@ namespace SW2URDF.Simulation
         public void NormalizeSiteReferences(){
             var ids=new HashSet<string>();foreach(var a in attachments){if(string.IsNullOrWhiteSpace(a.id))a.id=Guid.NewGuid().ToString("N");if(!ids.Add(a.id))throw new InvalidDataException("site 内部 ID 重复。");}
             if(site_forces==null)throw new InvalidDataException("两点作用力配置不完整。");
-            foreach(var force in site_forces){var a=FindSite(force.site1_id,force.site1);var b=FindSite(force.site2_id,force.site2);if(a!=null){force.site1_id=a.id;force.site1=a.name;}if(b!=null){force.site2_id=b.id;force.site2=b.name;}}
-            foreach(var sensor in sensors){var a=FindSite(sensor.site_id,sensor.site);if(a!=null){sensor.site_id=a.id;sensor.site=a.name;}}
-            foreach(var e in equalities.Where(e=>e.type!="joint"&&e.binding=="site")){var a=FindSite(e.site1_id,e.site1);var b=FindSite(e.site2_id,e.site2);if(a!=null){e.site1_id=a.id;e.site1=a.name;}if(b!=null){e.site2_id=b.id;e.site2=b.name;}}
+            foreach(var force in site_forces){var a=FindSite(force.site1_id,force.site1);var b=FindSite(force.site2_id,force.site2);if(a!=null){force.site1_id=a.id;force.site1=a.name;}else if(string.IsNullOrWhiteSpace(force.site1_id)&&!string.IsNullOrWhiteSpace(force.site1))force.site1_id=Guid.NewGuid().ToString("N");if(b!=null){force.site2_id=b.id;force.site2=b.name;}else if(string.IsNullOrWhiteSpace(force.site2_id)&&!string.IsNullOrWhiteSpace(force.site2))force.site2_id=Guid.NewGuid().ToString("N");}
+            foreach(var sensor in sensors){var a=FindSite(sensor.site_id,sensor.site);if(a!=null){sensor.site_id=a.id;sensor.site=a.name;}else if(string.IsNullOrWhiteSpace(sensor.site_id)&&!string.IsNullOrWhiteSpace(sensor.site))sensor.site_id=Guid.NewGuid().ToString("N");}
+            foreach(var e in equalities.Where(e=>e.type!="joint"&&e.binding=="site")){var a=FindSite(e.site1_id,e.site1);var b=FindSite(e.site2_id,e.site2);if(a!=null){e.site1_id=a.id;e.site1=a.name;}else if(string.IsNullOrWhiteSpace(e.site1_id)&&!string.IsNullOrWhiteSpace(e.site1))e.site1_id=Guid.NewGuid().ToString("N");if(b!=null){e.site2_id=b.id;e.site2=b.name;}else if(string.IsNullOrWhiteSpace(e.site2_id)&&!string.IsNullOrWhiteSpace(e.site2))e.site2_id=Guid.NewGuid().ToString("N");}
         }
         Attachment FindSite(string id,string name){if(!string.IsNullOrEmpty(id)){var item=attachments.FirstOrDefault(a=>a.id==id);return item;}var matches=attachments.Where(a=>a.name==name).ToArray();if(matches.Length>1)throw new InvalidDataException("site 名称重复："+name);return matches.FirstOrDefault();}
         public void RenameSite(Attachment item,string name){name=(name??"").Trim();if(string.IsNullOrWhiteSpace(name)||attachments.Any(a=>a!=item&&a.name==name))throw new InvalidDataException("site 名称不能为空或重复。");NormalizeSiteReferences();item.name=name;NormalizeSiteReferences();}

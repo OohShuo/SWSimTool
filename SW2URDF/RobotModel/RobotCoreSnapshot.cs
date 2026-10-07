@@ -85,6 +85,40 @@ namespace SW2URDF.RobotModel
     }
     public static class RobotModelValidator
     {
+        public static void ValidateBindings(RobotCoreSnapshot core,SimulationConfigSnapshot simulation)
+        {
+            var links=core.Links.ToDictionary(x=>x.Id,x=>x.Name);var joints=core.Joints.ToDictionary(x=>x.Id,x=>x.Name);var sites=simulation.Sites.ToDictionary(x=>x.Id,x=>x.Name);
+            Unique(simulation.Actuators.Select(x=>x.Id).Where(x=>!string.IsNullOrWhiteSpace(x)),"actuator ID");
+            Unique(simulation.Sensors.Select(x=>x.Id).Where(x=>!string.IsNullOrWhiteSpace(x)),"sensor ID");
+            Unique(simulation.Equalities.Select(x=>x.Id).Where(x=>!string.IsNullOrWhiteSpace(x)),"equality ID");
+            Unique(simulation.SiteForces.Select(x=>x.Id).Where(x=>!string.IsNullOrWhiteSpace(x)),"site force ID");
+            foreach(var site in simulation.Sites){ValidatePose(site.LinkFromSite);Binding(site.LinkId,null,links);}
+            foreach(var x in simulation.Joints)Binding(x.JointId,x.Joint,joints);
+            foreach(var x in simulation.JointForceLimits)Binding(x.JointId,x.Joint,joints);
+            foreach(var x in simulation.Actuators)Binding(x.JointId,x.Joint,joints);
+            foreach(var x in simulation.Sensors)Binding(x.SiteId,x.Site,sites);
+            foreach(var x in simulation.SiteForces){Binding(x.Site1Id,x.Site1,sites);Binding(x.Site2Id,x.Site2,sites);}
+            foreach(var x in simulation.Equalities){
+                if(x.Type=="joint"){Binding(x.Joint1Id,x.Joint1,joints);Binding(x.Joint2Id,x.Joint2,joints,true);}
+                else if((x.Binding??"site")=="body"){Binding(x.Body1Id,x.Body1,links);Binding(x.Body2Id,x.Body2,links,true);}
+                else{Binding(x.Site1Id,x.Site1,sites);Binding(x.Site2Id,x.Site2,sites);}
+            }
+            if(simulation.Collision!=null){
+                Unique(simulation.Collision.Geometries.Select(x=>x.Id).Where(x=>!string.IsNullOrWhiteSpace(x)),"collision geometry ID");
+                foreach(var id in simulation.Collision.LinkModes.Keys)Binding(id,null,links);
+                foreach(var x in simulation.Collision.Geometries)Binding(x.LinkId,x.Link,links);
+                foreach(var x in simulation.Collision.AllowedPairs){Binding(x.Link1Id,x.Link1,links);Binding(x.Link2Id,x.Link2,links);}
+            }
+        }
+        static void Binding(string id,string name,IDictionary<string,string> objects,bool optional=false)
+        {
+            if(!string.IsNullOrWhiteSpace(id)){
+                string current;if(!objects.TryGetValue(id,out current))throw new InvalidDataException("Unknown stable reference: "+id);
+                if(!string.IsNullOrWhiteSpace(name)&&name!=id&&name!=current)throw new InvalidDataException("Reference name conflicts with stable ID: "+id);return;
+            }
+            if(optional&&string.IsNullOrWhiteSpace(name))return;
+            if(string.IsNullOrWhiteSpace(name)||(!objects.ContainsKey(name)&&objects.Count(x=>x.Value==name)!=1))throw new InvalidDataException("Unknown reference: "+name);
+        }
         public static void Validate(RobotCoreSnapshot core)
         {
             Unique(core.Links.Select(l=>l.Id),"link ID");Unique(core.Links.Select(l=>l.Name),"link name");Unique(core.Joints.Select(j=>j.Id),"joint ID");Unique(core.Joints.Select(j=>j.Name),"joint name");
