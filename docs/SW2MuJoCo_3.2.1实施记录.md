@@ -37,3 +37,6 @@ ProjectExport 唯一 public 构造固定为 native，reference 仅能显式调�
 交付 dist/SW2MuJoCo_3.2.1_SW2025_x64_Setup.exe；docs/SW2MuJoCo_3.2.1_使用指南.html 为离线内嵌截图版，12 节、15 张原有真实操作截图。界面布局未改，本轮没有新做 UI 视觉或 viewer 体验验证。
 
 最终必要检查：14 模型差分、96 后端、125 导航、12 连续身份、10 已有身份、6 配置、4 production/reference 边界、35 工具、2 Form 生命周期；COM 增量及身份冷暖严格语义/动力学通过。日志均在 build/3.2.1-*.log。3.0 已知真实闭链 Python 序列化 reference 的 L3 精度差异不在本次修补范围内，不宣称已解决；本轮未放宽任何比较容差。
+## 最终 stable-reference 全覆盖审计
+
+本轮另外发现并修复 mimic、旧名称未解析后的重复迁移、typed RobotModel 引用验证、URDF CAD 坐标系/轴 PID、sidecar/preview 与关节 UI 名称路径、SolidWorks Configuration 容器身份以及缺失 CAD 组件未阻止构建的问题。297 项身份矩阵、16 项真实 CAD configuration 生命周期检查通过，扩展四 link COM 缓存/保存重开验收及严格 MuJoCo 比较通过。详细身份清单、边界与证据见 `SW2MuJoCo_3.2.1稳定引用审计.md`。最终 Setup 使用本次审计修复后的代码重建。
