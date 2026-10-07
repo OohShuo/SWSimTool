@@ -1,4 +1,4 @@
-SW2MuJoCo for SolidWorks 2025 (x64)
+﻿SW2MuJoCo for SolidWorks 2025 (x64)
 
 Complete plugin based on the upstream SolidWorks URDF Exporter.
 The original license and attribution are retained.

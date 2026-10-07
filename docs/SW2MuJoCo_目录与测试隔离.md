@@ -1,4 +1,4 @@
-# 目录整理与测试隔离
+﻿# 目录整理与测试隔离
 
 生产 Python 后端移至 `runtime/python/`。版本构建、插件注册、指南生成工具分别移至 `tools/build/`、`tools/install/`、`tools/docs/`。安装后的后端目录仍为 `mujoco_backend/`，保持兼容。
 

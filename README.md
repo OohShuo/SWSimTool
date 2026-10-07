@@ -39,7 +39,7 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 
 需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8、SolidWorks 2025 API 程序集和已还原的 NuGet 包。使用 MSBuild 构建 `SW2URDF/SW2URDF.csproj`，设置 `Configuration=Release`、`Platform=x64`、`SolutionDir` 为仓库绝对路径、`SolidWorksDir` 为 SolidWorks 安装目录，以及 `OutputPath` 为仓库下的 `build/runtime-release/`。
 
-生产安装器入口为 `INSTALL/SW2025-MuJoCo.iss`，默认读取 `build/runtime-release/`；可用 Inno Setup 的 `/DPayload=<绝对路径>` 指定其他载荷。旧 `Install.iss` 和 `SW2025.iss` 保留为历史构建入口。
+生产安装器入口为 `INSTALL/install.iss`，默认读取 `build/runtime-release/`；可用 Inno Setup 的 `/DPayload=<绝对路径>` 指定其他载荷。旧安装入口可通过 Git 历史追溯。
 
 当前身份与界面回归可运行以下脚本，必要时显式传入 `-Payload runtime-release`：
 

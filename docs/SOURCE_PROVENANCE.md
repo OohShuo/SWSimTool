@@ -21,4 +21,4 @@ git diff --stat upstream-baseline-882169e HEAD
 
 原官方 README 在 [history/upstream-README.md](history/upstream-README.md)。旧重复源码快照、下载归档和诊断保存在本地 `_archive/workspace-*/local/`，不进入 Git；官方 `examples/` 示例仍受版本控制。
 
-当前生产安装器为 `INSTALL/SW2025-MuJoCo.iss`，使用说明为 [3.2.1 指南](SW2MuJoCo_3.2.1_使用指南.md)。旧构建入口和早期说明仅保留作历史参考。
+当前生产安装器为 `INSTALL/install.iss`，使用说明为 [3.2.1 指南](SW2MuJoCo_3.2.1_使用指南.md)。旧安装器和早期安装说明可通过 Git 历史追溯，不属于当前生产源码树。
