@@ -1,0 +1,10 @@
+{
+  "source_commit": "d19fbb3",
+  "source_assembly": "SW2URDF.dll",
+  "attribute": "SW2MuJoCo Configuration",
+  "schema_version": 2,
+  "sha256": {
+    "legacy_urdf_xml.xml": "35aed87161721a8974c3ff0b425613d08ab6b727c8a7dd065de1dd29ec6ff355",
+    "legacy_v2_document.json": "c1bba716c493b2a107a8d07afe4591c22bd93b72c30d666838c146045ff3a2fe"
+  }
+}
