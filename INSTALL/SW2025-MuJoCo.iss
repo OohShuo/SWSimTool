@@ -52,8 +52,8 @@ Source: "{#Payload}\mujoco_backend\solver.py"; DestDir: "{app}\mujoco_backend"; 
 Source: "{#Payload}\mujoco_backend\requirements.txt"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion
 
 Source: "..\docs\SW2MuJoCo_使用说明.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\SW2MuJoCo_3.2_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "..\docs\SW2MuJoCo_3.2_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.html"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\SW2MuJoCo_3.2.1_使用指南.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "..\docs\guide-images\*.jpg"; DestDir: "{app}\docs\guide-images"; Flags: ignoreversion
 
 Source: "{#Payload}\mujoco_backend\native_support.py"; DestDir: "{app}\mujoco_backend"; Flags: ignoreversion

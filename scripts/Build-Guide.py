@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--version', default='3.0')
 args = parser.parse_args()
-if not re.fullmatch(r'\d+\.\d+', args.version):
-    parser.error('Version must be major.minor')
+if not re.fullmatch(r'\d+\.\d+(?:\.\d+)?', args.version):
+    parser.error('Version must be major.minor or major.minor.patch')
 source = ROOT / f'docs/SW2MuJoCo_{args.version}_使用指南.md'
 text = source.read_text(encoding='utf-8')
 images = []

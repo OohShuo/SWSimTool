@@ -26,6 +26,14 @@ ProjectExport 唯一 public 构造固定为 native，reference 仅能显式调�
 
 ## 阶段 5：COM 持久化与缓存
 
-新建四 link 装配 build/native-incremental-78dad41fb6c148f18dd8e381bd1819fe，在真实 SLDASM 上保存/关闭/重开，rename 后再次保存重开，碰撞模式仍绑定原 ID。删除后同名重建得到新 ID，保存重开后不继承旧模式；旧 ID 保留未解析状态，冷构建明确拒绝。没有打开任何用户工程，没有使用 computer-use。
+新建四 link 装配 build/native-incremental-87dbea45316d401dac65ea07d8d6a65c，在真实 SLDASM 上保存/关闭/重开，rename 后再次保存重开，碰撞模式仍绑定原 ID。删除后同名重建得到新 ID，保存重开后不继承旧模式；旧 ID 保留未解析状态，冷构建明确拒绝。没有打开任何用户工程，没有使用 computer-use。
 
 该装配 timestep-only 保持 0/0/0/1/1；改名后的暖缓存与清空隔离缓存后的完整导出，用 MuJoCo 比较编译语义及 1/10/100 步动力学，沿用既有严格容差。恒力、弹簧、site、IMU、actuator、connect 和简单碰撞体都保留在同一验收模型中。日志 build/3.2.1-identity-cad.log、build/3.2.1-identity-compare.log。
+
+## 阶段 6：3.2.1 交付
+
+程序集版本 3.2.1.0。Setup 包包含生产 Tool Backend，不包含 reference convert.py；升级安装、COM 注册、安装 DLL 哈希一致、新建空装配加载/保存通过。安装器保留已有 Python 环境，未打开用户现有工程。
+
+交付 dist/SW2MuJoCo_3.2.1_SW2025_x64_Setup.exe；docs/SW2MuJoCo_3.2.1_使用指南.html 为离线内嵌截图版，12 节、15 张原有真实操作截图。界面布局未改，本轮没有新做 UI 视觉或 viewer 体验验证。
+
+最终必要检查：14 模型差分、96 后端、125 导航、12 连续身份、10 已有身份、6 配置、4 production/reference 边界、35 工具、2 Form 生命周期；COM 增量及身份冷暖严格语义/动力学通过。日志均在 build/3.2.1-*.log。3.0 已知真实闭链 Python 序列化 reference 的 L3 精度差异不在本次修补范围内，不宣称已解决；本轮未放宽任何比较容差。
