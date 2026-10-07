@@ -1,4 +1,4 @@
-param([string]$Configuration='Release',[string]$Python='python')
+﻿param([string]$Configuration='Release',[string]$Python='python')
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -11,6 +11,7 @@ function Run([string]$name,[scriptblock]$command) {
 }
 Run 'backend' { & $Python -B -m unittest discover -s tests/backend -v }
 Run 'parity' { & $Python -B tests/parity/run.py }
+Run 'sdk-build' { & $Python -B tests/architecture/Test-SdkBuild.py }
 Run 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
 Run 'core' { & "$root/build/bin/CoreTests/$Configuration/net48/CoreTests.exe" }
 Run 'tools' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call(sys.argv[1:],env=dict(os.environ)))" "$root/build/bin/CandidateRunner/$Configuration/net48/SWSimTool.CandidateRunner.exe" --tooltest $Python "$root/tests/tools/fake_tool.py" }

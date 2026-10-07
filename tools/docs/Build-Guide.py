@@ -7,7 +7,7 @@ import argparse
 
 ROOT = next(p for p in Path(__file__).resolve().parents if (p / 'SWSimTool.sln').is_file())
 parser = argparse.ArgumentParser()
-parser.add_argument('--version', default='3.2.1')
+parser.add_argument('--version', default=__import__('xml.etree.ElementTree', fromlist=['parse']).parse(ROOT / 'Version.props').findtext('.//SWSimToolVersion'))
 args = parser.parse_args()
 if not re.fullmatch(r'\d+\.\d+(?:\.\d+)?', args.version):
     parser.error('Version must be major.minor or major.minor.patch')

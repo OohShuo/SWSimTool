@@ -4,7 +4,7 @@
 #endif
 #define BuildVersion GetFileVersion(Payload + "\SWSimTool.dll")
 #ifndef ReleaseName
-#define ReleaseName "3.2.1"
+#define ReleaseName Copy(BuildVersion, 1, Len(BuildVersion) - 2)
 #endif
 
 [Setup]

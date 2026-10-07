@@ -1,9 +1,11 @@
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="../../Directory.Build.props" />
-  <PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><OutputType>Library</OutputType><AssemblyName>SWSimTool.Core</AssemblyName><LangVersion>latest</LangVersion><ProjectGuid>{7f075432-a502-4e84-a728-93c4063af0ee}</ProjectGuid></PropertyGroup>
-  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/></ItemGroup>
-  <ItemGroup><Compile Include="**/*.cs" /></ItemGroup>
-  <ItemGroup></ItemGroup>
-  <Import Project="../../Directory.Build.targets" />
-  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SWSimTool.Core</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
 </Project>

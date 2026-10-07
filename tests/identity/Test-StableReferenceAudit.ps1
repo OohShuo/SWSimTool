@@ -1,12 +1,13 @@
 ﻿param([string]$Payload="bin/SWSimTool.SolidWorks/Release/net48")
 $ErrorActionPreference='Stop'
 $root=$(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
+$testConfiguration=if($env:SWSIMTOOL_TEST_CONFIGURATION){$env:SWSIMTOOL_TEST_CONFIGURATION}else{'Release'}
 $folder=Join-Path $root ('build\stable-reference-audit-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $folder | Out-Null
 $bin=Join-Path $root ('build\'+$Payload)
 $interop='D:\sw\sw2025\SOLIDWORKS'
-$refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll","$(Join-Path $root 'build/packages/Moq.4.10.1/lib/net45/Moq.dll')","$(Join-Path $root 'build/packages/Castle.Core.4.3.1/lib/net45/Castle.Core.dll')","$interop\SolidWorks.Interop.sldworks.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
-@('build/packages/System.Threading.Tasks.Extensions.4.5.1/lib/portable-net45+win8+wp8+wpa81/System.Threading.Tasks.Extensions.dll','build/packages/System.Runtime.CompilerServices.Unsafe.4.5.0/lib/netstandard1.0/System.Runtime.CompilerServices.Unsafe.dll') | ForEach-Object { [Reflection.Assembly]::LoadFrom((Join-Path $root $_)) | Out-Null }
+$refs=@("$bin\SWSimTool.dll","$bin\SWSimTool.Core.dll","$bin\SWSimTool.Application.dll","$bin\SWSimTool.Infrastructure.dll","$bin\MathNet.Numerics.dll","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Moq.dll")","$(Join-Path $root "build/bin/SWSimTool.Tests/$testConfiguration/net48/Castle.Core.dll")","$interop\SolidWorks.Interop.sldworks.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
+@("build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Threading.Tasks.Extensions.dll","build/bin/SWSimTool.Tests/$testConfiguration/net48/System.Runtime.CompilerServices.Unsafe.dll") | ForEach-Object { [Reflection.Assembly]::LoadFrom((Join-Path $root $_)) | Out-Null }
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Linq;using System.Collections.Generic;using System.Reflection;

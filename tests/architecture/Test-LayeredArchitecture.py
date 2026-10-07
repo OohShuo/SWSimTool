@@ -13,10 +13,10 @@ class Architecture(unittest.TestCase):
         expected = {'Core': set(), 'Application': {'Core'}, 'Infrastructure': {'Core', 'Application'}, 'SolidWorks': {'Core', 'Application', 'Infrastructure'}}
         for layer, wanted in expected.items():
             directory, xml = self.project(layer)
-            actual = {Path(x.attrib['Include'].replace('\\', '/')).stem.removeprefix('SWSimTool.') for x in xml.findall('.//m:ProjectReference', NS)}
+            actual = {Path(x.attrib['Include'].replace('\\', '/')).stem.removeprefix('SWSimTool.') for x in xml.findall('.//ProjectReference', NS)}
             self.assertEqual(actual, wanted, layer)
             if layer != 'SolidWorks':
-                refs = [x.attrib['Include'] for x in xml.findall('.//m:Reference', NS)]
+                refs = [x.attrib['Include'] for x in xml.findall('.//Reference', NS)]
                 self.assertFalse(any(any(bad in ref for bad in ('SolidWorks', 'Windows.Forms', 'Presentation', 'WindowsBase')) for ref in refs), layer)
     def test_core_and_application_have_no_concrete_adapters(self):
         for layer in ('Core', 'Application'):

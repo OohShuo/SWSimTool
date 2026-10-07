@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Test,[switch]$Package,[switch]$Installer,[switch]$Clean,
     [string]$Configuration='Release',
     [string]$SolidWorksDir=$env:SOLIDWORKS_DIR,
@@ -33,12 +33,12 @@ function Invoke-Gate([string]$Name,[scriptblock]$Action) {
 }
 Push-Location $root
 try {
-    Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /p:RestorePackagesConfig=true "/p:RestoreRepositoryPath=$build/packages" /v:minimal }
+    Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /v:minimal }
     $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
     if($Test -or $Package -or $Installer) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
     foreach($project in $projects) {
         $name=[IO.Path]::GetFileNameWithoutExtension($project)
-        Invoke-Gate "build-$name" { & $MSBuild $project /t:Build "/p:Configuration=$Configuration" /p:Platform=x64 "/p:SolidWorksDir=$SolidWorksDir" "/p:SolutionDir=$root\" /v:minimal }
+        Invoke-Gate "build-$name" { & $MSBuild $project /restore /t:Build "/p:Configuration=$Configuration" /p:Platform=x64 "/p:SolidWorksDir=$SolidWorksDir" "/p:SolutionDir=$root\" /v:minimal }
     }
     if($Test -or $Package -or $Installer) {
         & "$root/tools/build/RunTests.ps1" -Configuration $Configuration -Python $Python

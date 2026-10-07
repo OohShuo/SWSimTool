@@ -1,9 +1,22 @@
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="../../Directory.Build.props" />
-  <PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><OutputType>Library</OutputType><AssemblyName>SWSimTool.Infrastructure</AssemblyName><LangVersion>latest</LangVersion><ProjectGuid>{d5fdf93b-6357-424d-b951-6d23e29e742e}</ProjectGuid></PropertyGroup>
-  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xml.Linq"/><Reference Include="System.Web.Extensions"/></ItemGroup>
-  <ItemGroup><Compile Include="**/*.cs" /></ItemGroup>
-  <ItemGroup><ProjectReference Include="../SWSimTool.Core/SWSimTool.Core.csproj"><Name>SWSimTool.Core</Name></ProjectReference><ProjectReference Include="../SWSimTool.Application/SWSimTool.Application.csproj"><Name>SWSimTool.Application</Name></ProjectReference></ItemGroup>
-  <Import Project="../../Directory.Build.targets" />
-  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SWSimTool.Infrastructure</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SWSimTool.Core/SWSimTool.Core.csproj">
+      <Name>SWSimTool.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="../SWSimTool.Application/SWSimTool.Application.csproj">
+      <Name>SWSimTool.Application</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>

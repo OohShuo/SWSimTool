@@ -1,5 +1,6 @@
 ﻿param (
-    [string]$filename
+    [string]$filename,
+    [string]$Version
  )
 
 $repoDirectory = $(for ($p=$PSScriptRoot; $p; $p=Split-Path -Parent $p) { if (Test-Path -LiteralPath (Join-Path $p 'SWSimTool.sln')) { $p; break } })
@@ -10,6 +11,6 @@ if (Test-Path (Join-Path $repoDirectory '.git')) {
 }
 $FileContent = 'using System.Reflection;
 
-[assembly: AssemblyInformationalVersion("{0}")]' -f $CommitVersion
+[assembly: AssemblyInformationalVersion("{0}")]' -f ($Version + '+' + $CommitVersion)
 New-Item -ItemType Directory -Path (Split-Path -Parent $filename) -Force | Out-Null
 $FileContent | Set-Content -LiteralPath $filename -Encoding UTF8

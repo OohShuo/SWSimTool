@@ -32,7 +32,7 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 | `build/bin/CandidateRunner/Release/net48/` | 差分测试运行器 |
 | `build/` 中的报告与隔离 fixture | 最终验收证据，不进入 Git |
 | `_archive/` | 旧安装包、旧构建、实验脚本、备份和诊断，本地归档，不进入 Git |
-| `build/packages/`、`build/tools/` | NuGet 依赖与本地安装器编译工具，不进入 Git |
+| `build/tools/` | 本地安装器编译工具；NuGet 使用标准全局缓存，不进入 Git |
 | `examples/` | 官方示例 |
 
 归档迁移清单为 `_archive/workspace-*/manifest.json`。需要旧资源时按清单查找；当前生产构建不依赖归档目录。历史文档中的旧 `build/`、`dist/` 路径对应归档前的位置。

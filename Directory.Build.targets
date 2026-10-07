@@ -1,10 +1,9 @@
 <Project>
   <PropertyGroup>
-    <OutputPath>$(BaseOutputPath)$(Configuration)\$(BuildFramework)\</OutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\$(BuildFramework)\</IntermediateOutputPath>
     <PreBuildEvent />
   </PropertyGroup>
-  <Target Name="GenerateCommitVersion" BeforeTargets="PrepareForBuild" Condition="'$(MSBuildProjectName)' == 'SWSimTool.SolidWorks'">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(RepositoryRoot)tools\build\UpdateVersionInfo.ps1&quot; -filename &quot;$(IntermediateOutputPath)VersionInfo.cs&quot;" />
+  <Target Name="GenerateCommitVersion" BeforeTargets="GenerateAssemblyInfo" Condition="'$(TargetFramework)' != ''">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(RepositoryRoot)tools/build/UpdateVersionInfo.ps1&quot; -filename &quot;$(IntermediateOutputPath)VersionInfo.cs&quot; -Version &quot;$(SWSimToolVersion)&quot;" />
+    <ItemGroup><Compile Include="$(IntermediateOutputPath)VersionInfo.cs" /></ItemGroup>
   </Target>
 </Project>

@@ -1,14 +1,25 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)Version.props" />
   <PropertyGroup>
-    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
-    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
-    <BuildFramework Condition="'$(TargetFramework)' == ''">net48</BuildFramework>
-    <BuildFramework Condition="'$(TargetFramework)' != ''">$(TargetFramework)</BuildFramework>
-    <BaseOutputPath>$(RepositoryRoot)build\bin\$(MSBuildProjectName)\</BaseOutputPath>
-    <BaseIntermediateOutputPath>$(RepositoryRoot)build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\$(BuildFramework)\</IntermediateOutputPath>
-    <OutputPath>$(BaseOutputPath)$(Configuration)\$(BuildFramework)\</OutputPath>
+    <BaseOutputPath>$(RepositoryRoot)build/bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(RepositoryRoot)build/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Configuration)/</OutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)/</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(RepositoryRoot)=/_/</PathMap>
+    <Version>$(SWSimToolVersion)</Version>
+    <AssemblyVersion>$(SWSimToolVersion).0</AssemblyVersion>
+    <FileVersion>$(SWSimToolVersion).0</FileVersion>
+    <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>SWSimTool</Product>
+    <DebugType>portable</DebugType>
+    <Nullable>disable</Nullable>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 </Project>

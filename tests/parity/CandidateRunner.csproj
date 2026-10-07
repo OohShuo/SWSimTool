@@ -1,24 +1,36 @@
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="../../Directory.Build.props" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <AssemblyName>SWSimTool.CandidateRunner</AssemblyName><OutputPath>..\..\build\native-parity\</OutputPath>
-    <IntermediateOutputPath>..\..\build\native-parity-obj\</IntermediateOutputPath><LangVersion>latest</LangVersion>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SWSimTool.CandidateRunner</AssemblyName>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xml.Linq"/><Reference Include="System.Web.Extensions"/><Reference Include="System.Windows.Forms"/>
-
-
-
-    <Compile Include="CandidateRunner.cs"/>
-    <Compile Include="..\tools\ToolBackendTests.cs"/><Compile Include="..\tools\Test-MuJoCoTools.cs"/>
-
-
-
-    <Content Include="..\..\runtime\python\*.py"><Link>mujoco_backend\%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
-<ItemGroup><ProjectReference Include="../../src/SWSimTool.Core/SWSimTool.Core.csproj"><Name>SWSimTool.Core</Name></ProjectReference><ProjectReference Include="../../src/SWSimTool.Application/SWSimTool.Application.csproj"><Name>SWSimTool.Application</Name></ProjectReference><ProjectReference Include="../../src/SWSimTool.Infrastructure/SWSimTool.Infrastructure.csproj"><Name>SWSimTool.Infrastructure</Name></ProjectReference></ItemGroup>
-  <Import Project="../../Directory.Build.targets" />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+  <ItemGroup>
+    <Compile Include="..\tools\ToolBackendTests.cs" />
+    <Compile Include="..\tools\Test-MuJoCoTools.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\runtime\python\*.py">
+      <Link>mujoco_backend\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SWSimTool.Core/SWSimTool.Core.csproj">
+      <Name>SWSimTool.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="../../src/SWSimTool.Application/SWSimTool.Application.csproj">
+      <Name>SWSimTool.Application</Name>
+    </ProjectReference>
+    <ProjectReference Include="../../src/SWSimTool.Infrastructure/SWSimTool.Infrastructure.csproj">
+      <Name>SWSimTool.Infrastructure</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>

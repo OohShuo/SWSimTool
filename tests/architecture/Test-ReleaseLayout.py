@@ -1,4 +1,4 @@
-﻿"""Packaging boundaries, independent of CAD or a local Python tool environment."""
+"""Packaging boundaries, independent of CAD or a local Python tool environment."""
 from pathlib import Path
 import unittest
 import xml.etree.ElementTree as ET
@@ -7,11 +7,11 @@ class LayoutTests(unittest.TestCase):
  def test_production_source_and_dependency_boundary(self):
   project = ET.parse(ROOT / 'src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
   ns = {'m': 'http://schemas.microsoft.com/developer/msbuild/2003'}
-  sources = [x.attrib['Include'].replace('\\','/') for x in project.findall('.//m:Compile', ns)]
+  sources = [x.attrib['Include'].replace('\\','/') for x in project.findall('.//Compile', ns)]
   self.assertFalse(any(x.startswith('Test/') or '/tests/' in x for x in sources))
-  references = [x.attrib['Include'].lower() for x in project.findall('.//m:Reference',ns)]
+  references = [x.attrib['Include'].lower() for x in project.findall('.//Reference',ns)]
   self.assertFalse(any(any(t in x for t in ['xunit','moq','castle','testplatform','testframework']) for x in references))
-  content = [x.attrib['Include'].replace('\\','/') for x in project.findall('.//m:Content',ns)]
+  content = [x.attrib['Include'].replace('\\','/') for x in project.findall('.//Content',ns)]
   python = [x for x in content if x.endswith('.py')]
   self.assertEqual({Path(x).name for x in python}, {'native_support.py','simplify_stl.py','mesh_cache.py','incremental.py','solver.py'})
   self.assertTrue(all('runtime/python/' in x for x in python))
