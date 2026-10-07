@@ -23,3 +23,9 @@ ProjectExport 唯一 public 构造固定为 native，reference 仅能显式调�
 保留接口/进程结构，仅补充结构化错误协议及分类：EnvironmentMissing、DependencyMissing、InvalidInput、InputChanged、BudgetExceeded、ToolFailed、ValidationFailed，以及既有 Timeout/Cancelled/Protocol。官方 compile 不接受的 XML 单独归类；无结构化诊断的异常退出仍保存退出码/stderr。无法达到面数预算抛出明确异常而非猜测错误文本。C# 对输出面数独立检查。
 
 35 项工具检查及 96 项后端回归通过。缺 MuJoCo/fast-simplification/PyMeshLab 由隔离测试进程拦截模块导入复现，不卸载或修改用户依赖；减面无效、超预算、设置变动、损坏错误协议、超时/取消、进程树清理、验证失败保护旧包均覆盖。日志 build/3.2.1-tools.log、build/3.2.1-backend.log。
+
+## 阶段 5：COM 持久化与缓存
+
+新建四 link 装配 build/native-incremental-78dad41fb6c148f18dd8e381bd1819fe，在真实 SLDASM 上保存/关闭/重开，rename 后再次保存重开，碰撞模式仍绑定原 ID。删除后同名重建得到新 ID，保存重开后不继承旧模式；旧 ID 保留未解析状态，冷构建明确拒绝。没有打开任何用户工程，没有使用 computer-use。
+
+该装配 timestep-only 保持 0/0/0/1/1；改名后的暖缓存与清空隔离缓存后的完整导出，用 MuJoCo 比较编译语义及 1/10/100 步动力学，沿用既有严格容差。恒力、弹簧、site、IMU、actuator、connect 和简单碰撞体都保留在同一验收模型中。日志 build/3.2.1-identity-cad.log、build/3.2.1-identity-compare.log。

@@ -1,4 +1,4 @@
-﻿param([string]$Payload='native-candidate',[switch]$NativeOnly)
+﻿param([string]$Payload='native-candidate',[switch]$NativeOnly,[switch]$IdentityLifecycle)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $directory=Join-Path $root ('build\native-incremental-'+[Guid]::NewGuid().ToString('N'))
@@ -21,6 +21,7 @@ using SW2URDF.URDFExport;
 using SW2URDF.Simulation;
 public static class NativeIncrementalProbe {
  public static bool NativeOnly;
+ public static bool IdentityLifecycle;
  static JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);Console.WriteLine("PASS: "+message);}
  static void CoreParity(SldWorks sw,ModelDoc2 model,string directory){
@@ -69,6 +70,33 @@ public static class NativeIncrementalProbe {
    else Check(delta["source_build"]==1&&delta["stl_export"]>0,"native "+label+" really builds CAD source/STL");
    return new{label,output,nativeOutput,sourceUrdf=export.Urdf,cad=delta,backend=metrics,nativeBackend=nativeMetrics};
   }
+ }
+ static ModelDoc2 Reopen(SldWorks sw,ModelDoc2 model,string directory){
+  string path=Path.GetFullPath(model.GetPathName());Check(path.StartsWith(Path.GetFullPath(directory)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase),"reopen only owned fixture");
+  int errors=0,warnings=0;Check(model.Save3(1,ref errors,ref warnings),"identity fixture saved to CAD file");sw.CloseDoc(model.GetTitle());
+  var reopened=(ModelDoc2)sw.OpenDoc6(path,2,1,"",ref errors,ref warnings);Check(reopened!=null&&errors==0,"identity fixture reopened from CAD file");return reopened;
+ }
+ static void ClearOwnedCaches(string directory){
+  foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
+ }
+ static void Identity(SldWorks sw,ModelDoc2 model,string directory,string settings){
+  model=Reopen(sw,model,directory);bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);var node=(LinkNode)tree.Nodes[0];string id=node.Link.StableId;var project=SimulationStorage.Load(model);
+  Check(project.collision.Mode(id)=="primitive","CAD save/reopen preserves A collision mode");
+  node.Name=node.Text=node.Link.Name="left_arm";ConfigurationSerialization.SaveConfigTreeXML(sw,model,tree,false);
+  model=Reopen(sw,model,directory);tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);node=(LinkNode)tree.Nodes[0];project=SimulationStorage.Load(model);
+  Check(node.Link.StableId==id&&node.Link.Name=="left_arm"&&project.collision.Mode(id)=="primitive","CAD rename/save/reopen retains identity A and mode");
+  var warm=Stage(sw,model,directory,"identity_warm",settings);ClearOwnedCaches(directory);var cold=Stage(sw,model,directory,"identity_cold",settings);
+  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);tree.Nodes.Clear();tree.Link.Children.Clear();
+  var replacement=new Link(tree.Link);replacement.Name="left_arm";replacement.Joint.Name="hinge";tree.Link.Children.Add(replacement);tree.Nodes.Add(new LinkNode(replacement));string replacementId=replacement.StableId;
+  SimulationStorage.SaveTree(sw,model,ConfigurationSerialization.WriteTree(tree),1.4);model=Reopen(sw,model,directory);
+  tree=ConfigurationSerialization.LoadBaseNodeFromModel(model,out error);project=SimulationStorage.Load(model);
+  Check(((LinkNode)tree.Nodes[0]).Link.StableId==replacementId&&replacementId!=id&&project.collision.Mode(replacementId)=="mesh"&&!project.collision.link_modes_by_id.ContainsKey(replacementId)&&project.collision.link_modes_by_id.ContainsKey(id),"CAD delete/same-name recreate/save/reopen never transfers A mode to B");
+  ClearOwnedCaches(directory);var isolated=new SimulationProject{collision=new CollisionConfiguration{link_modes_migrated=true}};isolated.collision.link_modes_by_id[id]=project.collision.Mode(id);bool rejected=false;
+  var inertia=new SW2URDF.RobotModel.InertialSnapshot(1,SW2URDF.RobotModel.RigidTransform.Identity,new SW2URDF.RobotModel.SymmetricInertia(.1,.1,.1,0,0,0));
+  var core=new SW2URDF.RobotModel.RobotCoreSnapshot("identity",new[]{new SW2URDF.RobotModel.LinkSnapshot(replacementId,"left_arm",inertia,new SW2URDF.RobotModel.GeometrySnapshot[0])},new SW2URDF.RobotModel.JointSnapshot[0]);
+  try{SimulationConfigBuilder.Build(isolated,core,new ResolvedSimulationGeometry(new SW2URDF.RobotModel.SiteSnapshot[0],new SW2URDF.RobotModel.CollisionGeometrySnapshot[0]));}catch(InvalidDataException){rejected=true;}
+  Check(rejected,"cold rebuild rejects unresolved A without same-name fallback");
+  File.WriteAllText(Path.Combine(directory,"identity-counts.json"),json.Serialize(new{status="passed",originalId=id,replacementId,stages=new[]{warm,cold}}));
  }
  public static void Run(string directory){
   var sw=(SldWorks)Activator.CreateInstance(Type.GetTypeFromProgID("SldWorks.Application"));
@@ -126,6 +154,7 @@ public static class NativeIncrementalProbe {
    foreach(var name in new[]{"cache","mesh-cache"}){string path=Path.GetFullPath(Path.Combine(directory,name));if(Path.GetDirectoryName(path)!=Path.GetFullPath(directory))throw new Exception("Cache containment check failed");if(Directory.Exists(path))Directory.Delete(path,true);}
    var full=Stage(sw,model,directory,"full",settings);
    File.WriteAllText(Path.Combine(directory,"native-counts.json"),json.Serialize(new{status="passed",source="new native SW assembly",stages=new[]{initial,incremental,full}}));Console.WriteLine("NATIVE_REPORT: "+directory);
+   if(IdentityLifecycle){Check(NativeOnly,"identity lifecycle uses production entry only");Identity(sw,model,directory,settings);}
   }catch(Exception error){Console.WriteLine(error.ToString());throw;}finally{
    Environment.SetEnvironmentVariable("SW2MUJOCO_CACHE",oldCache);Environment.SetEnvironmentVariable("SW2MUJOCO_MESH_CACHE",oldMesh);Environment.SetEnvironmentVariable("SW2MUJOCO_PROFILE",oldProfile);
    // Close only documents created by this probe. Never close an unexpected document.
@@ -136,5 +165,6 @@ public static class NativeIncrementalProbe {
 }
 '@
 [NativeIncrementalProbe]::NativeOnly=$NativeOnly.IsPresent
+[NativeIncrementalProbe]::IdentityLifecycle=$IdentityLifecycle.IsPresent
 [NativeIncrementalProbe]::Run($directory)
 $directory | Set-Content -LiteralPath (Join-Path $root 'build\native-incremental-directory.txt')

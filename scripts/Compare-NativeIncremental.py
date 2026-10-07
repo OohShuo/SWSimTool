@@ -29,6 +29,13 @@ if report['stages'][0].get('nativeOnly'):
     compiled_semantics(warm,cold)
     dynamics(warm,cold,steps=(1,10,100))
     report.update(native_incremental_cold_parity=True,no_intermediate_urdf=True)
+    if (folder/'identity-counts.json').is_file():
+        identity=json.loads((folder/'identity-counts.json').read_text(encoding='utf-8-sig'))
+        identity_warm=load_mjcf(folder/'identity_warm_native_mjcf/robot.xml')
+        identity_cold=load_mjcf(folder/'identity_cold_native_mjcf/robot.xml')
+        compiled_semantics(identity_warm,identity_cold)
+        dynamics(identity_warm,identity_cold,steps=(1,10,100))
+        report.update(identity_lifecycle=identity,identity_cold_warm_semantics_and_dynamics=True)
     report_path=root/'build/native-production-v1.json'
     report_path.write_text(json.dumps(report,indent=2),encoding='utf-8')
     print('Native-only production incremental semantics and dynamics: PASS')
