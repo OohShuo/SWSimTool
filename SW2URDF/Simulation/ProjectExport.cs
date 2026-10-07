@@ -45,35 +45,12 @@ namespace SW2URDF.Simulation {
      if(Core!=null&&cached.resolvedGeometry!=null)simulation=SimulationConfigBuilder.Build(current,Core,cached.resolvedGeometry);return;
     }
     SourceBuildCount++;CadRevision.Invalidate(expected);
-    bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(expected,out error);
-    if(error||tree==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
-    CommonSwOperations.LoadSWComponents(expected,tree,new System.Collections.Generic.List<string>());
-    var helper=new ExportHelper(app){SavePath=temporary,PackageName="robot",ShowExportLocation=false,ExportSimulationInformation=true};
-    helper.GetSimulation().Project=current;
-    var meshes=new System.Collections.Generic.Dictionary<string,SW2URDF.RobotModel.MeshSource>();
-    if(nativeOnly){
-
-     helper.EnsureNativeReferences(tree);
-     helper.GetSimulation().SetCollisionTree(tree);
-     meshes=helper.PlanConfiguredNativeMeshes(tree,Path.Combine(temporary,"raw-mesh"));
-     Core=CadRobotCoreBuilder.Build("robot",helper.GetSimulation(),tree,meshes);
-     helper.GetSimulation().UseExportFrames(System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray()));
-     helper.ExportConfiguredNativeMeshes(tree,Path.Combine(temporary,"raw-mesh"));
-     if(helper.URDFRobot!=null)throw new InvalidOperationException("Native source must not construct a URDF Robot");
-    }else{
-    if(!helper.CreateRobotFromTreeView(tree))throw new InvalidOperationException("URDF 构建失败，请检查 link / joint 配置。");
-    helper.ExportRobot();Urdf=helper.LastURDFPath;Sidecar=helper.LastSimulationPath;
-    if(Urdf==null||Sidecar==null)throw new IOException("临时 URDF 或附加配置导出失败。");
-    Action<SW2URDF.URDF.Link> collect=null;collect=link=>{string path=Path.Combine(temporary,"robot","meshes",link.Name.Replace('/','_')+".STL");if(File.Exists(path))meshes.Add(link.Name,new SW2URDF.RobotModel.MeshSource(link.StableId+"/mesh",path,new SW2URDF.RobotModel.Vector3d(1,1,1)));foreach(var child in link.Children)collect(child);};collect(helper.URDFRobot.BaseLink);
-    }
-    // Export can update display state/preferences; establish the final metadata revision.
+    var built=ProjectSourceBuilder.Build(app,expected,temporary,current,nativeOnly);
+    Core=built.Core;Urdf=built.Urdf;Sidecar=built.Sidecar;
+    simulation=SimulationConfigBuilder.Build(current,Core,built.Geometry);
+    // CAD/export preferences may change the stamp: cache the final revision.
     source=ProjectSourceCache.Source(app,expected,treeData);
-    var resolved=Sidecar==null?null:ExportFingerprint.Serializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(File.ReadAllText(Sidecar));
-    if(!nativeOnly)Core=SW2URDF.RobotModel.SolidWorksRobotModelBuilder.FromResolvedRobot(helper.URDFRobot,meshes);
-    var frames=System.Linq.Enumerable.ToDictionary(helper.GetSimulation().LinkTransforms(),x=>x.Key,x=>x.Value.ToRowMajorArray());
-    ResolvedSimulationGeometry nativeGeometry=null;
-    helper.GetSimulation().UseExportFrames(frames);nativeGeometry=helper.GetSimulation().ResolveNativeGeometry(Core);simulation=SimulationConfigBuilder.Build(current,Core,nativeGeometry);
-    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,resolved,frames,Core,nativeGeometry);
+    ProjectSourceCache.Store(expected,source,geometry,temporary,Urdf,current,built.LegacyData,built.Frames,Core,built.Geometry);
     var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=stored.urdf==null?null:Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }

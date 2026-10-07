@@ -340,6 +340,9 @@
     <Compile Include="Simulation\SimulationConfigBuilder.cs" />
     <Compile Include="Simulation\NativeSimulationGeometry.cs" />
     <Compile Include="Simulation\CadRobotCoreBuilder.cs" />
+    <Compile Include="Simulation\ProjectSourceBuilder.cs" />
+    <Compile Include="Simulation\NativeAssetPlanner.cs" />
+    <Compile Include="Simulation\NativeExportPipeline.cs" />
     <Compile Include="URDFExport\ExportHelperNativeSource.cs" />
     <Compile Include="Simulation\ExportFingerprint.cs" />
     <Compile Include="Simulation\SimulationSession.cs" />

@@ -45,3 +45,9 @@
 同一新建四 link 装配的直接 CAD 与旧适配器核心通过严格 L2 和 1/10/100 步 L3；timestep-only 0/0/0/1/1、冷缓存严格语义/动力学一致继续通过。目录为 build/native-incremental-88748ea408c8484299d87c8577b34d55。125 项非桌面配置/导航检查、10 项身份/纯数据检查及 6 项类型化配置检查通过。
 
 保存归一化以已有 ID 为准，不依据冲突名称重绑；显式下拉改选清除旧 ID 后在保存边界建立新绑定。历史 body equality 的空 body2（world）继续兼容。
+
+## 阶段 4：协调职责拆分
+
+ProjectSourceBuilder 负责源快照，NativeAssetPlanner 负责资产映射与输入哈希，NativeExportWorkspace 管理自有暂存目录，NativeExportPipeline 编排完整生成、工具调用、验证和原子发布。生产入口不回退到 Python 生成器。
+
+14 项候选差分、125 项非桌面配置/导航回归通过。新建 COM 装配 build/native-incremental-533f1bff780b43fd9bdd3be45ca3a9e6 通过直接 CAD 核心差分、0/0/0/1/1 增量计数、冷缓存严格语义和 1/10/100 步动力学一致性；无中间 URDF/JSON。
