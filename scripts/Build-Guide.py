@@ -3,9 +3,15 @@ from pathlib import Path
 import base64
 import html
 import re
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
-source = ROOT / 'docs/SW2MuJoCo_3.0_使用指南.md'
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', default='3.0')
+args = parser.parse_args()
+if not re.fullmatch(r'\d+\.\d+', args.version):
+    parser.error('Version must be major.minor')
+source = ROOT / f'docs/SW2MuJoCo_{args.version}_使用指南.md'
 text = source.read_text(encoding='utf-8')
 images = []
 
@@ -15,7 +21,6 @@ def inline(value):
     return re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', value)
 
 parts, contents = [], []
-heading_count = 0
 heading_count = 0
 lines = text.splitlines()
 i = 0
@@ -70,7 +75,7 @@ table{border-collapse:collapse;width:100%;margin:22px 0}th,td{border:1px solid #
 figure{margin:30px 0}img{display:block;width:100%;height:auto}figcaption{font-size:14px;color:#555;margin-top:8px}nav ol{columns:2;padding-left:24px}nav li{break-inside:avoid}nav{margin:32px 0}
 @media(max-width:700px){main{padding:22px}body{font-size:16px}nav ol{columns:1}table{font-size:14px}th,td{padding:8px}}
 @media print{body{background:white;font-size:11pt}main{max-width:none;padding:0}h2,h3{break-after:avoid}figure,table{break-inside:avoid}img{max-height:220mm;object-fit:contain}a{color:inherit}@page{size:A4;margin:18mm}}'''
-document = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SW2MuJoCo 3.0 使用指南</title><style>'+css+'</style><main>'
+document = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SW2MuJoCo '+args.version+' 使用指南</title><style>'+css+'</style><main>'
 document += parts[0] + parts[1] + toc + ''.join(parts[2:]) + '</main></html>'
 output = source.with_suffix('.html')
 output.write_text(document, encoding='utf-8')

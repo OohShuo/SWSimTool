@@ -61,3 +61,15 @@ ProjectSourceBuilder 负责源快照，NativeAssetPlanner 负责资产映射与�
 新增三个 Tool Backend 接口和类型化请求/结构化结果。Python 不进入模型语义；mesh 结果的 ID、映射、哈希、binary STL 及预算严格核对。统一生命周期加入取消、超时、限长 UTF-8 日志和 Windows Job 自有进程树清理。关闭导出窗口请求取消并清理后再关闭。输出路径策略移出 Python reference 类，生产没有生成器 fallback。
 
 27 项工具契约、2 项未显示窗口的关闭生命周期、14 项候选差分和 96 项后端回归通过；125 项导航、10 项身份、6 项配置快照检查继续通过。COM 新建目录 build/native-incremental-2088b1f690b44cdbaba9dcbf27cf06f0 通过上游 0/0/0、生成/验证 1/1，以及冷缓存严格语义和 1/10/100 步动力学比较。完整契约见 SW2MuJoCo_ToolBackend.md。
+
+## 阶段 7：最终交付
+
+3.2.0.0 Release 与 Setup 构建通过，实际升级安装成功；安装 DLL SHA256 与构建一致，64 位 COM 注册版本为 3.2.0.0。安装目录仅保留五个运行时 Python 模块，不含 reference generator。安装版通过 COM LoadAddIn，并新建/保存空装配成功；不使用用户已有工程。
+
+最终构建新建测试装配位于 build/native-incremental-7773e9a3ab184f3a9ca31922892f9716。timestep-only：geometry query=0、STL export=0、mesh simplification=0、MJCF generation=1、MuJoCo validation=1；同时 source build=0、mesh preparation=0。清缓存 full 与 incremental 严格语义及 1/10/100 步动力学一致，直接 CAD 与 legacy 核心的同源差分通过。官方编译包括 site、IMU、motor、connect、碰撞代理、两点恒力及弹簧。最终测试日志位于 build/3.2-*.log，语义报告为 build/native-production-v1.json。
+
+发布包：dist/SW2MuJoCo_3.2_SW2025_x64_Setup.exe（SHA256 D209FB916D6CC6551BB3414668BAA8898212547DCD000A395A3200003F0B3EF8）。3.1 归档安装包一并保留。普通 URDF 原逻辑保留、native 工程路径无 URDF/JSON 桥、最终包 XML + meshes/STL、失败/取消保护旧包均有回归覆盖。
+
+3.2 HTML/Markdown 使用指南更新安装文件名及取消方法，沿用已审核的 3.0 实际演示截图和布局；12 个目录锚点、15 张内嵌截图静态检查通过，安装包包含新版指南。此次未执行浏览器/桌面视觉验证，不声明新截图或 viewer 视觉验收。指南仅包含使用方法，架构说明另存。
+
+既有真实闭链与 Python 序列化 reference 的 L3 精度差异仍按 3.0 记录单独列明，本轮不通过扩大容差宣称已解决；未使用该用户工程。本轮无新增仿真功能、无 persistent Python、无原生 MuJoCo 替代实现。
