@@ -10,7 +10,22 @@ $build=Join-Path $root 'build'
 if($Clean) {
     if($Test -or $Package -or $Installer) { throw '-Clean cannot be combined with build options' }
     if([IO.Path]::GetFullPath($build) -ne [IO.Path]::Combine([IO.Path]::GetFullPath($root),'build')) {throw 'Unsafe clean path'}
-    if(Test-Path $build) {Remove-Item -LiteralPath $build -Recurse -Force}
+    if(Test-Path $build) {
+        # Shared compiler/analyzer servers can retain handles below test-work.
+        if(Get-Command dotnet -ErrorAction SilentlyContinue) {
+            & dotnet build-server shutdown
+            if($LASTEXITCODE -ne 0){throw 'Cannot release build-server handles before cleaning'}
+        }
+        $vswhere="${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+        if(Test-Path $vswhere) {
+            $compiler=(& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Roslyn\VBCSCompiler.exe' | Select-Object -First 1)
+            if($compiler) {
+                & $compiler -shutdown
+                if($LASTEXITCODE -ne 0){throw 'Cannot release Visual Studio compiler handles before cleaning'}
+            }
+        }
+        Remove-Item -LiteralPath $build -Recurse -Force
+    }
     return
 }
 if(!$SolidWorksDir) {$SolidWorksDir='C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS'}
