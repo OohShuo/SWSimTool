@@ -150,6 +150,13 @@ namespace SWSimTool.Simulation
         public override string ToString()=>name+" ["+type+"] : "+site1+" ↔ "+site2;
     }
 
+    public sealed class UrdfExportSettings {
+        public bool inertia {get;set;}=true;
+        public bool geometry {get;set;}=true;
+        public bool kinematics {get;set;}=true;
+        // Explicit tree limits have priority; users may opt into CAD mate limits.
+        public bool limits {get;set;}
+    }
     public sealed class SimulationProject
     {
         public int schema_version { get; set; } = 1;
@@ -165,6 +172,7 @@ namespace SWSimTool.Simulation
         public SolverSettings solver { get; set; }
         public List<JointConfiguration> joints { get; set; } = new List<JointConfiguration>();
         public List<JointForceLimit> joint_force_limits { get; set; } = new List<JointForceLimit>();
+        public UrdfExportSettings urdf_export {get;set;}
         public string base_mode { get; set; } = "inherit";
         public bool joint_defaults { get; set; } = true;
         // Deletion plans change collections only; record values remain untouched until a plan is accepted.

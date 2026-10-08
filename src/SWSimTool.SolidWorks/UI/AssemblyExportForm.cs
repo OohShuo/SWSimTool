@@ -254,6 +254,8 @@ namespace SWSimTool.UI
             }
 
             Exporter.URDFRobot = CreateRobotFromTreeView(treeViewLinkProperties);
+            Exporter.GetExportSimulation().DraftTree=Exporter.URDFRobot.BaseLink.Clone();
+            Exporter.GetExportSimulation().SetCollisionTree(new LinkNode(Exporter.URDFRobot.BaseLink.Clone()));
 
             // The UI should prevent these sorts of errors, but just in case
             string errors = CheckLinksForErrors(Exporter.URDFRobot.BaseLink);
@@ -416,7 +418,7 @@ namespace SWSimTool.UI
         {
             Font fontRegular = new Font(treeViewJointTree.Font, FontStyle.Regular);
             Font fontBold = new Font(treeViewJointTree.Font, FontStyle.Bold);
-            if (previouslySelectedNode != null && !previouslySelectedNode.IsBaseNode)
+            if (previouslySelectedNode != null)
             {
                 SaveJointDataFromPropertyBoxes(previouslySelectedNode.Link.Joint);
             }

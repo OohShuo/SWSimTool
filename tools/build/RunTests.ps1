@@ -16,6 +16,7 @@ Run 'parity' { & $Python -B tests/parity/run.py }
 Run 'publication-receipt' { & $Python -B tests/architecture/Test-ValidationReceipt.py }
 Run 'sdk-build' { & $Python -B tests/architecture/Test-SdkBuild.py }
 Run 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
+Run 'urdf-entry-points' { & $Python -B tests/architecture/Test-UrdfEntryPoints.py }
 Run 'core' { & "$root/build/bin/CoreTests/$Configuration/net48/CoreTests.exe" }
 Run 'tools' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call(sys.argv[1:],env=dict(os.environ)))" "$root/build/bin/CandidateRunner/$Configuration/net48/SWSimTool.CandidateRunner.exe" --tooltest $Python "$root/tests/tools/fake_tool.py" }
 foreach($path in @('integration/install/Test-CadProcessGuard.ps1','architecture/Test-ProductionBoundary.ps1','compatibility/Test-V2Persistence.ps1','identity/Test-StableReferenceAudit.ps1','identity/Test-LinkModeIdentity.ps1','identity/Test-ConfigurationRebuild.ps1','identity/Test-ConfigurationReplacement.ps1','identity/Test-ConfigurationNodeMigration.ps1','model/Test-ResolvedCadModel.ps1','model/Test-SimulationConfigBuilder.ps1','ui/Test-CollisionNavigation.ps1','ui/Test-ToolFormLifecycle.ps1')) {

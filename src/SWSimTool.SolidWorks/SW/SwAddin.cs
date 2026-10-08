@@ -283,7 +283,12 @@ namespace SWSimTool.SW
         Action lastConfigurationPage;
         public void OpenUrdfConfiguration(){lastConfigurationPage=OpenUrdfConfiguration;AssemblyURDFExporter();}
         public int UrdfEnableMethod(){ModelDoc2 model=SwApp.ActiveDoc;return model!=null&&(model.GetType()==(int)swDocumentTypes_e.swDocPART||model.GetType()==(int)swDocumentTypes_e.swDocASSEMBLY)?1:0;}
-        public void OpenUrdfExport(){ModelDoc2 model=SwApp.ActiveDoc;if(!CanOpenExport(model))return;if(model!=null&&model.GetType()==(int)swDocumentTypes_e.swDocPART)PartURDFExporter();else AssemblyURDFExporter();}
+        public void OpenUrdfExport(){
+            ModelDoc2 model=SwApp.ActiveDoc;if(!CanOpenExport(model))return;
+            if(model.GetType()==(int)swDocumentTypes_e.swDocPART){PartURDFExporter();return;}
+            try{var editing=ConfigurationEditingContext.Get((SldWorks)SwApp,model);editing.Session.RequireCurrent();var prepared=AssemblyExportPreparation.Prepare((SldWorks)SwApp,editing.Tree,editing.Project);new AssemblyExportForm((SldWorks)SwApp,prepared.Tree,prepared.Exporter).Show();}
+            catch(Exception error){logger.Error("URDF export preparation failed",error);MessageBox.Show(error.Message,"SWSimTool URDF 导出");}
+        }
         bool CanOpenExport(ModelDoc2 model){if(model==null)return false;if(ConfigurationPageDraft.Active(model)==null)return true;MessageBox.Show("请先确认或取消当前配置页面，再导出。若要使用未保存输入，请选择重建配置。","SWSimTool");return false;}
         public void OpenLocalExport(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Local));}
         public void OpenExistingPreview(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Preview));}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +23,7 @@ namespace SWSimTool.Simulation {
   public static SimulationDirtyFlags Changed(SimulationProject before,SimulationProject after){
    if(before==null)return SimulationDirtyFlags.Source|SimulationDirtyFlags.Mesh|SimulationDirtyFlags.Mjcf;
    var flags=SimulationDirtyFlags.None;
+   if(Hash(before.urdf_export??new UrdfExportSettings())!=Hash(after.urdf_export??new UrdfExportSettings()))flags|=SimulationDirtyFlags.Source;
    if(Hash(before.attachments)!=Hash(after.attachments))flags|=SimulationDirtyFlags.Site;
    if(Hash(before.collision)!=Hash(after.collision))flags|=SimulationDirtyFlags.Collision;
    if(Hash(new{before.joints,before.base_mode,before.joint_defaults,before.joint_force_limits})!=Hash(new{after.joints,after.base_mode,after.joint_defaults,after.joint_force_limits}))flags|=SimulationDirtyFlags.Joint;

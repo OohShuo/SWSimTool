@@ -10,8 +10,8 @@ namespace SWSimTool.UI {
         readonly TableLayoutPanel layout=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2};
         string type;
         public UrdfJointLimitControl(){
-            AutoScroll=true;layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,52));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,48));Controls.Add(layout);
-            for(int i=0;i<4;i++){labels[i].AutoSize=true;inputs[i].Dock=DockStyle.Fill;layout.Controls.Add(labels[i],0,i);layout.Controls.Add(inputs[i],1,i);}
+            AutoScroll=false;Width=260;Height=130;layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,52));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,48));Controls.Add(layout);
+            for(int i=0;i<4;i++){labels[i].AutoSize=true;labels[i].MaximumSize=new System.Drawing.Size(130,0);inputs[i].Dock=DockStyle.Fill;layout.Controls.Add(labels[i],0,i);layout.Controls.Add(inputs[i],1,i);}
         }
         public void LoadJoint(Joint joint,bool root){
             joint.Limit.FillBoxes(inputs[0],inputs[1],inputs[2],inputs[3],"G17");SetType(root?"fixed":joint.Type);

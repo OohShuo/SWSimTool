@@ -37,13 +37,14 @@ namespace SWSimTool.URDFExport
         public static readonly double ConfigurationVersion = 1.3;
         public static readonly double SoapMinVersion = 1.3;
 
-        public void SaveConfigTree(ModelDoc2 model, LinkNode BaseNode, bool warnUser)
+        public SWSimTool.Simulation.ConfigurationCommitResult SaveConfigTree(ModelDoc2 model, LinkNode BaseNode, bool warnUser)
         {
             Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
             Exporter.GetSimulation().DraftTree=BaseNode.Snapshot();
             var result=Exporter.GetSimulation().Save();
             if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败");
+            return result;
         }
 
         //As nodes are created and destroyed, this menu gets called a lot. It basically just

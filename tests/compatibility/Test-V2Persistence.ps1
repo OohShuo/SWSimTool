@@ -14,14 +14,14 @@ public static class V2Compatibility {
   Check(document.version==2&&original.configuration_id=="swcfg:7","Original v2 JSON/configuration identity load");
   var tree=ConfigurationSerialization.ReadTree(original.urdf_xml,original.urdf_version);var arm=(LinkNode)tree.Nodes[0];
   Check(arm.Link.Joint.CoordinateReference.FeatureId=="fixed-cad-reference","Original JointCadReference XML namespace loads");
-  var id=arm.Link.StableId;var jointId=arm.Link.Joint.StableId;var before=new JavaScriptSerializer().Serialize(original.simulation);
+  var id=arm.Link.StableId;var jointId=arm.Link.Joint.StableId;var before=ExportFingerprint.Hash(original.simulation);
   StableReferences.Normalize(original.simulation,tree);
-  Check(before==new JavaScriptSerializer().Serialize(original.simulation),"All simulation fields and stable references unchanged");
+  Check(before==ExportFingerprint.Hash(original.simulation),"All simulation fields and stable references unchanged (canonical JSON)");
   var xml=ConfigurationSerialization.WriteTree(tree);
   Check(XNode.DeepEquals(XElement.Parse(original.urdf_xml),XElement.Parse(xml)),"URDF persistence XML semantic equality");
   original.urdf_xml=xml;var saved=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(document);var reopened=SimulationStorage.Parse(saved).configurations["Default"];var reopenedTree=ConfigurationSerialization.ReadTree(reopened.urdf_xml,reopened.urdf_version);var reopenedArm=(LinkNode)reopenedTree.Nodes[0];
   Check(reopenedArm.Link.StableId==id&&reopenedArm.Link.Joint.StableId==jointId&&reopened.configuration_id==original.configuration_id,"IDs survive save/reopen");
-  Check(before==new JavaScriptSerializer().Serialize(reopened.simulation),"Simulation survives save/reopen");
+  Check(before==ExportFingerprint.Hash(reopened.simulation),"Simulation survives save/reopen (canonical JSON)");
   Check(DocumentStorageSchema.AttributeName=="SWSimTool Configuration"&&DocumentStorageSchema.LegacyAttributeName=="SW2MuJoCo Configuration","Storage identifier retained");
   foreach(int version in new[]{1,3}){bool rejected=false;try{SimulationStorage.Parse(raw.Replace("\"version\":2","\"version\":"+version));}catch(Exception){rejected=true;}Check(rejected,"Unsupported version "+version+" rejected");}
   foreach(string bad in new[]{"{}",raw.Replace("\"version\":2,", ""),"{\"version\":2}"}){bool rejected=false;try{SimulationStorage.Parse(bad);}catch(Exception){rejected=true;}Check(rejected,"Missing explicit storage envelope rejected");}

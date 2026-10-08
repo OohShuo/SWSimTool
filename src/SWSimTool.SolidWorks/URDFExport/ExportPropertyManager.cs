@@ -207,68 +207,13 @@ namespace SWSimTool.URDFExport
         {
             SaveActiveNode();
 
-            Exporter.SetComputeInertial(PMComputeMassInertia.Checked);
-            Exporter.SetComputeVisualCollision(PMComputeVisualCollision.Checked);
-            Exporter.SetComputeJointKinematics(PMComputeJointKinematics.Checked);
-            Exporter.SetComputeJointLimits(PMComputeJointLimits.Checked);
-
-            // Only if everything is A-OK, then do we proceed.
-            if (CheckIfNamesAreUnique((LinkNode)Tree.Nodes[0]) && CheckNodesComplete(Tree))
-            {
-                //It saves automatically when sending Okay as true;
-                var exportNode=new LinkNode(((LinkNode)Tree.Nodes[0]).Snapshot());
+            try{
+                var exportTree=((LinkNode)Tree.Nodes[0]).Snapshot();
                 confirmedClose=false;PMPage.Close(true);if(!confirmedClose)return;
-                Exporter.BeginExportSession();
-                AssemblyDoc assy = (AssemblyDoc)ActiveSWModel;
-
-                //This call can be a real sink of processing time if the model is large.
-                //Unfortunately there isn't a way around it I believe.
-                int result = assy.ResolveAllLightWeightComponents(true);
-
-                // If the user confirms to resolve the components and they are successfully
-                // resolved we can continue
-                if (result == (int)swComponentResolveStatus_e.swResolveOk)
-                {
-                    List<string> unresolvedComponents = new List<string>();
-                    CheckModelDocsExist(exportNode, unresolvedComponents);
-                    if (unresolvedComponents.Count > 0)
-                    {
-                        string componentNames = string.Join("\r\n", unresolvedComponents);
-                        logger.Error("SolidWorks told us the resolve succeeded, but ModelDocs" +
-                            " could not be obtained for: " + componentNames);
-                        MessageBox.Show("Model Documents could not be obtained for the following" +
-                            " components. Plesae resolve them:\r\n" + componentNames);
-                        return;
-                    }
-
-                    // Builds the links and joints from the PMPage configuration
-                    LinkNode BaseNode = exportNode;
-                    automaticallySwitched = true;
-
-                    bool exportSuccess = Exporter.CreateRobotFromTreeView(BaseNode);
-                    if (exportSuccess)
-                    {
-                        AssemblyExportForm exportForm = new AssemblyExportForm(swApp, BaseNode, Exporter);
-                        exportForm.Exporter = Exporter;
-                        exportForm.Show();
-                    }
-                }
-                else if (result == (int)swComponentResolveStatus_e.swResolveError ||
-                    result == (int)swComponentResolveStatus_e.swResolveNotPerformed)
-                {
-                    logger.Warn("Resolving components failed. Warning user to do so on their own");
-                    MessageBox.Show("Resolving components failed. In order to export to URDF, " +
-                        " this tool needs all components to be resolved. Try resolving " +
-                        "lightweight components manually before attempting to export again");
-                }
-                else if (result == (int)swComponentResolveStatus_e.swResolveAbortedByUser)
-                {
-                    logger.Warn("Components were not resolved by user");
-                    MessageBox.Show("In order to export to URDF, this tool needs all " +
-                        "components to be resolved. You can resolve them manually or try " +
-                        "exporting again");
-                }
-            }
+                var prepared=AssemblyExportPreparation.Prepare(swApp,exportTree,Exporter.GetSimulation().Editing.Project);
+                automaticallySwitched=true;
+                new AssemblyExportForm(swApp,prepared.Tree,prepared.Exporter).Show();
+            }catch(Exception error){logger.Error("URDF export preparation failed",error);MessageBox.Show(error.Message,"SWSimTool URDF 导出");}
         }
 
         private void EnableControl(IPropertyManagerPageControl control, bool isEnabled = true)
@@ -417,6 +362,7 @@ namespace SWSimTool.URDFExport
 
         void FlushEditingDraft(){
             Exporter.GetSimulation().RequireCurrentDocument();SaveActiveNode();
+            Exporter.GetSimulation().Project.urdf_export=new SWSimTool.Simulation.UrdfExportSettings{inertia=PMComputeMassInertia.Checked,geometry=PMComputeVisualCollision.Checked,kinematics=PMComputeJointKinematics.Checked,limits=PMComputeJointLimits.Checked};
             if(Tree.Nodes.Count>0){var root=(LinkNode)Tree.Nodes[0];CommonSwOperations.RetrieveSWComponentPIDs(ActiveSWModel,root);Exporter.GetSimulation().DraftTree=root.Snapshot();}
         }
         void IPropertyManagerPage2Handler9.OnClose(int Reason)
@@ -433,8 +379,8 @@ namespace SWSimTool.URDFExport
                 {
                     logger.Info("Configuration saved");
                     SaveActiveNode();
-                    SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
-                    confirmedClose=true;
+                    var result=SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
+                    confirmedClose=result.RefreshSucceeded;
                 }
             }
             catch (Exception e)
@@ -866,7 +812,7 @@ namespace SWSimTool.URDFExport
 
             jointLimits=new UrdfJointLimitControl();
             PMLimits=(PropertyManagerPageWindowFromHandle)PMGroup.AddControl2(JointLimitsID,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"关节限位",0,(int)swAddControlOptions_e.swControlOptions_Visible,"使用 SI 单位");
-            PMLimits.Height=100;PMLimits.SetWindowHandlex64(jointLimits.Handle.ToInt64());
+            PMLimits.Height=130;PMLimits.SetWindowHandlex64(jointLimits.Handle.ToInt64());
             //Create the selection box label
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Label;
             caption = "Link Components";
@@ -972,7 +918,9 @@ namespace SWSimTool.URDFExport
             options = 0;
             PMComputeJointLimits = PMGroup.AddControl2(
                 ComputeJointLimitsID, (short)controlType, caption, (short)alignment, (int)options, tip);
-            PMComputeJointLimits.Checked = true;
+            var calculation=Exporter.GetSimulation().Project.urdf_export??new SWSimTool.Simulation.UrdfExportSettings();
+            PMComputeMassInertia.Checked=calculation.inertia;PMComputeVisualCollision.Checked=calculation.geometry;PMComputeJointKinematics.Checked=calculation.kinematics;PMComputeJointLimits.Checked=calculation.limits;
+            EnableControl((IPropertyManagerPageControl)PMComputeMassInertia);EnableControl((IPropertyManagerPageControl)PMComputeVisualCollision);EnableControl((IPropertyManagerPageControl)PMComputeJointKinematics);EnableControl((IPropertyManagerPageControl)PMComputeJointLimits);
 
             options = (int)swAddControlOptions_e.swControlOptions_Visible +
                 (int)swAddControlOptions_e.swControlOptions_Enabled;

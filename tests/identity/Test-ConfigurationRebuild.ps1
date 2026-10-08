@@ -111,6 +111,11 @@ public static class ConfigurationRebuildTest {
    limited.Type="fixed";if(xml(limited).Contains("<limit"))throw new Exception("Fixed output incorrectly writes stored limit");
    limited.Type="continuous";var continuousXml=xml(limited);if(continuousXml.Contains("lower=")||!continuousXml.Contains("effort=\"7\""))throw new Exception("Continuous output must retain effort, omit bounds");
    if(limited.Limit.Lower!=-1.2)throw new Exception("URDF generation modified stored bounds");
+   var exportCopy=AssemblyExportPreparation.CopyTree(newTree.Snapshot());((LinkNode)exportCopy.Nodes[0]).Link.Joint.Limit.SetInputs("-2","2","8","4");
+   if(((LinkNode)newTree.Nodes[0]).Link.Joint.Limit.Effort==8)throw new Exception("Export preparation shares editable joint objects");
+   var settingsProject=new SimulationProject{urdf_export=new UrdfExportSettings{inertia=false,geometry=true,kinematics=false,limits=false}};
+   var settingsCopy=ConfigurationEditingContext.CopyProject(settingsProject);
+   if(settingsCopy.urdf_export.inertia||settingsCopy.urdf_export.kinematics||!settingsCopy.urdf_export.geometry)throw new Exception("Export business settings lost on persistence copy");
    bool badLimit=false;try{limited.Limit.SetInputs("5","-1","7","2.5");}catch(ArgumentException){badLimit=true;}if(!badLimit||limited.Limit.Lower!=-1.2)throw new Exception("Invalid limit input partially changed joint");
    Console.WriteLine("PASS: joint limits round-trip, hidden-input retention, fixed/continuous XML and atomic numeric validation");
    Console.WriteLine("PASS: isolated page cancel/confirm; clone coherence; pure snapshot/serialization; legal and illegal drag");

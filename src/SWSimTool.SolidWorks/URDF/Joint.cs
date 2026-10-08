@@ -135,9 +135,13 @@ namespace SWSimTool.URDF
             else if(Type=="continuous")copy.Limit.ClearBounds();
             copy.WriteForType(writer);
         }
+        bool ValidateForType()=>base.AreRequiredFieldsSatisfied();
         void WriteForType(System.Xml.XmlWriter writer){base.WriteURDF(writer);}
         public override bool AreRequiredFieldsSatisfied()
         {
+            if(Type=="fixed"||Type=="floating"||Type=="planar"){
+                var copy=new Joint();copy.SetElement(this);copy.Limit.Unset();copy.Limit.SetRequired(false);return copy.ValidateForType();
+            }
             Limit.SetRequired((Type == "prismatic" || Type == "revolute"));
             return base.AreRequiredFieldsSatisfied();
         }
