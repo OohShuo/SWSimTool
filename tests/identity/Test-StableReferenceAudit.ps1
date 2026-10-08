@@ -33,6 +33,7 @@ public static class StableReferenceAudit {
    var config=new Mock<Configuration>();config.SetupGet(x=>x.Name).Returns("test");
    var manager=new Mock<ConfigurationManager>();manager.SetupGet(x=>x.ActiveConfiguration).Returns(config.Object);
    var parameter=new Mock<Parameter>();parameter.Setup(x=>x.GetStringValue()).Returns(()=>raw);
+   parameter.Setup(x=>x.SetStringValue2(It.IsAny<string>(),It.IsAny<int>(),It.IsAny<string>())).Callback<string,int,string>((value,scope,name)=>raw=value).Returns(true);
    var attribute=new Mock<SolidWorks.Interop.sldworks.Attribute>();attribute.Setup(x=>x.GetName()).Returns(SimulationStorage.NodeName);attribute.Setup(x=>x.GetParameter("data")).Returns(parameter.Object);
    var feature=new Mock<Feature>();feature.Setup(x=>x.GetTypeName2()).Returns("Attribute");feature.Setup(x=>x.GetSpecificFeature2()).Returns(attribute.Object);
    var features=new Mock<FeatureManager>();features.Setup(x=>x.GetFeatures(true)).Returns(new object[]{feature.Object});
@@ -50,6 +51,14 @@ public static class StableReferenceAudit {
   document.configurations["test"]=entry;raw=ExportFingerprint.Serializer().Serialize(document);var reopened=SimulationStorage.Load(model().Object);
   Check(reopened.attachments[0].link_id==a.Link.StableId&&reopened.actuators[0].joint_id==a.Link.Joint.StableId,"Serialized migration survives cold document reopen");
   Check(SimulationStorage.Load(mock.Object).attachments[0].link_id==a.Link.StableId,"External storage update invalidates cache while retaining saved IDs");
+  var edited=SimulationStorage.Load(mock.Object);edited.collision.SetMode(a.Link.StableId,"primitive");
+  edited.collision.geometries.Add(new CollisionGeometry{name="proxy",link="a",link_id=a.Link.StableId});
+  SimulationStorage.Save(null,mock.Object,edited);
+  var afterSave=SimulationStorage.Load(mock.Object);var afterTree=ConfigurationSerialization.ReadTree(SimulationStorage.LoadEntry(mock.Object).urdf_xml,1.4);
+  Check(afterSave.collision.geometries.Count==1&&afterSave.collision.Mode(a.Link.StableId)=="primitive","Collision save/reload retains geometry and mode without duplicate keys");
+  f.tree=afterTree;core=f.Core();new RobotModel(core,SimulationConfigBuilder.Build(afterSave,core,Geometry(afterSave,core)));
+  Check(true,"Collision save followed by independent native export builds valid RobotModel");
+  Check(SimulationStorage.Load(model().Object).collision.geometries.Count==1,"Collision save survives cold document reopen");
  }
  static SimulationProject Project(){return new SimulationProject{collision=new CollisionConfiguration()};}
  static void Sites(Fixture f,SimulationProject p){p.attachments.Add(new Attachment{name="sa",link="a",type="frame"});p.attachments.Add(new Attachment{name="sb",link="b",type="frame"});}
