@@ -31,6 +31,7 @@ namespace SWSimTool.Simulation {
         public static SimulationProject CopyProject(SimulationProject value){var s=ExportFingerprint.Serializer();return s.Deserialize<SimulationProject>(s.Serialize(value));}
         public static Link CopyTree(Link value){var tree=value?.Clone();Action<Link> clear=null;clear=l=>{l.SWMainComponent=null;l.SWComponents.Clear();foreach(var child in l.Children)clear(child);};if(tree!=null)clear(tree);return tree;}
         public void Commit(SimulationProject project,Link tree){Session.RequireCurrent();var p=CopyProject(project);var t=CopyTree(tree);Project=p;Tree=t;}
+        internal void CommitPrepared(SimulationProject project,Link tree){Project=project;Tree=tree;}
         public void AcceptSave(){Session.Refresh();}
         internal static string Fingerprint(ModelDoc2 model){
             Holder holder;if(!contexts.TryGetValue(model,out holder)||holder.Current==null)return null;

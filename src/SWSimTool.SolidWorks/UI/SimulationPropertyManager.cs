@@ -39,7 +39,7 @@ namespace SWSimTool.UI
         public void Show(){try{page.Show2(0);}catch{editor.Dispose();transition.Dispose();throw;}}
         void IPropertyManagerPage2Handler9.AfterActivation() {  }
         void IPropertyManagerPage2Handler9.OnButtonPress(int Id) {  }
-        void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{editor.Save();}catch(Exception e){retry=true;MessageBox.Show(e.Message,title+"未保存");} }
+        void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{var result=editor.Save();if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败");}catch(Exception e){retry=true;MessageBox.Show(e.Message,title+"未保存");} }
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id) {  }
         bool IPropertyManagerPage2Handler9.OnHelp() { return true; }
         bool IPropertyManagerPage2Handler9.OnKeystroke(int Wparam, int Message, int Lparam, int Id) { return false; }

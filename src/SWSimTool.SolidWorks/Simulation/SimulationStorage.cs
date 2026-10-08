@@ -56,16 +56,18 @@ namespace SWSimTool.Simulation {
    Entry e;return Read(model,attribute).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e)?e:new Entry();
   }
   public static SimulationProject Load(ModelDoc2 model){Entry e;if(!Read(model).configurations.TryGetValue(model.ConfigurationManager.ActiveConfiguration.Name,out e))return null;StableReferences.Normalize(e.simulation,ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version));return e.simulation;}
-  public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version,SimulationProject completeDraft=null){var d=Read(model);var e=Current(d,model);if(completeDraft!=null)e.simulation=completeDraft;var previous=ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version);var current=ConfigurationSerialization.ReadTree(xml,version);StableReferences.ValidateIdentities(current);StableReferences.Normalize(e.simulation,completeDraft==null?(previous??current):current);StableReferences.RemapLinkModesByStableId(e.simulation);e.generation++;e.urdf_version=version;CadTreeReferences.Normalize(model,current);StableReferences.Normalize(e.simulation,current);e.urdf_xml=ConfigurationSerialization.WriteTree(current);Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
-  public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);CadTreeReferences.Normalize(model,tree);StableReferences.Normalize(project,tree);if(tree!=null){entry.urdf_xml=ConfigurationSerialization.WriteTree(tree);entry.urdf_version=1.4;}entry.simulation=project;entry.generation++;Write(app,model,d);SimulationSession.Applied(model,before,project);}
+  public static ConfigurationCommitResult SaveTree(SldWorks app,ModelDoc2 model,string xml,double version,SimulationProject completeDraft=null){var d=Read(model);var e=Current(d,model);if(completeDraft!=null)e.simulation=completeDraft;var previous=ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version);var current=ConfigurationSerialization.ReadTree(xml,version);StableReferences.ValidateIdentities(current);StableReferences.Normalize(e.simulation,completeDraft==null?(previous??current):current);StableReferences.RemapLinkModesByStableId(e.simulation);e.generation++;e.urdf_version=version;CadTreeReferences.Normalize(model,current);StableReferences.Normalize(e.simulation,current);e.urdf_xml=ConfigurationSerialization.WriteTree(current);var result=Write(app,model,d);result.Run(()=>SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf));return result;}
+  public static ConfigurationCommitResult Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);CadTreeReferences.Normalize(model,tree);StableReferences.Normalize(project,tree);if(tree!=null){entry.urdf_xml=ConfigurationSerialization.WriteTree(tree);entry.urdf_version=1.4;}entry.simulation=project;entry.generation++;var result=Write(app,model,d);result.Run(()=>SimulationSession.Applied(model,before,project));return result;}
   static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry{configuration_id=ConfigurationId(model.ConfigurationManager.ActiveConfiguration),configuration_name=key};return e;}
-  static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SWSimTool.Utilities.PerformanceScope("storage.save")){
+  static ConfigurationCommitResult Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SWSimTool.Utilities.PerformanceScope("storage.save")){
    int cadStamp=CadRevision.BeforeConfigurationWrite(model);
    ValidateDocument(d);string data=Serializer().Serialize(d);
    new SolidWorksAttributeDocumentStore(app,model).WriteConfiguration(data);
-   ConfigurationSession.RecordSaved(model);
-   var saved=cache.GetValue(model,key=>new CachedDocument());saved.normalized=data;saved.data=data;model.SetSaveFlag();
-   CadRevision.AfterConfigurationWrite(model,cadStamp);
+   var result=new ConfigurationCommitResult();
+   result.Run(()=>ConfigurationSession.RecordSaved(model));
+   result.Run(()=>{var saved=cache.GetValue(model,key=>new CachedDocument());saved.normalized=data;saved.data=data;});
+   result.Run(()=>model.SetSaveFlag());result.Run(()=>CadRevision.AfterConfigurationWrite(model,cadStamp));
+   return result;
   }}
  }
 }

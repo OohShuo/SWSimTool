@@ -55,6 +55,16 @@ public static class ConfigurationRebuildTest {
    SimulationStorage.Invalidate(m.Object);ConfigurationEditingContext.Forget(m.Object);
    var coldPage=new AttachmentService(helper);
    if(coldPage.Project.attachments.Single().link_id!=newParent||coldPage.Project.solver.timestep!=.002)throw new Exception("Cold reopen lost saved draft");
+   coldPage.BeginPage();coldPage.Project.solver.timestep=.003;
+   m.Setup(x=>x.SetSaveFlag()).Throws(new IOException("injected post-commit refresh failure"));
+   var committed=coldPage.Save();
+   if(!committed.Committed||committed.RefreshSucceeded||!committed.Message.Contains("已提交")||SimulationStorage.Load(m.Object).solver.timestep!=.003)throw new Exception("Post-commit failure reported unsaved or lost committed data");
+   var committedRaw=raw;bool retryBlocked=false;try{coldPage.Save();}catch(InvalidDataException){retryBlocked=true;}
+   if(!retryBlocked||raw!=committedRaw)throw new Exception("Post-commit failure accepted retry");
+   m.Setup(x=>x.SetSaveFlag());coldPage.EndPage();coldPage=new AttachmentService(helper);
+   var outcome=new ConfigurationCommitResult();typeof(ConfigurationCommitResult).GetMethod("Run",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(outcome,new object[]{(Action)(()=>{throw new IOException("injected page close failure");})});
+   if(!outcome.Committed||outcome.RefreshSucceeded)throw new Exception("Page close failure lost committed outcome");
+   Console.WriteLine("PASS: committed refresh/close failures are warnings; old page cannot retry");
    var savedRaw=raw;c.SetupGet(x=>x.Name).Returns("other");bool switched=false;try{coldPage.Save();}catch(InvalidDataException){switched=true;}
    if(!switched||raw!=savedRaw)throw new Exception("SW configuration switch accepted old page");
    c.SetupGet(x=>x.Name).Returns("test");ConfigurationSession.Invalidate(m.Object,true);bool closed=false;try{coldPage.Save();}catch(InvalidDataException){closed=true;}

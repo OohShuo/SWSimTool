@@ -31,30 +31,45 @@ namespace SWSimTool.Simulation
             this.exporter = exporter;
             Editing=isolated?ConfigurationEditingContext.Detached((SldWorks)exporter.iSwApp,exporter.ActiveSWModel):ConfigurationEditingContext.Get((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
         }
-        public void Save()
+        public ConfigurationCommitResult Save()
         {
-            RequireCurrentDocument();
-            FlushPage();
+            RequireCurrentDocument();FlushPage();
             var candidate=ConfigurationEditingContext.CopyProject(Project);
             var tree=DraftTree?.Clone();
-            candidate.NormalizeSiteReferences();
-            candidate.ValidateSolver();
-            if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
-            candidate.assembly = exporter.ActiveSWModel.GetPathName();
-            candidate.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
-            if(tree!=null)SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteBusinessTree(tree),1.4,candidate);
-            else SimulationStorage.Save(App,Model,candidate);
-            session?.Refresh();
-            Editing.Commit(candidate,tree);
-            if(PageDraft!=null)SyncSavedReferences(PageDraft.Project,candidate);
+            candidate.NormalizeSiteReferences();candidate.ValidateSolver();
+            if(string.IsNullOrEmpty(Model.GetPathName()))throw new InvalidOperationException("Save the assembly first.");
+            candidate.assembly=Model.GetPathName();candidate.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
+            if(tree!=null){var nodes=new LinkNode(tree);CadTreeReferences.Normalize(Model,nodes);tree=nodes.Snapshot();StableReferences.Normalize(candidate,nodes);}
+            var preparedProject=ConfigurationEditingContext.CopyProject(candidate);
+            var preparedTree=ConfigurationEditingContext.CopyTree(tree);
+            var sync=PageDraft==null?new List<Action>():PrepareSavedReferences(PageDraft.Project,candidate);
+            var result=tree!=null?SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteBusinessTree(tree),1.4,candidate):SimulationStorage.Save(App,Model,candidate);
+            if(result.RefreshSucceeded)result.Run(()=>{session.Refresh();Editing.CommitPrepared(preparedProject,preparedTree);foreach(var apply in sync)apply();});
+            if(!result.RefreshSucceeded)InvalidateCommittedPage(result);
+            return result;
         }
-        static void SyncSavedReferences(SimulationProject target,SimulationProject saved){
+        void InvalidateCommittedPage(ConfigurationCommitResult result){
+            pageClosed=true;
+            result.Run(()=>ConfigurationSession.Invalidate(Model));
+            result.Run(()=>SimulationStorage.Invalidate(Model));
+            result.Run(()=>ConfigurationEditingContext.Forget(Model));
+            result.Run(()=>PageDraft?.Dispose());
+        }
+        static List<Action> PrepareSavedReferences(SimulationProject target,SimulationProject saved){
+            var plan=new List<Action>();
             foreach(string group in new[]{"attachments","sensors","actuators","equalities","site_forces","joints","joint_force_limits"}){
                 var property=typeof(SimulationProject).GetProperty(group);
                 var a=(System.Collections.IList)property.GetValue(target);var b=(System.Collections.IList)property.GetValue(saved);
-                if(a.Count!=b.Count)throw new InvalidDataException("保存结果的对象数量与候选草稿不同。");
-                for(int i=0;i<a.Count;i++)foreach(var field in a[i].GetType().GetProperties())if(field.CanWrite&&(field.Name=="id"||field.Name.EndsWith("_id",StringComparison.Ordinal)))field.SetValue(a[i],field.GetValue(b[i]));
+                if(a==null||b==null||a.Count!=b.Count)throw new InvalidDataException("保存结果的对象数量与候选草稿不同。");
+                for(int i=0;i<a.Count;i++){
+                    if(a[i]==null||b[i]==null||a[i].GetType()!=b[i].GetType())throw new InvalidDataException("保存结果的对象类型与草稿不同。");
+                    foreach(var field in a[i].GetType().GetProperties())if(field.CanWrite&&(field.Name=="id"||field.Name.EndsWith("_id",StringComparison.Ordinal))){
+                        if(field.PropertyType!=typeof(string)||field.GetIndexParameters().Length!=0)throw new InvalidDataException("引用字段必须为字符串："+field.Name);
+                        var owner=a[i];var value=field.GetValue(b[i]);plan.Add(()=>field.SetValue(owner,value));
+                    }
+                }
             }
+            return plan;
         }
         public sealed class Source
         {

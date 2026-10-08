@@ -42,9 +42,8 @@ namespace SWSimTool.URDFExport
             Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
             Exporter.GetSimulation().DraftTree=BaseNode.Snapshot();
-            Exporter.GetSimulation().Save();
-            // SaveTree already normalizes the stored simulation. Do not write a second old draft.
-            Exporter.Simulation?.ReloadSavedProject();
+            var result=Exporter.GetSimulation().Save();
+            if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败");
         }
 
         //As nodes are created and destroyed, this menu gets called a lot. It basically just

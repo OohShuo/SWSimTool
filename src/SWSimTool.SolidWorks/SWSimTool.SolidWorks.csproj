@@ -83,6 +83,7 @@
     <Compile Include="Simulation\ConfigurationEditingContext.cs" />
     <Compile Include="UI\ConfigurationPageDraft.cs" />
     <Compile Include="Simulation\ConfigurationRebuild.cs" />
+    <Compile Include="Simulation\ConfigurationCommitResult.cs" />
     <Compile Include="Simulation\CadReferenceSnapshot.cs" />
     <Compile Include="Simulation\ProjectSourceCache.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />

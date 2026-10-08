@@ -8,7 +8,7 @@ using SWSimTool.Persistence;
 
 namespace SWSimTool.Simulation {
     public sealed partial class AttachmentService {
-        public string RebuildCurrentDraft(string backupFolder=null){
+        public ConfigurationCommitResult RebuildCurrentDraft(string backupFolder=null){
             RequireCurrentDocument();var active=SWSimTool.UI.ConfigurationPageDraft.Active(Model);active?.Collect();
             var serializer=ExportFingerprint.Serializer();
             var draft=serializer.Deserialize<SimulationProject>(serializer.Serialize(active==null?Project:active.Project));
@@ -38,11 +38,13 @@ namespace SWSimTool.Simulation {
             string backup=ConfigurationReplacement.Replace(store,candidate,session.RequireCurrent,
                 SimulationStorage.ValidateEnvelope,
                 data=>ConfigurationBackup.Write(folder,draft.assembly,draft.configuration,data,typeof(AttachmentService).Assembly.GetName().Version.ToString(),SolidWorksAttributeDocumentStore.Find(Model,SimulationStorage.NodeName)?.GetName()));
-            var close=active?.Close;active?.Dispose();SimulationStorage.Invalidate(Model);ConfigurationSession.Invalidate(Model);ConfigurationEditingContext.Forget(Model);close?.Invoke();
+            var result=new ConfigurationCommitResult{BackupPath=backup};var close=active?.Close;
+            result.Run(()=>active?.Dispose());result.Run(()=>ConfigurationSession.Invalidate(Model));
+            result.Run(()=>SimulationStorage.Invalidate(Model));result.Run(()=>ConfigurationEditingContext.Forget(Model));result.Run(()=>close?.Invoke());
             // Existing pages retain their invalid context. A new menu/page obtains
             // the new persisted draft; no stale task may publish after this point.
-            Model.SetSaveFlag();SimulationSession.Mark(Model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);
-            return backup;
+            result.Run(()=>Model.SetSaveFlag());result.Run(()=>SimulationSession.Mark(Model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf));
+            return result;
         }
     }
 }

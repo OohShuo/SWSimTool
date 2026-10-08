@@ -1,4 +1,4 @@
-﻿using SWSimTool.Simulation;
+using SWSimTool.Simulation;
 using System;
 using System.Collections;
 using System.Drawing;
@@ -72,7 +72,7 @@ namespace SWSimTool.UI
             var save = new Button { Text = "保存配置", AutoSize = true }; bottom.Controls.Add(save);
             var cancel = new Button { Text = "取消", AutoSize = true }; bottom.Controls.Add(cancel);
             Controls.Add(bottom);
-            save.Click += (s, e) => Guard(() => { var previous = service.Project; service.Project = project; try { service.Save(); } catch { service.Project = previous; throw; } DialogResult = DialogResult.OK; Close(); });
+            save.Click += (s, e) => Guard(() => { var previous = service.Project; service.Project = project; try { var result=service.Save();if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败"); } catch { service.Project = previous; throw; } DialogResult = DialogResult.OK; Close(); });
             cancel.Click += (s, e) => Close();
         }
         private static void AddRules(TabControl tabs, string title, IList items, Func<object> create, string help)

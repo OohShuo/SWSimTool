@@ -46,7 +46,7 @@ namespace SWSimTool.UI {
    tabs.SelectedIndexChanged+=(s,e)=>JointEditorControl.PreserveScroll(this,()=>{top.Enabled=top.Visible=tabs.SelectedTab?.Text!="两点作用力";});
    }else{show.Text="实时预览约束端点 / 坐标系";ConstraintTab(tabs);}
    var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};var save=new Button{Text="保存配置到装配",AutoSize=true};var refreshCAD=new Button{Text="刷新 CAD 参考",AutoSize=true};refreshCAD.Click+=(s,e)=>{service.InvalidateCADCache();Schedule();};footer.Controls.Add(show);footer.Controls.Add(refreshCAD);footer.Controls.Add(save);footer.Controls.Add(status);Controls.Add(footer);
-   save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();
+   save.Click+=(s,e)=>Guard(()=>Save());show.CheckedChanged+=(s,e)=>Schedule();
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
    cadTimer.Tick+=(s,e)=>Guard(()=>{if(!CheckSession())return;if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
@@ -154,10 +154,10 @@ namespace SWSimTool.UI {
    try{if(geometries.Count==0)preview.Clear();else preview.Show(geometries,null);}catch(Exception e){error=e.Message;}if(error==null)previewKey=key;status.Text=error??(constraintsOnly?"约束预览已更新。":"附着点预览已更新。");
   }
   void Guard(Action action){try{action();}catch(Exception e){status.Text=e.Message;}}
-  public void Save(){
+  public ConfigurationCommitResult Save(){
    if(invalid.Count>0)throw new InvalidOperationException("请修正无效数字。");if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("Configuration 已切换，请重新进入。");
    foreach(IEnumerable values in new IEnumerable[]{draft.attachments,draft.sensors,draft.actuators,draft.equalities,draft.site_forces}){var names=new HashSet<string>();foreach(object item in values){string name=(string)item.GetType().GetProperty("name").GetValue(item);if(string.IsNullOrWhiteSpace(name)||!names.Add(name))throw new InvalidOperationException("名称不能为空或重复："+name);}}
-   draft.NormalizeSiteReferences();draft.ValidateSolver();var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";
+   draft.NormalizeSiteReferences();draft.ValidateSolver();var previous=service.Project;service.Project=draft;ConfigurationCommitResult result;try{result=service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";if(!result.RefreshSucceeded){Enabled=false;status.Text=result.Message;}return result;
   }
   bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
         void FlushDraft(){ValidateChildren();if(invalid.Count>0)throw new InvalidOperationException("请修正仿真配置中的无效数字。");}
