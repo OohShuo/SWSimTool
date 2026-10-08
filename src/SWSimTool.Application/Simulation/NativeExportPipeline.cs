@@ -13,7 +13,7 @@ namespace SWSimTool.Simulation
     public static class NativeExportPipeline
     {
         static readonly object publishGate=new object();
-        public static Task<int> RunAsync(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath,string exportId,CancellationToken cancellation=default(CancellationToken),IMeshPreparationService meshService=null,IMuJoCoValidationService validationService=null,IPreviewService previewService=null,IAssetStore assets=null,IPackageStore packages=null,IMjcfWriter writer=null,Action<ExportMetrics> metrics=null)
+        public static Task<int> RunAsync(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath,string exportId,CancellationToken cancellation=default(CancellationToken),IMeshPreparationService meshService=null,IMuJoCoValidationService validationService=null,IPreviewService previewService=null,IAssetStore assets=null,IPackageStore packages=null,IMjcfWriter writer=null,Action<ExportMetrics> metrics=null,Action<Action> publication=null)
         {
             return Task.Run(async()=>{
                 if(meshService==null||validationService==null||previewService==null||assets==null||packages==null||writer==null)throw new ArgumentNullException("Export services must be explicitly supplied by the composition root");
@@ -36,7 +36,7 @@ namespace SWSimTool.Simulation
                     if(!validation.Success){ReportFailure(validation,report);return 1;}
                     if(preparedHashes.Any(p=>!assets.Exists(p.Key)||assets.Hash(p.Key)!=p.Value)){ReportFailure(ToolResult.Failure(ToolFailure.InputChanged,"Validation modified prepared meshes"),report);return 1;}
                     counts["mujoco_validation"]=1;plan.VerifySources();
-                    lock(publishGate){if(cancellation.IsCancellationRequested){ReportFailure(ToolResult.Failure(ToolFailure.Cancelled,"Export cancelled before publication"),report);return 1;}packages.Publish(workspace.Staging,output);}
+                    lock(publishGate){if(cancellation.IsCancellationRequested){ReportFailure(ToolResult.Failure(ToolFailure.Cancelled,"Export cancelled before publication"),report);return 1;}Action publish=()=>{cancellation.ThrowIfCancellationRequested();packages.Publish(workspace.Staging,output);};if(publication==null)publish();else publication(publish);}
                     metrics?.Invoke(new ExportMetrics(exportId,counts));
                     report?.Invoke("MJCF package saved: "+output);
                     if(!preview)return 0;

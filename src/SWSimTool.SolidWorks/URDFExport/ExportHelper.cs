@@ -94,6 +94,8 @@ namespace SWSimTool.URDFExport
             return Simulation;
         }
 
+        internal Simulation.AttachmentService GetExportSimulation(){if(Simulation==null)Simulation=new Simulation.AttachmentService(this,true);return Simulation;}
+
         public readonly List<Link> Links;
 
         private readonly List<string> ReferenceCoordinateSystemNames;

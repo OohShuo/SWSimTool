@@ -1,4 +1,4 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 using SolidWorks.Interop.sldworks;
 using SWSimTool.URDF;
 using SWSimTool.URDFExport;
@@ -14,22 +14,29 @@ namespace SWSimTool.Simulation
     public sealed partial class AttachmentService
     {
         private readonly ExportHelper exporter;
-        public SimulationProject Project { get; set; }
+        public ConfigurationEditingContext Editing {get;private set;}
+        public SimulationProject Project { get=>Editing.Project; set=>Editing.Project=value; }
+        ConfigurationSession session=>Editing.Session;
+        public void RequireCurrentDocument(){session?.RequireCurrent();}
+        public void ReloadSavedProject(){session.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
-        public AttachmentService(ExportHelper exporter)
+        public AttachmentService(ExportHelper exporter,bool isolated=false)
         {
             this.exporter = exporter;
-            Project = SimulationStorage.Load(exporter.ActiveSWModel);
-            if (Project == null) Project = new SimulationProject();
+            Editing=isolated?ConfigurationEditingContext.Detached((SldWorks)exporter.iSwApp,exporter.ActiveSWModel):ConfigurationEditingContext.Get((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
         }
         public void Save()
         {
+            RequireCurrentDocument();
             Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
             Project.assembly = exporter.ActiveSWModel.GetPathName();
             Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
-            SimulationStorage.Save((SldWorks)exporter.iSwApp, exporter.ActiveSWModel, Project);
+            Editing.Flush();
+            if(Editing.Tree!=null)SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteTree(Editing.Tree),1.4,Project);
+            else SimulationStorage.Save(App,Model,Project);
+            session?.Refresh();
         }
         public sealed class Source
         {

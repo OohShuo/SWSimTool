@@ -1,4 +1,4 @@
-﻿#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
 using JsonSerializer = SWSimTool.Persistence.PortableJsonSerializer;
 #else
 using JsonSerializer = System.Web.Script.Serialization.JavaScriptSerializer;
@@ -82,6 +82,10 @@ internal static class ToolBackendTests
             Check(code==0,"Real typed services publish valid package");var original=File.ReadAllText(output);
             code=NativeBackend.RunWithServices(python,model,output,false,null,settingsPath,"test",validationService:new RejectValidation()).Result;
             Check(code!=0&&File.ReadAllText(output)==original,"Validation failure preserves previous package");
+            bool expired=false;
+            try{NativeBackend.RunWithServices(python,model,output,false,null,settingsPath,"expired",publication:publish=>{throw new InvalidDataException("Configuration generation expired");}).GetAwaiter().GetResult();}
+            catch(InvalidDataException){expired=true;}
+            Check(expired&&File.ReadAllText(output)==original,"Expired configuration publication guard preserves previous package");
             using(var stop=new CancellationTokenSource()) {
                 code=NativeBackend.RunWithServices(python,model,output,false,null,settingsPath,"test",stop.Token,validationService:new CancelValidation(stop)).Result;
                 Check(code!=0&&File.ReadAllText(output)==original,"Cancellation before publication preserves previous package");

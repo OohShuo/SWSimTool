@@ -18,14 +18,14 @@ namespace SWSimTool.Simulation
             foreach(var item in Project.attachments) {
                 if(string.IsNullOrWhiteSpace(item.name)||!names.Add(item.name))throw new InvalidDataException("Attachment names must be nonempty and unique.");
                 if(item.type!="point"&&item.type!="frame")throw new InvalidDataException("Invalid site type: "+item.type);
-                var link=SimulationConfigBuilder.Reference(item.link_id,item.link,links);
+                var link=SimulationConfigBuilder.Reference(item.link_id,item.link,links,kind:"attachment '"+item.name+"' parent link");
                 var pose=LinkTransforms()[links[link]].Inverse()*Resolve(item);
                 var xyz=MathOps.GetXYZ(pose);var rpy=item.type=="frame"?MathOps.GetRPY(pose):new double[3];
                 sites.Add(new SiteSnapshot(item.id,item.name,link,item.type=="frame",new RigidTransform(new Vector3d(xyz[0],xyz[1],xyz[2]),Quaterniond.FromRpy(new Vector3d(rpy[0],rpy[1],rpy[2])))));
             }
             var collisions=new List<CollisionGeometrySnapshot>();
             foreach(var item in (Project.collision??new CollisionConfiguration()).geometries) {
-                var link=SimulationConfigBuilder.Reference(item.link_id,item.link,links);
+                var link=SimulationConfigBuilder.Reference(item.link_id,item.link,links,kind:"collision geometry '"+item.name+"' parent link");
                 ResolveCollision(item);
                 collisions.Add(new CollisionGeometrySnapshot(item.id,item.name,link,link,item.type,item.size,item.xyz,item.rpy));
             }

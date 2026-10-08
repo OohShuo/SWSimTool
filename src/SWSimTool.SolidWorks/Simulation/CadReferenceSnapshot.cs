@@ -22,6 +22,7 @@ namespace SWSimTool.Simulation {
   public T Resolve<T>(string key,Func<T> query){string data;if(!values.TryGetValue(key,out data)){QueryCount++;ExportInstrumentation.GeometryQuery();data=ExportFingerprint.Serializer().Serialize(query());values.Add(key,data);}return ExportFingerprint.Serializer().Deserialize<T>(data);}
  }
  public static class CadSnapshotCache {
+  public static void Clear(ModelDoc2 model){states.Remove(model);}
   sealed class State {public CadReferenceSnapshot snapshot;}
   static readonly ConditionalWeakTable<ModelDoc2,State> states=new ConditionalWeakTable<ModelDoc2,State>();
   public static CadReferenceSnapshot Get(ModelDoc2 model){var state=states.GetValue(model,x=>new State());var revision=CadRevision.Get(model);if(state.snapshot==null||state.snapshot.Revision!=revision)state.snapshot=new CadReferenceSnapshot(revision);return state.snapshot;}

@@ -11,6 +11,7 @@ namespace SWSimTool.Simulation
     {
         public static Dictionary<string,string> LinkNames(LinkNode tree)
         {
+            ValidateIdentities(tree,false);
             var names=new Dictionary<string,string>();
             if(tree!=null){Action<LinkNode> visit=null;visit=n=>{names.Add(n.Link.StableId,n.Name);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);}return names;
         }
@@ -67,9 +68,28 @@ namespace SWSimTool.Simulation
         public static void NormalizeTree(LinkNode tree)
         {
             if(tree==null)return;
+            ValidateIdentities(tree,false);
             var nodes=new List<LinkNode>();Action<LinkNode> visit=null;visit=n=>{nodes.Add(n);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);
             var joints=nodes.Where(n=>n.Parent!=null).ToDictionary(n=>n.Link.Joint.StableId,n=>n.Link.Joint.Name);
             foreach(var node in nodes){var mimic=node.Link.Joint?.Mimic;if(mimic==null||!mimic.ElementContainsData())continue;var r=Resolve(joints,mimic.SourceJointId,mimic.JointName);mimic.SourceJointId=r.Key;mimic.JointName=r.Value;}
+        }
+        public static void ValidateIdentities(LinkNode tree,bool checkNames=true)
+        {
+            if(tree==null)return;
+            var links=new Dictionary<string,string>();var names=new Dictionary<string,string>();
+            var joints=new Dictionary<string,string>();var jointNames=new Dictionary<string,string>();
+            Action<Dictionary<string,string>,string,string,string> add=(map,key,path,kind)=>{
+                if(string.IsNullOrWhiteSpace(key))return;string previous;
+                if(map.TryGetValue(key,out previous))throw new InvalidDataException("重复 "+kind+" '"+key+"'："+previous+" 与 "+path+"。请修正冲突；不会丢弃或覆盖对象。");
+                map.Add(key,path);
+            };
+            Action<LinkNode,string> visit=null;visit=(node,parent)=>{
+                string path=parent+"/"+node.Name;
+                if(node.Link==null)throw new InvalidDataException("缺少 link 对象："+path);
+                add(links,node.Link.StableId,path,"link ID");if(checkNames)add(names,node.Name,path,"link 名称");
+                if(node.Parent!=null&&node.Link.Joint!=null){add(joints,node.Link.Joint.StableId,path,"joint ID");if(checkNames)add(jointNames,node.Link.Joint.Name,path,"joint 名称");}
+                foreach(LinkNode child in node.Nodes)visit(child,path);
+            };visit(tree,"");
         }
         public static void ValidateTree(LinkNode tree)
         {
