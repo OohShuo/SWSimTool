@@ -44,6 +44,10 @@ These defects made fixing only the repeated attachment insufficient.
   managed controls and callbacks. Closed PropertyManagers release their editor
   and page references. Undo/redo callbacks invalidate old sessions and derived
   caches, as do the existing deletion/configuration/close paths.
+- Closed page services explicitly reject late save/export callbacks even while
+  the document session is otherwise current. The confirmed URDF preview/export
+  transition obtains a detached export service instead of reusing that closed
+  page service.
 - The existing URDF preview/export path captures its independent input before
   closing the editor and does not export if confirmation/save fails.
 

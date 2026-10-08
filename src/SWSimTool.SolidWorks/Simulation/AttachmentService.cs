@@ -16,13 +16,14 @@ namespace SWSimTool.Simulation
         private readonly ExportHelper exporter;
         public ConfigurationEditingContext Editing {get;private set;}
         public SWSimTool.UI.ConfigurationPageDraft PageDraft {get;private set;}
-        public SimulationProject Project { get=>PageDraft==null?Editing.Project:PageDraft.Project; set{if(PageDraft==null)Editing.Project=value;else PageDraft.Project=value;} }
+        bool pageClosed;
+        public SimulationProject Project { get=>PageDraft==null?Editing.Project:PageDraft.Project; set{if(pageClosed)throw new InvalidDataException("配置页面已关闭。");if(PageDraft==null)Editing.Project=value;else PageDraft.Project=value;} }
         public Link DraftTree {get=>PageDraft==null?Editing.Tree:PageDraft.Tree;set{if(PageDraft==null)Editing.Tree=value;else PageDraft.Tree=value;} }
-        public void BeginPage(){if(PageDraft!=null)throw new InvalidOperationException("此服务已被活动配置页面使用。");PageDraft=SWSimTool.UI.ConfigurationPageDraft.Open(Model,Editing);}
-        public void EndPage(){PageDraft?.Dispose();PageDraft=null;}
+        public void BeginPage(){if(PageDraft!=null)throw new InvalidOperationException("此服务已被活动配置页面使用。");PageDraft=SWSimTool.UI.ConfigurationPageDraft.Open(Model,Editing);pageClosed=false;}
+        public void EndPage(){if(PageDraft!=null){PageDraft.Dispose();PageDraft=null;pageClosed=true;}}
         public void FlushPage(){PageDraft?.Collect();}
         ConfigurationSession session=>Editing.Session;
-        public void RequireCurrentDocument(){session?.RequireCurrent();PageDraft?.RequireCurrent();}
+        public void RequireCurrentDocument(){if(pageClosed)throw new InvalidDataException("配置页面已关闭，旧服务不可再保存或导出。");session?.RequireCurrent();PageDraft?.RequireCurrent();}
         public void ReloadSavedProject(){session.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
         public AttachmentService(ExportHelper exporter,bool isolated=false)

@@ -48,7 +48,7 @@ public static class ConfigurationRebuildTest {
    Console.WriteLine("PASS: complete unsaved draft shared; stale rebuild rejected before CAD or writes");
    rejectNextWrite=true;bool failedSave=false;try{freshPage.Save();}catch(IOException){failedSave=true;}
    if(!failedSave||raw!=savedBefore||anotherPage.Project.attachments.Count!=0||freshPage.Project.attachments.Count!=1||freshPage.Project.solver.timestep!=.002)throw new Exception("Failed save changed shared or persisted data, or discarded page input");
-   freshPage.Save();freshPage.EndPage();
+   freshPage.Save();freshPage.EndPage();bool lateSaveRejected=false;try{freshPage.Save();}catch(InvalidDataException){lateSaveRejected=true;}if(!lateSaveRejected)throw new Exception("Closed page service accepted late save callback");
    var reopened=SimulationStorage.Load(m.Object);
    string newParent=freshPage.Editing.Tree.Children[0].StableId;
    if(reopened.attachments.Single().link_id!=newParent||reopened.attachments.Single().link_id==oldProject.attachments[0].link_id)throw new Exception("Fresh configuration reused deleted identity");

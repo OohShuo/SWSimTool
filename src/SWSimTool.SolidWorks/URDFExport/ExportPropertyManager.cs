@@ -214,6 +214,7 @@ namespace SWSimTool.URDFExport
                 //It saves automatically when sending Okay as true;
                 var exportNode=new LinkNode(((LinkNode)Tree.Nodes[0]).Snapshot());
                 confirmedClose=false;PMPage.Close(true);if(!confirmedClose)return;
+                Exporter.BeginExportSession();
                 AssemblyDoc assy = (AssemblyDoc)ActiveSWModel;
 
                 //This call can be a real sink of processing time if the model is large.
