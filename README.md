@@ -39,7 +39,7 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 
 ## 构建与验证
 
-需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8 targeting pack、SolidWorks 2025 API 程序集。构建入口会恢复 NuGet 依赖；安装器还需要 Inno Setup 6.5+。Python 与 MuJoCo 用于自动化测试和运行时工具。
+需要 Visual Studio 2022 的 .NET 桌面开发工具、.NET Framework 4.8 targeting pack、支持 .NET 8 的 SDK、SolidWorks 2025 API 程序集。构建入口会恢复 NuGet 依赖；安装器还需要 Inno Setup 6.5+。Python 与 MuJoCo 用于自动化测试和运行时工具。
 
 ```powershell
 .\build.ps1 -SolidWorksDir 'D:\sw\sw2025\SOLIDWORKS'
@@ -60,3 +60,5 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 构建验证与 CI 的分层入口见 [测试说明](docs/Testing.md)。
 
 独立的 .NET 8 命令行宿主见 [CLI 使用方法](docs/CLI.md)。SolidWorks 插件继续使用 net48。
+
+可复用层及 CLI 已在 Windows 和实际 Linux 环境通过三种语言区域的验证：31 个模型、155 次跨平台编译语义与动力学比较，保持原有容差。架构见 [Architecture](docs/Architecture.md)，运行方法及验收范围见 [Testing](docs/Testing.md)。GitHub 工作流已配置，本地等价验证已执行；远程工作流与 GUI 视觉验收尚未执行。
