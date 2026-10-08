@@ -28,6 +28,16 @@ public static class ConfigurationRebuildTest {
   if(knownFailure){if(!contaminated||rejected)throw new Exception("Known failure did not reproduce");Console.WriteLine("REPRODUCED: old page writes deleted link ID into rebuilt configuration");}
   else {if(!rejected||raw!=savedBefore||contaminated)throw new Exception("Old page contaminated replacement node");Console.WriteLine("PASS: stale save rejected without modifying replacement configuration");}
   if(now.attachments.Count>0){if(StableReferences.LinkNames(newTree).ContainsKey(now.attachments[0].link_id))throw new Exception("Dangling ID unexpectedly matched");Console.WriteLine("Unknown stable reference: "+now.attachments[0].link_id+" (site_pitch1 parent link pitch1)");}
+  if(!knownFailure){
+   var live=ConfigurationSession.Capture(null,m.Object);live.RequireCurrent();
+   var opened=SimulationStorage.LoadEntry(m.Object);var stable=ConfigurationSerialization.ReadTree(opened.urdf_xml,1.4).Link.StableId;
+   SimulationStorage.Save(null,m.Object,now);var reopened=SimulationStorage.LoadEntry(m.Object);
+   if(reopened.instance_id!=opened.instance_id||ConfigurationSerialization.ReadTree(reopened.urdf_xml,1.4).Link.StableId!=stable)throw new Exception("Normal save changed identity");
+   bool invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Previous revision still valid");
+   live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Switch event did not invalidate lease");
+   live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object,true);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Closed session still valid");
+   Console.WriteLine("PASS: normal save retains IDs; old revisions, configuration switch and close invalidate leases");
+  }
   var duplicate=tree();var extra=new Link(duplicate.Link);extra.Name="other";extra.Joint.Name="pitch1_joint";duplicate.Nodes.Add(new LinkNode(extra));bool duplicateRejected=false;
   try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(ArgumentException e){duplicateRejected=true;Console.WriteLine("REPRODUCED independent duplicate joint-name key: "+e.Message);}
   if(!duplicateRejected)throw new Exception("Duplicate joint-name case did not fail");

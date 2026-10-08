@@ -14,6 +14,7 @@ namespace SWSimTool.Simulation {
   sealed class State {public Dictionary<string,Entry> entries=new Dictionary<string,Entry>();}
   static readonly ConditionalWeakTable<ModelDoc2,State> states=new ConditionalWeakTable<ModelDoc2,State>();
   public static string Root => SourceCacheRepository.Root;
+  public static void Clear(ModelDoc2 model){states.Remove(model);}
   public static string Source(SldWorks app,ModelDoc2 model,string tree){
    var dependencies=new List<object>();var assembly=model as AssemblyDoc;
    if(assembly!=null)foreach(Component2 component in (object[])assembly.GetComponents(false)??new object[0]){

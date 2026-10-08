@@ -140,6 +140,7 @@ namespace SWSimTool.SW
         //Event Handlers
         public int OnDestroy()
         {
+            SWSimTool.Simulation.ConfigurationSession.Invalidate(document,true);
             DetachEventHandlers();
             return 0;
         }
@@ -152,6 +153,7 @@ namespace SWSimTool.SW
 
     public class AssemblyEventHandler : DocumentEventHandler
     {
+        public int OnConfigurationChanged(){SWSimTool.Simulation.ConfigurationSession.Invalidate(document);return 0;}
         private readonly AssemblyDoc doc;
         private readonly SwAddin swAddin;
 
@@ -165,6 +167,7 @@ namespace SWSimTool.SW
         public override bool AttachEventHandlers()
         {
             doc.DestroyNotify += new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.ActiveConfigChangePostNotify += new DAssemblyDocEvents_ActiveConfigChangePostNotifyEventHandler(OnConfigurationChanged);
             doc.NewSelectionNotify += new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 += new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
             doc.ComponentStateChangeNotify += new DAssemblyDocEvents_ComponentStateChangeNotifyEventHandler(ComponentStateChangeNotify);
@@ -178,6 +181,7 @@ namespace SWSimTool.SW
         public override bool DetachEventHandlers()
         {
             doc.DestroyNotify -= new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.ActiveConfigChangePostNotify -= new DAssemblyDocEvents_ActiveConfigChangePostNotifyEventHandler(OnConfigurationChanged);
             doc.NewSelectionNotify -= new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 -= new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
             doc.ComponentStateChangeNotify -= new DAssemblyDocEvents_ComponentStateChangeNotifyEventHandler(ComponentStateChangeNotify);
@@ -192,6 +196,7 @@ namespace SWSimTool.SW
         //Event Handlers
         public int OnDestroy()
         {
+            SWSimTool.Simulation.ConfigurationSession.Invalidate(document,true);
             DetachEventHandlers();
             return 0;
         }
@@ -306,6 +311,7 @@ namespace SWSimTool.SW
         //Event Handlers
         public int OnDestroy()
         {
+            SWSimTool.Simulation.ConfigurationSession.Invalidate(document,true);
             DetachEventHandlers();
             return 0;
         }

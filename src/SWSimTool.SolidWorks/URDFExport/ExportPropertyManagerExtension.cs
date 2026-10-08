@@ -39,10 +39,11 @@ namespace SWSimTool.URDFExport
 
         public void SaveConfigTree(ModelDoc2 model, LinkNode BaseNode, bool warnUser)
         {
+            Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
             ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser);
-            // Keep attachment/collision ownership synchronized with saved link renames.
-            if(Exporter.Simulation!=null)Exporter.Simulation.Save();
+            // SaveTree already normalizes the stored simulation. Do not write a second old draft.
+            Exporter.Simulation?.ReloadSavedProject();
         }
 
         //As nodes are created and destroyed, this menu gets called a lot. It basically just

@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -625,6 +625,7 @@ namespace SWSimTool.SW
         //Events
         public int OnDocChange()
         {
+            foreach(ModelDoc2 model in OpenDocs.Keys)if(!ReferenceEquals(model,SwApp.ActiveDoc))ConfigurationSession.Invalidate(model);
             return 0;
         }
 

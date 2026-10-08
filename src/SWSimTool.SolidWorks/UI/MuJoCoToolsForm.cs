@@ -92,6 +92,7 @@ namespace SWSimTool.UI
         private async void Run(bool preview, bool direct)
         {
             ProjectExport project=null;
+            System.Windows.Forms.Timer leaseTimer=null;
             try {
                 if (string.IsNullOrWhiteSpace(python.Text)) throw new ArgumentException("请填写本地 Python 命令或 python.exe 路径。");
                 if (direct) RequireFile(existing.Text);
@@ -105,12 +106,14 @@ namespace SWSimTool.UI
                 }
                 SaveSettings(); log.Clear();busy=true;operation=new CancellationTokenSource(); inputs.Enabled = actions.Enabled = false;
                 if(toolMode==MuJoCoToolMode.Project){status.Text="正在读取当前工程配置…";project=exportProject();Append("Export "+project.ExportId+": "+(project.Plan.RebuildSource?"重建工程源数据":"复用工程源数据")+"; "+project.Plan.Dirty);}
+                if(project!=null){leaseTimer=new System.Windows.Forms.Timer{Interval=500};leaseTimer.Tick+=(sender,args)=>{try{project.RequireCurrent();}catch(Exception error){leaseTimer.Stop();operation.Cancel();Append(error.Message);}};leaseTimer.Start();}
                 status.Text = preview ? "正在启动预览；关闭 viewer 后可继续操作。" : "正在保存 MJCF…";
-                int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append,operation.Token) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId,operation.Token);
+                Action<Action> publication=project==null?(Action<Action>)null:publish=>Invoke(new Action(()=>{project.RequireCurrent();publish();}));
+                int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append,operation.Token) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId,operation.Token,publication);
                 if(code==0)project?.MarkSucceeded();
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
             } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.ToString()); SWSimTool.Utilities.Logger.GetLogger().Error("MJCF export/preview failed",error); }
-            finally {try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}operation?.Dispose();operation=null;busy=false;if (!IsDisposed){inputs.Enabled = actions.Enabled = true;if(closeWhenStopped)Close();} }
+            finally {leaseTimer?.Dispose();try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}operation?.Dispose();operation=null;busy=false;if (!IsDisposed){inputs.Enabled = actions.Enabled = true;if(closeWhenStopped)Close();} }
         }
         private static void RequireFile(string path)
         {

@@ -1,6 +1,8 @@
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using System.IO;
+using System;
+using System.Runtime.CompilerServices;
 namespace SWSimTool.Simulation {
     internal sealed class SolidWorksAttributeDocumentStore:IDocumentStore {
         readonly SldWorks app;
@@ -12,6 +14,12 @@ namespace SWSimTool.Simulation {
                 var a=f.GetSpecificFeature2() as SolidWorks.Interop.sldworks.Attribute;if(a!=null&&a.GetName()==name)return a;
             }
             return null;
+        }
+        internal static string NodeIdentity(ModelDoc2 model){
+            foreach(Feature f in (object[])model.FeatureManager.GetFeatures(true)??new object[0])if(f.GetTypeName2()=="Attribute"){
+                var a=f.GetSpecificFeature2() as SolidWorks.Interop.sldworks.Attribute;
+                if(a!=null&&a.GetName()==SimulationStorage.NodeName){var bytes=model.Extension?.GetPersistReference3(f) as byte[];return bytes==null?"node:"+RuntimeHelpers.GetHashCode(a):Convert.ToBase64String(bytes);}
+            }return "absent";
         }
         public string ReadConfiguration() {
             var attribute=known??Find(model,SimulationStorage.NodeName);

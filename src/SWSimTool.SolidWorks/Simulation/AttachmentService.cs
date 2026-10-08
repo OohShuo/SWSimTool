@@ -15,21 +15,27 @@ namespace SWSimTool.Simulation
     {
         private readonly ExportHelper exporter;
         public SimulationProject Project { get; set; }
+        ConfigurationSession session;
+        public void RequireCurrentDocument(){session?.RequireCurrent();}
+        public void ReloadSavedProject(){Project=SimulationStorage.Load(exporter.ActiveSWModel)??new SimulationProject();session?.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
         public AttachmentService(ExportHelper exporter)
         {
             this.exporter = exporter;
+            session=ConfigurationSession.Capture((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
             Project = SimulationStorage.Load(exporter.ActiveSWModel);
             if (Project == null) Project = new SimulationProject();
         }
         public void Save()
         {
+            RequireCurrentDocument();
             Project.NormalizeSiteReferences();
             Project.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
             Project.assembly = exporter.ActiveSWModel.GetPathName();
             Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
             SimulationStorage.Save((SldWorks)exporter.iSwApp, exporter.ActiveSWModel, Project);
+            session?.Refresh();
         }
         public sealed class Source
         {

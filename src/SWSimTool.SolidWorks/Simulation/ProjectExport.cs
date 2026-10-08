@@ -1,4 +1,4 @@
-﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.sldworks;
 using SWSimTool.URDFExport;
 using System;
 using System.IO;
@@ -6,10 +6,12 @@ namespace SWSimTool.Simulation {
  public sealed class ProjectExport : IDisposable {
   readonly string temporary;
   readonly ModelDoc2 document;
+  readonly ConfigurationSession session;
+  public void RequireCurrent(){session.RequireCurrent();}
   public string Urdf{get;private set;} public string Sidecar{get;private set;}
   public SWSimTool.RobotModel.RobotCoreSnapshot Core{get;private set;}
   SWSimTool.RobotModel.SimulationConfigSnapshot simulation;
-  public SWSimTool.RobotModel.RobotModel NativeModel(){if(Core==null||simulation==null)throw new InvalidOperationException("Native model is unavailable; rebuild the project source.");return new SWSimTool.RobotModel.RobotModel(Core,simulation);}
+  public SWSimTool.RobotModel.RobotModel NativeModel(){RequireCurrent();if(Core==null||simulation==null)throw new InvalidOperationException("Native model is unavailable; rebuild the project source.");return new SWSimTool.RobotModel.RobotModel(Core,simulation);}
   public string ExportId{get;}=Guid.NewGuid().ToString("N");
   public static int SourceBuildCount{get;private set;}
   public ExportPlan Plan{get;private set;}
@@ -17,7 +19,7 @@ namespace SWSimTool.Simulation {
   public static ProjectExport ForReferenceTests(SldWorks app,ModelDoc2 expected,string configuration)=>new ProjectExport(app,expected,configuration,false);
   private ProjectExport(SldWorks app,ModelDoc2 expected,string configuration,bool nativeOnly){
    if(!ReferenceEquals(app.ActiveDoc,expected)||expected.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("当前装配或 Configuration 已切换，请重新打开工程导出。");
-   document=expected;temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+   document=expected;session=ConfigurationSession.Capture(app,expected);temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
    try{
     var current=SimulationStorage.Load(expected)??new SimulationProject();current.NormalizeSiteReferences();current.ValidateSolver();current.collision=current.collision??new CollisionConfiguration();
     var entry=SimulationStorage.LoadEntry(expected);string treeData=entry?.urdf_xml;
@@ -56,7 +58,7 @@ namespace SWSimTool.Simulation {
     var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=stored.urdf==null?null:Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }
-  public void MarkSucceeded(){SimulationSession.ExportSucceeded(document);}
+  public void MarkSucceeded(){RequireCurrent();SimulationSession.ExportSucceeded(document);}
   public void Dispose(){if(Directory.Exists(temporary)&&Path.GetDirectoryName(Path.GetFullPath(temporary))==Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)&&Path.GetFileName(temporary).StartsWith("SWSimTool-",StringComparison.Ordinal))Directory.Delete(temporary,true);}
  }
 }

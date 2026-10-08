@@ -79,6 +79,7 @@
     <Compile Include="Simulation\ProjectSourceBuilder.cs" />
     <Compile Include="URDFExport\ExportHelperNativeSource.cs" />
     <Compile Include="Simulation\SimulationSession.cs" />
+    <Compile Include="Simulation\ConfigurationSession.cs" />
     <Compile Include="Simulation\CadReferenceSnapshot.cs" />
     <Compile Include="Simulation\ProjectSourceCache.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />

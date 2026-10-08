@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,13 +33,13 @@ namespace SWSimTool.Simulation
             var core=LegacySimulationConfigImporter.IdentifyImportedCore(UrdfRobotModelImporter.Load(urdf),json);
             return new SWSimTool.RobotModel.RobotModel(core,LegacySimulationConfigImporter.Import(json,core));
         }
-        public static Task<int> RunAsync(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null,CancellationToken cancellation=default(CancellationToken))
-            => RunWithServices(python,model,output,preview,report,meshSettingsPath,exportId,cancellation);
-        public static Task<int> RunWithServices(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null,CancellationToken cancellation=default(CancellationToken),IMeshPreparationService meshService=null,IMuJoCoValidationService validationService=null,IPreviewService previewService=null)
+        public static Task<int> RunAsync(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null,CancellationToken cancellation=default(CancellationToken),Action<Action> publication=null)
+            => RunWithServices(python,model,output,preview,report,meshSettingsPath,exportId,cancellation,publication:publication);
+        public static Task<int> RunWithServices(string python,SWSimTool.RobotModel.RobotModel model,string output,bool preview,Action<string> report,string meshSettingsPath=null,string exportId=null,CancellationToken cancellation=default(CancellationToken),IMeshPreparationService meshService=null,IMuJoCoValidationService validationService=null,IPreviewService previewService=null,Action<Action> publication=null)
         {
             var backend=new PythonToolBackend();var storage=new NativeExportStorage();
             return NativeExportPipeline.RunAsync(python,model,output,preview,report,meshSettingsPath,exportId,cancellation,meshService??backend,validationService??backend,previewService??backend,storage,storage,new NativeMjcfWriter(),
-                value=>report?.Invoke("Native export metrics: "+new JavaScriptSerializer().Serialize(new{export_id=value.ExportId,counts=value.Counts})));
+                value=>report?.Invoke("Native export metrics: "+new JavaScriptSerializer().Serialize(new{export_id=value.ExportId,counts=value.Counts})),publication);
         }
     }
 }
