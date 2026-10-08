@@ -35,11 +35,10 @@ public static class ConfigBuilderProbe {
    if(target=="joint")bad.actuators.Add(new ActuatorConfig{joint="hinge",joint_id="deleted"});
    if(target=="site")bad.sensors.Add(new SensorConfig{site="b",site_id="deleted"});
    if(target=="link")bad.collision.allowed_pairs.Add(new CollisionPair{link1="base",link1_id="deleted",link2="arm",link2_id="arm-id"});
-   bool rejected=false;try{SimulationConfigBuilder.Build(bad,core,geometry);}catch(InvalidDataException){rejected=true;}Check(rejected,"deleted "+target+" ID cannot rebind to an existing name");
+   bool rejected=false;try{SimulationConfigBuilder.Build(bad,core,geometry);}catch(InvalidDataException e){rejected=e.Message.Contains("deleted")&&e.Message.Contains(target)&&e.Message.Contains(target=="joint"?"hinge":target=="site"?"b":"base");}Check(rejected,"deleted "+target+" ID cannot rebind and diagnostic identifies target");
   }
   Check(typeof(SimulationConfigSnapshot).GetConstructors().All(c=>c.GetParameters().All(x=>x.ParameterType!=typeof(string)||x.Name=="BaseMode")),"domain snapshot has no JSON constructor");
  }
 }
 '@
 [ConfigBuilderProbe]::Run()
-
