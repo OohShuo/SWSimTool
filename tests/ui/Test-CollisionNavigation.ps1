@@ -31,6 +31,7 @@ public static class CollisionNavigationProbe {
   var config=new Mock<Configuration>();config.SetupGet(c=>c.Name).Returns("test");
   var manager=new Mock<ConfigurationManager>();manager.SetupGet(c=>c.ActiveConfiguration).Returns(config.Object);
   var model=new Mock<ModelDoc2>();model.SetupGet(m=>m.ConfigurationManager).Returns(manager.Object);model.Setup(m=>m.GetUpdateStamp()).Returns(0);
+  var nodeExtension=new Mock<ModelDocExtension>();nodeExtension.Setup(x=>x.GetPersistReference3(It.IsAny<object>())).Returns(new byte[]{4,5,6});model.SetupGet(x=>x.Extension).Returns(nodeExtension.Object);
   var exporter=(ExportHelper)FormatterServices.GetUninitializedObject(typeof(ExportHelper));exporter.ActiveSWModel=model.Object;
   var emptyFeatures=new Mock<FeatureManager>();emptyFeatures.Setup(f=>f.GetFeatures(true)).Returns(new object[0]);model.SetupGet(m=>m.FeatureManager).Returns(emptyFeatures.Object);var service=new AttachmentService(exporter);
   service.Project=new SimulationProject();service.Project.collision=new CollisionConfiguration();
@@ -46,6 +47,12 @@ public static class CollisionNavigationProbe {
    first=service.Project.collision.geometries[0];second=service.Project.collision.geometries[1];other=service.Project.collision.geometries[2];
    ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
    var link=(ComboBox)Get(editor,"link");var list=(ListBox)Get(editor,"list");var name=(TextBox)Get(editor,"name");var sizes=(TextBox[])Get(editor,"size");
+   Check(!((Button)Get(editor,"rebind")).Visible&&!((Button)Get(editor,"clean")).Visible,"normal collision configuration hides reference repair actions");
+   var orphan=new CollisionGeometry{name="orphan",link="yaw",link_id="deleted-link",definition="manual"};service.Project.collision.geometries.Add(orphan);
+   typeof(CollisionEditorControl).GetMethod("RefreshList",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(editor,new object[]{orphan});
+   Check(list.Items.Contains(orphan)&&((Button)Get(editor,"rebind")).Enabled,"dangling geometry remains selectable and legal replacement enables rebind");
+   service.Project.collision.geometries.Remove(orphan);typeof(CollisionEditorControl).GetMethod("RefreshList",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(editor,new object[]{first});
+   Check(!((Button)Get(editor,"rebind")).Enabled,"valid geometry has no enabled repair action");
    sizes[0].Text="77";list.SelectedIndex=1;
    Check(name.Text=="second"&&((CollisionGeometry)Get(editor,"current")).name=="second","unfinished reference allows geometry selection; form follows selection");
    list.SelectedIndex=0;Check(sizes[0].Text=="77","unfinished geometry retains edited dimensions");
