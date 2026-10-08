@@ -16,8 +16,10 @@ Tools > SWSimTool:
 - Joint configuration (physical parameters)
 - Export and preview (URDF, project/local MJCF, existing MJCF)
 
-Assembly settings share one SW2MuJoCo Configuration attribute, keyed
-by SolidWorks Configuration. Old settings migrate on explicit save.
+Assembly settings share one SWSimTool Configuration attribute, keyed
+by SolidWorks Configuration. SW2MuJoCo Configuration v2 remains readable;
+explicit save backs up and migrates the node display name without changing object IDs.
+Multiple candidate nodes stop writing with a conflict diagnostic.
 Save the assembly to persist configuration edits.
 URDF export keeps the original workflow; optional simulation sidecar is off by default.
 MJCF export publishes only XML and meshes/*.stl; intermediate files use temporary storage.

@@ -21,7 +21,7 @@ public static class V2Compatibility {
   original.urdf_xml=xml;var saved=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(document);var reopened=SimulationStorage.Parse(saved).configurations["Default"];var reopenedTree=ConfigurationSerialization.ReadTree(reopened.urdf_xml,reopened.urdf_version);var reopenedArm=(LinkNode)reopenedTree.Nodes[0];
   Check(reopenedArm.Link.StableId==id&&reopenedArm.Link.Joint.StableId==jointId&&reopened.configuration_id==original.configuration_id,"IDs survive save/reopen");
   Check(before==new JavaScriptSerializer().Serialize(reopened.simulation),"Simulation survives save/reopen");
-  Check(DocumentStorageSchema.AttributeName=="SW2MuJoCo Configuration","Storage identifier retained");
+  Check(DocumentStorageSchema.AttributeName=="SWSimTool Configuration"&&DocumentStorageSchema.LegacyAttributeName=="SW2MuJoCo Configuration","New display identifier and legacy identifier explicitly supported");
   foreach(int version in new[]{1,3}){bool rejected=false;try{SimulationStorage.Parse(raw.Replace("\"version\":2","\"version\":"+version));}catch(Exception){rejected=true;}Check(rejected,"Unsupported version "+version+" rejected");}
   foreach(string bad in new[]{"{}",raw.Replace("\"version\":2,", ""),"{\"version\":2}"}){bool rejected=false;try{SimulationStorage.Parse(bad);}catch(Exception){rejected=true;}Check(rejected,"Missing explicit storage envelope rejected");}
   bool invalid=false;try{ConfigurationSerialization.ReadTree("<broken/>",1.4);}catch(InvalidDataException){invalid=true;}Check(invalid,"Invalid XML explicitly rejected");

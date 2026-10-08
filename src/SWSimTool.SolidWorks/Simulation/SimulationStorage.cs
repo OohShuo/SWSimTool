@@ -10,6 +10,7 @@ using System.Web.Script.Serialization;
 namespace SWSimTool.Simulation {
  public static class SimulationStorage {
   public const string NodeName=SWSimTool.Persistence.DocumentStorageSchema.AttributeName;
+  public static bool RequiresNameMigration(ModelDoc2 model)=>SolidWorksAttributeDocumentStore.RequiresNameMigration(model);
   public sealed class Entry {public string instance_id{get;set;}=Guid.NewGuid().ToString("N"); public long generation{get;set;} public string configuration_id{get;set;} public string configuration_name{get;set;} public string urdf_xml{get;set;} public double urdf_version{get;set;}=1.4; public SimulationProject simulation{get;set;}}
   public sealed class Document {public int version{get;set;}=2;public Dictionary<string,Entry> configurations{get;set;}=new Dictionary<string,Entry>();}
   sealed class CachedDocument {public string data;public string normalized;}
