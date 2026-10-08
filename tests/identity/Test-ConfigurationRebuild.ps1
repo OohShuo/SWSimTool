@@ -35,6 +35,13 @@ public static class ConfigurationRebuildTest {
    if(reopened.instance_id!=opened.instance_id||ConfigurationSerialization.ReadTree(reopened.urdf_xml,1.4).Link.StableId!=stable)throw new Exception("Normal save changed identity");
    bool invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Previous revision still valid");
    live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Switch event did not invalidate lease");
+   var resetDocument=ExportFingerprint.Serializer().Deserialize<SimulationStorage.Document>(raw);resetDocument.configurations["other"]=new SimulationStorage.Entry{configuration_id="other-id",configuration_name="other",simulation=new SimulationProject()};raw=ExportFingerprint.Serializer().Serialize(resetDocument);
+   live=ConfigurationSession.Capture(null,m.Object);var backup=SimulationStorage.ResetCurrent(null,m.Object,live,Path.Combine(Directory.GetCurrentDirectory(),"build/test-work/reset-backups"));
+   if(SimulationStorage.Load(m.Object)!=null||!raw.Contains("other-id"))throw new Exception("Reset changed other configuration or retained target");
+   invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Reset kept old page valid");
+   var restore=ConfigurationSession.Capture(null,m.Object);SimulationStorage.RestoreCurrent(null,m.Object,restore,backup,Path.Combine(Directory.GetCurrentDirectory(),"build/test-work/reset-backups"));
+   if(SimulationStorage.LoadEntry(m.Object).instance_id==reopened.instance_id||!raw.Contains("other-id"))throw new Exception("Restore reused old session instance or removed other configuration");
+   Console.WriteLine("PASS: scoped reset/restore retains other configurations, creates new instance and invalidates old pages");
    live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object,true);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Closed session still valid");
    Console.WriteLine("PASS: normal save retains IDs; old revisions, configuration switch and close invalidate leases");
   }

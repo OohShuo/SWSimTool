@@ -21,6 +21,25 @@ namespace SWSimTool.Simulation
 
     public static class SimulationConfigBuilder
     {
+        public static void ValidateReferences(SimulationProject p,IDictionary<string,string> links,IDictionary<string,string> joints){
+            ConfigurationIdentityValidation.Validate(p);p.NormalizeSiteReferences();p.ValidateSolver();
+            var sites=p.attachments.ToDictionary(x=>x.id,x=>x.name);
+            Action<string,string> link=(id,name)=>Reference(id,name,links,kind:"link");
+            Action<string,string> joint=(id,name)=>Reference(id,name,joints,kind:"joint");
+            Action<string,string> site=(id,name)=>Reference(id,name,sites,kind:"site");
+            foreach(var x in p.attachments)link(x.link_id,x.link);
+            foreach(var x in p.actuators)joint(x.joint_id,x.joint);
+            foreach(var x in p.joints)joint(x.joint_id,x.joint);
+            foreach(var x in p.joint_force_limits)joint(x.joint_id,x.joint);
+            foreach(var x in p.sensors)site(x.site_id,x.site);
+            foreach(var x in p.site_forces){site(x.site1_id,x.site1);site(x.site2_id,x.site2);}
+            foreach(var x in p.equalities){
+                if(x.type=="joint"){joint(x.joint1_id,x.joint1);Reference(x.joint2_id,x.joint2,joints,true);}
+                else if(x.binding=="site"){site(x.site1_id,x.site1);site(x.site2_id,x.site2);}
+                else {link(x.body1_id,x.body1);Reference(x.body2_id,x.body2,links,true);}
+            }
+            if(p.collision!=null){foreach(var x in p.collision.link_modes_by_id)link(x.Key,null);foreach(var x in p.collision.geometries)link(x.link_id,x.link);foreach(var x in p.collision.allowed_pairs){link(x.link1_id,x.link1);link(x.link2_id,x.link2);}}
+        }
         // Name-only resolution is limited to legacy project input. An existing ID is authoritative.
         internal static string Reference(string id,string name,IDictionary<string,string> objects,bool optional=false,string kind="object")
         {

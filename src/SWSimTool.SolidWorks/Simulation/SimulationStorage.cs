@@ -57,6 +57,41 @@ namespace SWSimTool.Simulation {
   public static void SaveTree(SldWorks app,ModelDoc2 model,string xml,double version,SimulationProject completeDraft=null){var d=Read(model);var e=Current(d,model);if(completeDraft!=null)e.simulation=completeDraft;var previous=ConfigurationSerialization.ReadTree(e.urdf_xml,e.urdf_version);var current=ConfigurationSerialization.ReadTree(xml,version);StableReferences.ValidateIdentities(current);StableReferences.Normalize(e.simulation,previous??current);StableReferences.RemapLinkModesByStableId(e.simulation);e.generation++;e.urdf_version=version;CadTreeReferences.Normalize(model,current);StableReferences.Normalize(e.simulation,current);e.urdf_xml=ConfigurationSerialization.WriteTree(current);Write(app,model,d);SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);}
   public static void Save(SldWorks app,ModelDoc2 model,SimulationProject project){var d=Read(model);var entry=Current(d,model);var before=entry.simulation;var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);CadTreeReferences.Normalize(model,tree);StableReferences.Normalize(project,tree);if(tree!=null){entry.urdf_xml=ConfigurationSerialization.WriteTree(tree);entry.urdf_version=1.4;}entry.simulation=project;entry.generation++;Write(app,model,d);SimulationSession.Applied(model,before,project);}
   static Entry Current(Document d,ModelDoc2 model){string key=model.ConfigurationManager.ActiveConfiguration.Name;Entry e;if(!d.configurations.TryGetValue(key,out e))d.configurations[key]=e=new Entry{configuration_id=ConfigurationId(model.ConfigurationManager.ActiveConfiguration),configuration_name=key};return e;}
+  public static string ResetCurrent(SldWorks app,ModelDoc2 model,ConfigurationSession session,string backupFolder=null){
+   session.RequireCurrent();var document=Read(model);string key=model.ConfigurationManager.ActiveConfiguration.Name;
+   if(!document.configurations.Remove(key))throw new InvalidDataException("当前 SolidWorks 配置中没有可重置的插件配置。");
+   return ReplaceDocument(app,model,document,session,backupFolder);
+  }
+  public static string RestoreCurrent(SldWorks app,ModelDoc2 model,ConfigurationSession session,string backupPath,string backupFolder=null){
+   session.RequireCurrent();var backup=SWSimTool.Persistence.ConfigurationBackup.Read(backupPath);
+   string key=model.ConfigurationManager.ActiveConfiguration.Name;
+   if(!string.Equals(backup.document,model.GetPathName(),StringComparison.OrdinalIgnoreCase)||backup.configuration!=key)
+    throw new InvalidDataException("备份不属于当前文档和 SolidWorks 配置，停止恢复。");
+   if(backup.payload==null)throw new InvalidDataException("备份中没有插件配置。");
+   var source=Identify(Parse(backup.payload),model);Entry entry;
+   if(!source.configurations.TryGetValue(key,out entry))throw new InvalidDataException("备份中没有当前配置。");
+   var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);StableReferences.ValidateIdentities(tree);ValidateEntryReferences(model,tree,entry.simulation);
+   entry.instance_id=Guid.NewGuid().ToString("N");entry.generation++;
+   var target=Read(model);target.configurations[key]=entry;
+   return ReplaceDocument(app,model,target,session,backupFolder);
+  }
+  static string ReplaceDocument(SldWorks app,ModelDoc2 model,Document document,ConfigurationSession session,string backupFolder){
+   if(string.IsNullOrWhiteSpace(model.GetPathName()))throw new InvalidDataException("请先保存装配，以便备份明确关联到文档。");
+   ValidateDocument(document);string candidate=Serializer().Serialize(document);
+   string folder=backupFolder??Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),"SWSimTool","config-backups");
+   int stamp=CadRevision.BeforeConfigurationWrite(model);
+   string path=ConfigurationReplacement.Replace(new SolidWorksAttributeDocumentStore(app,model),candidate,session.RequireCurrent,
+    data=>ValidateDocument(Serializer().Deserialize<Document>(data)),
+    data=>SWSimTool.Persistence.ConfigurationBackup.Write(folder,model.GetPathName(),model.ConfigurationManager.ActiveConfiguration.Name,data,typeof(SimulationStorage).Assembly.GetName().Version.ToString()));
+   cache.Remove(model);ConfigurationSession.Invalidate(model);model.SetSaveFlag();CadRevision.AfterConfigurationWrite(model,stamp);
+   SimulationSession.Mark(model,SimulationDirtyFlags.Source|SimulationDirtyFlags.Mjcf);return path;
+  }
+  static void ValidateEntryReferences(ModelDoc2 model,SWSimTool.URDF.LinkNode tree,SimulationProject project){
+   if(tree==null)throw new InvalidDataException("当前草稿缺少 URDF 树。");StableReferences.ValidateTree(tree);CadTreeReferences.Normalize(model,tree,true);
+   if(project==null)return;
+   var joints=JointDescriptor.FromTree(tree).ToDictionary(x=>x.id,x=>x.name);
+   StableReferences.Normalize(project,tree);SimulationConfigBuilder.ValidateReferences(project,StableReferences.LinkNames(tree),joints);
+  }
   static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SWSimTool.Utilities.PerformanceScope("storage.save")){
    int cadStamp=CadRevision.BeforeConfigurationWrite(model);
    ValidateDocument(d);string data=Serializer().Serialize(d);

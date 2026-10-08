@@ -4,7 +4,7 @@ using System.IO;
 using System;
 using System.Runtime.CompilerServices;
 namespace SWSimTool.Simulation {
-    internal sealed class SolidWorksAttributeDocumentStore:IDocumentStore {
+    internal sealed class SolidWorksAttributeDocumentStore:IConfigurationTransactionStore {
         readonly SldWorks app;
         readonly ModelDoc2 model;
         readonly SolidWorks.Interop.sldworks.Attribute known;
@@ -33,6 +33,10 @@ namespace SWSimTool.Simulation {
                 var parameter=(Parameter)a.GetParameter("data");if(!parameter.SetStringValue2(data,(int)swInConfigurationOpts_e.swAllConfiguration,""))throw new IOException("无法写入统一配置。");
                 if(parameter.GetStringValue()!=data)throw new IOException("统一配置回读不一致。");
             }catch{if(created)a.Delete(false);else ((Parameter)a.GetParameter("data")).SetStringValue2(previous,(int)swInConfigurationOpts_e.swAllConfiguration,"");throw;}
+        }
+        public void RestoreConfiguration(string original){
+            if(original!=null){WriteConfiguration(original);return;}
+            var a=Find(model,SimulationStorage.NodeName);if(a!=null&&!a.Delete(false))throw new IOException("无法撤销新建的配置节点。");
         }
     }
 }

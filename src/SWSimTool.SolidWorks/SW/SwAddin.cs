@@ -262,6 +262,8 @@ namespace SWSimTool.SW
             group.IconList=icons;group.MainIconList=icons;
             string[] labels={"URDF 配置","碰撞配置","仿真配置","约束配置","关节配置"};string[] callbacks={"OpenUrdfConfiguration","OpenCollisionConfiguration","OpenSimulationConfiguration","OpenConstraintConfiguration","OpenJointConfiguration"};
             for(int i=0;i<labels.Length;i++)group.AddCommandItem2(labels[i],-1,labels[i],labels[i],0,callbacks[i],"CollisionEnableMethod",i,(int)swCommandItemType_e.swMenuItem|(int)swCommandItemType_e.swToolbarItem);
+            group.AddCommandItem2("清空当前插件配置",-1,"备份后清空当前 SolidWorks 配置的插件设置","清空当前插件配置",0,"ResetCurrentConfiguration","CollisionEnableMethod",20,(int)swCommandItemType_e.swMenuItem);
+            group.AddCommandItem2("恢复配置备份",-1,"恢复当前文档和配置的插件备份","恢复配置备份",0,"RestoreConfigurationBackup","CollisionEnableMethod",21,(int)swCommandItemType_e.swMenuItem);
             group.HasMenu=true;group.HasToolbar=true;group.Activate();
             string[] exports={"导出 URDF","从当前工程导出 MJCF","从本地 URDF 导出 MJCF","预览已有 MJCF"};
             string[] methods={"OpenUrdfExport","OpenProjectExport","OpenLocalExport","OpenExistingPreview"};
@@ -271,6 +273,27 @@ namespace SWSimTool.SW
             }
         }
         public void OpenUrdfConfiguration(){AssemblyURDFExporter();}
+        public void ResetCurrentConfiguration(){
+            try{
+                ModelDoc2 model=SwApp.ActiveDoc;if(model==null)return;
+                var session=ConfigurationSession.Capture((SldWorks)SwApp,model);
+                string name=model.ConfigurationManager.ActiveConfiguration.Name;
+                if(MessageBox.Show("将清空当前文档、SolidWorks 配置“"+name+"”中的 URDF 树、仿真及碰撞设置。\n执行前自动备份；其他 SolidWorks 配置、零件、配合、草图、参考几何体和已导出文件保持不变。\n旧配置页面将失效。是否继续？","清空当前插件配置",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;
+                string path=SimulationStorage.ResetCurrent((SldWorks)SwApp,model,session);
+                MessageBox.Show("当前插件配置已清空。请重新进入 URDF 配置搭建。\n备份："+path,"SWSimTool");
+            }catch(Exception error){MessageBox.Show(error.Message,"重置失败",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+        }
+        public void RestoreConfigurationBackup(){
+            try{
+                ModelDoc2 model=SwApp.ActiveDoc;if(model==null)return;var session=ConfigurationSession.Capture((SldWorks)SwApp,model);
+                using(var dialog=new OpenFileDialog{Filter="SWSimTool 配置备份|*.swsimtool-backup.json",Title="恢复当前文档、当前 SolidWorks 配置"}){
+                    if(dialog.ShowDialog()!=DialogResult.OK)return;
+                    if(MessageBox.Show("将恢复备份中的当前插件配置，并先备份现有保存内容。其他 SolidWorks 配置和 CAD 实体保持不变。是否继续？","恢复配置备份",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;
+                    string path=SimulationStorage.RestoreCurrent((SldWorks)SwApp,model,session,dialog.FileName);
+                    MessageBox.Show("已恢复，请重新进入配置。恢复前备份："+path,"SWSimTool");
+                }
+            }catch(Exception error){MessageBox.Show(error.Message,"恢复失败",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+        }
         public int UrdfEnableMethod(){ModelDoc2 model=SwApp.ActiveDoc;return model!=null&&(model.GetType()==(int)swDocumentTypes_e.swDocPART||model.GetType()==(int)swDocumentTypes_e.swDocASSEMBLY)?1:0;}
         public void OpenUrdfExport(){ModelDoc2 model=SwApp.ActiveDoc;if(model!=null&&model.GetType()==(int)swDocumentTypes_e.swDocPART)PartURDFExporter();else AssemblyURDFExporter();}
         public void OpenLocalExport(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Local));}
