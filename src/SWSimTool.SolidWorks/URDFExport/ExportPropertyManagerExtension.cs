@@ -41,7 +41,7 @@ namespace SWSimTool.URDFExport
         {
             Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
-            ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser);
+            ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser,Exporter.Simulation?.Project);
             // SaveTree already normalizes the stored simulation. Do not write a second old draft.
             Exporter.Simulation?.ReloadSavedProject();
         }
@@ -120,10 +120,7 @@ namespace SWSimTool.URDFExport
                 LinkNode node = CreateEmptyNode(currentNode);
                 currentNode.Nodes.Add(node);
             }
-            for (int i = 0; i < -number; i++)
-            {
-                currentNode.Nodes.RemoveAt(currentNode.Nodes.Count - 1);
-            }
+            if(number<0){var removing=new List<LinkNode>();for(int i=0;i<-number;i++)removing.Add((LinkNode)currentNode.Nodes[currentNode.Nodes.Count-1-i]);if(!RemoveLinkNodes(removing))PMNumberBoxChildCount.Value=currentNode.Nodes.Count;}
             int itemsCount = CommonSwOperations.GetCount(Tree.Nodes);
             int itemHeight = 1 + itemsCount * Tree.ItemHeight;
             int min = 163;

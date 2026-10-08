@@ -167,6 +167,14 @@ namespace SWSimTool.Simulation
         public List<JointForceLimit> joint_force_limits { get; set; } = new List<JointForceLimit>();
         public string base_mode { get; set; } = "inherit";
         public bool joint_defaults { get; set; } = true;
+        // Deletion plans change collections only; record values remain untouched until a plan is accepted.
+        public SimulationProject CopyCollections(){
+            var p=(SimulationProject)MemberwiseClone();
+            p.attachments=new List<Attachment>(attachments);p.actuators=new List<ActuatorConfig>(actuators);p.sensors=new List<SensorConfig>(sensors);
+            p.equalities=new List<EqualityConfig>(equalities);p.site_forces=new List<SiteForceConfig>(site_forces);p.joints=new List<JointConfiguration>(joints);p.joint_force_limits=new List<JointForceLimit>(joint_force_limits);
+            if(collision!=null)p.collision=new CollisionConfiguration{disable_internal=collision.disable_internal,link_modes_migrated=collision.link_modes_migrated,link_modes=new Dictionary<string,string>(collision.link_modes),link_modes_by_id=new Dictionary<string,string>(collision.link_modes_by_id),geometries=new List<CollisionGeometry>(collision.geometries),allowed_pairs=new List<CollisionPair>(collision.allowed_pairs)};
+            return p;
+        }
 
         public void NormalizeSiteReferences(){
             ConfigurationIdentityValidation.Validate(this);
