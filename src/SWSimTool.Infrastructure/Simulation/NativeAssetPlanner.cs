@@ -21,8 +21,8 @@ namespace SWSimTool.Simulation
         internal static NativeAssetPlan Create(SWSimTool.RobotModel.RobotModel model,string outputDirectory)
         {
             var meshes=model.Core.Links.SelectMany(l=>l.Geometries).Where(g=>g.Mesh!=null).Select(g=>g.Mesh).GroupBy(m=>m.Id).Select(g=>g.First()).ToArray();
-            foreach(var mesh in meshes)if(Path.GetFullPath(mesh.SourcePath).StartsWith(outputDirectory.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("Output package must not contain original source meshes");
-            var hashes=meshes.GroupBy(m=>m.SourcePath,StringComparer.OrdinalIgnoreCase).ToDictionary(g=>g.Key,g=>Hash(g.Key),StringComparer.OrdinalIgnoreCase);
+            foreach(var mesh in meshes)if(Path.GetFullPath(mesh.SourcePath).StartsWith(outputDirectory.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,PlatformPaths.Comparison))throw new IOException("Output package must not contain original source meshes");
+            var hashes=meshes.GroupBy(m=>m.SourcePath,PlatformPaths.Comparer).ToDictionary(g=>g.Key,g=>Hash(g.Key),PlatformPaths.Comparer);
             var assets=meshes.Select((m,i)=>new PreparedMeshAsset(m.Id,"mesh_"+i.ToString("D4"),"meshes/mesh_"+i.ToString("D4")+".stl")).ToArray();
             return new NativeAssetPlan(meshes,assets,hashes);
         }

@@ -21,14 +21,16 @@ class ModernHost(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'build/test-work') as name:
             outputs=[]
             source=ROOT/'tests/compatibility/sw2mujoco_v2/legacy_v2_document.json'
-            for i, command in enumerate((NET48,NET8)):
+            for i, command in enumerate((NET48,NET8) if os.name=='nt' else (NET8,)):
                 output=Path(name)/f'{i}.json'
                 result=self.run_command(command,'--storage',source,output)
                 self.assertEqual(result.returncode,0,result.stderr)
                 data=json.loads(output.read_text(encoding='utf-8-sig'))
                 self.assertEqual(data['raw'],json.loads(source.read_text(encoding='utf-8-sig')))
                 outputs.append(data)
-            self.assertEqual(*outputs)
+            if len(outputs)==2:self.assertEqual(*outputs)
+            artifact=os.getenv('SWSIMTOOL_STORAGE_ARTIFACT')
+            if artifact:Path(artifact).write_text(json.dumps(outputs[-1],ensure_ascii=False),encoding='utf-8')
 
     def test_cli_failure_contract_and_unicode_export(self):
         self.assertEqual(self.run_command(CLI,'--help').returncode,0)

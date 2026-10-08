@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import os
+import shutil
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -59,6 +60,11 @@ class NativeParity(unittest.TestCase):
         result = subprocess.run(COMMAND+[ str(self.urdf), str(sidecar), str(output)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         model = load_mjcf(output)
+        artifacts=os.getenv('SWSIMTOOL_PLATFORM_ARTIFACTS')
+        if artifacts:
+            self.artifact_index=getattr(self,'artifact_index',0)+1
+            target=Path(artifacts)/(self._testMethodName+'_'+str(self.artifact_index))
+            shutil.copytree(output.parent,target)
         if CROSS_COMMAND:
             cross_output = self.folder / 'cross/robot.xml'
             result = subprocess.run(CROSS_COMMAND+[str(self.urdf), str(sidecar), str(cross_output)], capture_output=True, text=True)
@@ -74,7 +80,9 @@ class NativeParity(unittest.TestCase):
         config['urdf_sha256'] = hashlib.sha256(self.urdf.read_bytes()).hexdigest()
         sidecar = self.folder / 'reference.sim.json'
         sidecar.write_text(json.dumps(config), encoding='utf-8')
-        a = convert(self.urdf, sidecar, self.folder / 'reference/robot.xml')
+        # Each semantic scenario owns its reference output; overwrite/cache lifecycle
+        # is covered separately by the production package regression below.
+        a = convert(self.urdf, sidecar, self.folder / 'reference' / name / 'robot.xml')
         compiled_semantics(a, b, precision)
         dynamics(a, b, steps, dynamic_precision)
         RESULTS.append(dict(case=name, L1=True, L2B=True, L3=True, steps=list(steps), static_tolerance=precision, dynamic_tolerance=dynamic_precision))

@@ -36,10 +36,12 @@ internal static class ToolBackendTests
                 File.WriteAllText(xml,"sleep");var token=new CancellationTokenSource();if(cancel)token.CancelAfter(1200);
                 result=fake.ValidateAsync(new ModelToolRequest(context(cancel?Timeout.InfiniteTimeSpan:TimeSpan.FromMilliseconds(1200),token.Token),xml)).Result;
                 Check(result.FailureKind==(cancel?ToolFailure.Cancelled:ToolFailure.Timeout),cancel?"Running tool cancellation":"Running tool timeout");
-                var childPid=int.Parse(File.ReadAllText(Path.Combine(root,"child.pid")));bool alive=false;
-                try{using(var child=Process.GetProcessById(childPid))alive=!child.HasExited;}catch(ArgumentException){}
-                Check(!alive,"Owned child tree is terminated");token.Dispose();
+                CheckChildStopped(root);token.Dispose();
             }
+            var elapsed=Stopwatch.StartNew();
+            Check(run("orphan").Success,"Normally exiting root with pipe-owning child completes");
+            Check(elapsed.Elapsed<TimeSpan.FromSeconds(5),"Descendant cannot keep output drain blocked");
+            CheckChildStopped(root);
             var work=Path.Combine(root,"work");var staging=Path.Combine(root,"stage");Directory.CreateDirectory(work);Directory.CreateDirectory(staging);
             var source=Path.Combine(root,"source.stl");var stl=new byte[284];stl[80]=4;File.WriteAllBytes(source,stl);
             Func<string,MeshPreparationResult> mesh=mode=>fake.PrepareAsync(new MeshPreparationRequest(context(TimeSpan.FromSeconds(5),CancellationToken.None),work,staging,Path.Combine(root,"no-settings"),new[]{new MeshToolInput(mode,source,"meshes/one.stl",NativeAssetPlanner.Hash(source))})).Result;
@@ -87,6 +89,19 @@ internal static class ToolBackendTests
             Check(!Directory.EnumerateDirectories(root,".swsimtool-*").Any(),"Export staging cleaned after failure");
             Console.WriteLine("Tool contract checks: "+checks);
         }finally{Directory.Delete(root,true);}
+    }
+    static void CheckChildStopped(string root){
+        var pid=int.Parse(File.ReadAllText(Path.Combine(root,"child.pid")));
+        bool alive=true;
+        for(int i=0;i<100&&alive;i++){
+            try{using(var child=Process.GetProcessById(pid))alive=!child.HasExited;}catch(ArgumentException){alive=false;}
+            // A killed Linux orphan can remain a non-executing zombie until init reaps it.
+            if(alive&&Environment.OSVersion.Platform!=PlatformID.Win32NT){
+                try{var stat=File.ReadAllText("/proc/"+pid+"/stat");alive=stat.Substring(stat.LastIndexOf(')')+2,1)!="Z";}catch(FileNotFoundException){alive=false;}catch(DirectoryNotFoundException){alive=false;}
+            }
+            if(alive)Thread.Sleep(10);
+        }
+        Check(!alive,"Owned child tree is terminated");
     }
     static PythonToolBackend FaultTool(string root,string fault){
         var path=Path.Combine(root,"fault-"+fault+".py");var support=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"mujoco_backend","native_support.py");

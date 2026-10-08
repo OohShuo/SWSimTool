@@ -27,7 +27,7 @@ namespace SWSimTool.Simulation
         }
         static HashSet<string> ManagedFiles(string directory,string filename)
         {
-            var result=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result=new HashSet<string>(PlatformPaths.Comparer);
             string xml=Path.Combine(directory,filename);
             if(!File.Exists(xml)) {
                 if(Directory.EnumerateFileSystemEntries(directory).Any())throw new IOException("Existing output directory is not a managed MJCF package");
@@ -36,7 +36,7 @@ namespace SWSimTool.Simulation
             result.Add(Path.GetFullPath(xml));
             foreach(var mesh in XDocument.Load(xml).Descendants("asset").Elements("mesh")) {
                 var path=Path.GetFullPath(Path.Combine(directory,(string)mesh.Attribute("file")??""));
-                if(!path.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||Path.GetExtension(path).ToLowerInvariant()!=".stl")
+                if(!path.StartsWith(directory.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,PlatformPaths.Comparison)||Path.GetExtension(path).ToLowerInvariant()!=".stl")
                     throw new IOException("Mesh escapes package");
                 result.Add(path);
             }

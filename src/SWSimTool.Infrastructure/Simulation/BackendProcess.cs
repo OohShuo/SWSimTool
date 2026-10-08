@@ -23,6 +23,8 @@ namespace SWSimTool.Simulation
             if(!File.Exists(script))return ToolResult.Failure(ToolFailure.Start,"Python support script is missing: "+script);
             var info=new ProcessStartInfo(python){UseShellExecute=false,CreateNoWindow=true,Arguments=Quote(script)+" "+arguments,
                 RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
+            // Establish an owned POSIX session before the script can spawn descendants.
+            if(!OwnedProcessJob.IsWindows)info.Arguments="-c "+Quote("import os,sys;os.setsid();import runpy;p=sys.argv[1];sys.argv=sys.argv[1:];sys.path.insert(0,os.path.dirname(os.path.abspath(p)));runpy.run_path(p,run_name='__main__')")+" "+Quote(script)+" "+arguments;
             info.EnvironmentVariables["SWSIMTOOL_EXPORT_ID"]=exportId??Guid.NewGuid().ToString("N");
             info.EnvironmentVariables["PYTHONIOENCODING"]="utf-8";
             info.EnvironmentVariables["PYTHONUNBUFFERED"]="1";
@@ -43,7 +45,8 @@ namespace SWSimTool.Simulation
                         if(stopped==ToolFailure.None)continue;
                         job.Terminate();process.WaitForExit();lock(gate)return ToolResult.Failure(stopped,log.ToString());
                     }
-                    process.WaitForExit();lock(gate)return new ToolResult(process.ExitCode,process.ExitCode==0?ToolFailure.None:ToolFailure.Exit,log.ToString());
+                    // A descendant may still hold redirected pipes after the root exits.
+                    job.Terminate();process.WaitForExit();lock(gate)return new ToolResult(process.ExitCode,process.ExitCode==0?ToolFailure.None:ToolFailure.Exit,log.ToString());
                 }catch(Exception error){return ToolResult.Failure(ToolFailure.Start,error.Message);}
             }
         }
@@ -52,6 +55,10 @@ namespace SWSimTool.Simulation
     internal sealed class OwnedProcessJob:IDisposable
     {
         IntPtr handle;
+        int groupId;
+        internal static bool IsWindows=>Environment.OSVersion.Platform==PlatformID.Win32NT;
+        [DllImport("libc",SetLastError=true)]static extern int getpgid(int pid);
+        [DllImport("libc",SetLastError=true)]static extern int kill(int pid,int signal);
         [StructLayout(LayoutKind.Sequential)]struct Basic {public long PerProcess,PerJob;public uint Flags;public UIntPtr Min,Max;public uint Active;public UIntPtr Affinity;public uint Priority,Scheduling;}
         [StructLayout(LayoutKind.Sequential)]struct Io {public ulong ReadOps,WriteOps,OtherOps,ReadBytes,WriteBytes,OtherBytes;}
         [StructLayout(LayoutKind.Sequential)]struct Extended {public Basic Basic;public Io Io;public UIntPtr ProcessMemory,JobMemory,PeakProcess,PeakJob;}
@@ -60,9 +67,20 @@ namespace SWSimTool.Simulation
         [DllImport("kernel32.dll",SetLastError=true)]static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
         [DllImport("kernel32.dll",SetLastError=true)]static extern bool TerminateJobObject(IntPtr job,uint code);
         [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr handle);
-        internal OwnedProcessJob(){handle=CreateJobObject(IntPtr.Zero,null);if(handle==IntPtr.Zero)throw new System.ComponentModel.Win32Exception();var info=new Extended{Basic=new Basic{Flags=0x2000}};if(!SetInformationJobObject(handle,9,ref info,(uint)Marshal.SizeOf(info))){Dispose();throw new System.ComponentModel.Win32Exception();}}
-        internal void Assign(Process process){if(!AssignProcessToJobObject(handle,process.Handle))throw new System.ComponentModel.Win32Exception();}
-        internal void Terminate(){if(handle!=IntPtr.Zero&&!TerminateJobObject(handle,1))throw new System.ComponentModel.Win32Exception();}
-        public void Dispose(){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}}
+        internal OwnedProcessJob(){if(!IsWindows)return;handle=CreateJobObject(IntPtr.Zero,null);if(handle==IntPtr.Zero)throw new System.ComponentModel.Win32Exception();var info=new Extended{Basic=new Basic{Flags=0x2000}};if(!SetInformationJobObject(handle,9,ref info,(uint)Marshal.SizeOf(info))){Dispose();throw new System.ComponentModel.Win32Exception();}}
+        internal void Assign(Process process){
+            if(IsWindows){if(!AssignProcessToJobObject(handle,process.Handle))throw new System.ComponentModel.Win32Exception();return;}
+            var pid=process.Id;
+            for(int i=0;i<100;i++){
+                if(getpgid(pid)==pid||process.HasExited){groupId=pid;return;}
+                Thread.Sleep(10);
+            }
+            throw new IOException("Cannot establish owned Python process group");
+        }
+        internal void Terminate(){
+            if(IsWindows){if(handle!=IntPtr.Zero&&!TerminateJobObject(handle,1))throw new System.ComponentModel.Win32Exception();}
+            else if(groupId!=0&&kill(-groupId,9)!=0&&Marshal.GetLastWin32Error()!=3)throw new System.ComponentModel.Win32Exception();
+        }
+        public void Dispose(){if(IsWindows){if(handle!=IntPtr.Zero){CloseHandle(handle);handle=IntPtr.Zero;}}else{Terminate();groupId=0;}}
     }
 }

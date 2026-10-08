@@ -6,7 +6,7 @@ This matrix freezes the existing behavior; physical tolerances remain unchanged.
 |---|---|
 | URDF export | Core root serialization + frozen v2 XML |
 | Native MJCF export | native CAD incremental + compiled parity |
-| mesh preparation | backend 96 + tool contract 35 |
+| mesh preparation | baseline backend 96 plus binding regression; tool contract 38 |
 | simplification | backend budget/dependency/cache tests |
 | validation | compiled parity + tool faults |
 | preview | backend preview contract; GUI NOT PERFORMED |

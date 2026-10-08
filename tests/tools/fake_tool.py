@@ -49,10 +49,10 @@ else:
         sys.exit(1)
     if mode == 'modify':
         path.write_text('rewritten', encoding='utf-8')
-    if mode == 'sleep':
+    if mode in ('sleep', 'orphan'):
         child = subprocess.Popen([sys.executable, __file__, '--child', 'yes'])
         (path.parent / 'child.pid').write_text(str(child.pid), encoding='utf-8')
         print('CHILD_READY', flush=True)
-        time.sleep(60)
+        if mode == 'sleep':time.sleep(60)
     if args.preview:
         print('FAKE_PREVIEW_CALL', flush=True)

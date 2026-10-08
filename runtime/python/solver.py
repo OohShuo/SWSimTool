@@ -109,7 +109,9 @@ def diagnostic_sample(model, data):
     import numpy as np
     separation = 0.0
     for i in range(model.neq):
-        if data.eq_active[i] and model.eq_type[i] in (mujoco.mjtEq.mjEQ_CONNECT, mujoco.mjtEq.mjEQ_WELD) and model.eq_objtype[i] == mujoco.mjtObj.mjOBJ_SITE:
+        # Tuple membership calls the enum's reverse equality, which differs
+        # between platform bindings for NumPy scalars. Compare integer values.
+        if data.eq_active[i] and int(model.eq_type[i]) in (int(mujoco.mjtEq.mjEQ_CONNECT), int(mujoco.mjtEq.mjEQ_WELD)) and int(model.eq_objtype[i]) == int(mujoco.mjtObj.mjOBJ_SITE):
             a, b = int(model.eq_obj1id[i]), int(model.eq_obj2id[i])
             separation = max(separation, float(np.linalg.norm(data.site_xpos[a] - data.site_xpos[b])))
     penetration = max((max(0.0, -float(data.contact[i].dist)) for i in range(data.ncon)), default=0.0)

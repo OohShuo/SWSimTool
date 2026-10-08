@@ -8,6 +8,7 @@ import io
 import copy
 import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 import mujoco
@@ -95,10 +96,20 @@ class SolverTests(unittest.TestCase):
             preview_model(m)
         self.assertEqual(output.getvalue(), '')
         self.assertIs(mujoco.get_mjcb_control(), previous)
-
         with patch('mujoco.viewer.launch', side_effect=RuntimeError('test close')), self.assertRaises(RuntimeError):
             preview_model(m)
         self.assertIs(mujoco.get_mjcb_control(), previous)
+
+    def test_diagnostics_handles_asymmetric_binding_enum_equality(self):
+        class BindingEnum:
+            def __init__(self,value):self.value=value
+            def __int__(self):return self.value
+            def __eq__(self,other):return False
+        bindings=SimpleNamespace(mjtEq=SimpleNamespace(mjEQ_CONNECT=BindingEnum(0),mjEQ_WELD=BindingEnum(1)),mjtObj=SimpleNamespace(mjOBJ_SITE=BindingEnum(6)))
+        model=SimpleNamespace(neq=1,eq_type=np.array([0],dtype=np.int32),eq_objtype=np.array([6],dtype=np.int32),eq_obj1id=[0],eq_obj2id=[1],opt=SimpleNamespace(iterations=100))
+        data=SimpleNamespace(eq_active=[True],site_xpos=np.array([[0.,0.,0.],[.05,0.,0.]]),ncon=0,solver_niter=[0],solver=[],qpos=np.zeros(1),qvel=np.zeros(1))
+        with patch.dict('sys.modules',mujoco=bindings):
+            self.assertEqual(diagnostic_sample(model,data)['site_separation_m'],.05)
 
     def test_diagnostics_measures_physical_penetration(self):
         model = mujoco.MjModel.from_xml_string('''<mujoco><worldbody>

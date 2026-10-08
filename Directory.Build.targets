@@ -3,7 +3,14 @@
     <PreBuildEvent />
   </PropertyGroup>
   <Target Name="GenerateCommitVersion" BeforeTargets="GenerateAssemblyInfo" Condition="'$(TargetFramework)' != ''">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(RepositoryRoot)tools/build/UpdateVersionInfo.ps1&quot; -filename &quot;$(IntermediateOutputPath)VersionInfo.cs&quot; -Version &quot;$(SWSimToolVersion)&quot;" />
+    <Exec Condition="'$(OS)' == 'Windows_NT'" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(RepositoryRoot)tools/build/UpdateVersionInfo.ps1&quot; -filename &quot;$(IntermediateOutputPath)VersionInfo.cs&quot; -Version &quot;$(SWSimToolVersion)&quot;" />
+    <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+      <CommitVersion>source-archive</CommitVersion>
+    </PropertyGroup>
+    <Exec Condition="'$(OS)' != 'Windows_NT' and Exists('$(RepositoryRoot).git')" Command="git -C &quot;$(RepositoryRoot)&quot; describe --tags --long --dirty --always" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="CommitVersion" />
+    </Exec>
+    <WriteLinesToFile Condition="'$(OS)' != 'Windows_NT'" File="$(IntermediateOutputPath)VersionInfo.cs" Lines="using System.Reflection%3B;[assembly: AssemblyInformationalVersion(&quot;$(SWSimToolVersion)+$(CommitVersion)&quot;)]" Overwrite="true" WriteOnlyWhenDifferent="true" Encoding="UTF-8" />
     <ItemGroup><Compile Include="$(IntermediateOutputPath)VersionInfo.cs" /></ItemGroup>
   </Target>
 </Project>

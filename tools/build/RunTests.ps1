@@ -3,6 +3,8 @@ $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $env:PYTHONDONTWRITEBYTECODE='1'
 $env:SWSIMTOOL_TEST_CONFIGURATION=$Configuration
+$env:SWSIMTOOL_CACHE=Join-Path $root 'build/test-work/backend-cache'
+$env:SWSIMTOOL_MESH_CACHE=Join-Path $root 'build/test-work/backend-mesh-cache'
 function Run([string]$name,[scriptblock]$command) {
     Write-Host "Testing $name"
     $savedPreference=$ErrorActionPreference

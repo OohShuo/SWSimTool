@@ -10,6 +10,8 @@ public static class CandidateRunner
     public static int Main(string[] args)
     {
         try {
+            var culture=Environment.GetEnvironmentVariable("SWSIMTOOL_TEST_CULTURE");
+            if(!String.IsNullOrEmpty(culture))System.Globalization.CultureInfo.CurrentCulture=System.Globalization.CultureInfo.CurrentUICulture=System.Globalization.CultureInfo.GetCultureInfo(culture);
             if(args.Length==3&&args[0]=="--storage"){
                 var serializer=SWSimTool.Persistence.DocumentEnvelopeSerializer.Serializer();
                 var raw=SWSimTool.Persistence.DocumentEnvelopeSerializer.Deserialize<Dictionary<string,object>>(File.ReadAllText(args[1]),2);
@@ -68,5 +70,18 @@ public static class CandidateRunner
             int operations=0;failed=false;try{SWSimTool.Simulation.PackagePublisher.Publish(staging,target,(a,b)=>{if(++operations==2)throw new IOException("Injected publish failure");Directory.Move(a,b);});}catch(IOException){failed=true;}
             Check(failed&&operations==3&&File.ReadAllText(target)==oldXml,"failed package swap restores previous complete package");
         }finally{Directory.Delete(owned,true);}
+        if(Environment.OSVersion.Platform!=PlatformID.Win32NT){
+            var directory=Path.Combine(Path.GetTempPath(),"SWSimTool-case-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
+            try{
+                File.WriteAllText(Path.Combine(directory,"A.stl"),"upper");File.WriteAllText(Path.Combine(directory,"a.stl"),"lower");
+                var urdf=Path.Combine(directory,"case.urdf");
+                File.WriteAllText(urdf,"<robot name='case'><link name='base'><visual><geometry><mesh filename='A.stl'/></geometry></visual><visual><geometry><mesh filename='a.stl'/></geometry></visual></link></robot>");
+                var model=new RobotModel(UrdfRobotModelImporter.Load(urdf),LegacySimulationConfigImporter.Import("{}"));
+                var plan=SWSimTool.Simulation.NativeAssetPlanner.Create(model,Path.Combine(directory,"out"));
+                File.WriteAllText(Path.Combine(directory,"a.stl"),"changed");
+                failed=false;try{plan.VerifySources();}catch(IOException){failed=true;}
+                Check(failed,"Case-distinct source meshes both participate in mutation guard");
+            }finally{Directory.Delete(directory,true);}
+        }
     }
 }

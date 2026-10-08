@@ -167,7 +167,7 @@ def dynamics(a, b, steps=(1, 10, 100), precision=2e-7):
         ad, bd = mujoco.MjData(a), mujoco.MjData(b)
         # Canonical integration inputs mapped independently; no raw state blob is copied.
         for i, j, name in mapping(a, b, mujoco.mjtObj.mjOBJ_JOINT, 'njnt'):
-            if a.jnt_type[i] in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE):
+            if int(a.jnt_type[i]) in (int(mujoco.mjtJoint.mjJNT_HINGE), int(mujoco.mjtJoint.mjJNT_SLIDE)):
                 ad.qpos[a.jnt_qposadr[i]] += perturb; bd.qpos[b.jnt_qposadr[j]] += perturb
         ad.qvel[left] = .02; bd.qvel[right] = .02
         ad.qacc_warmstart[left] = .001; bd.qacc_warmstart[right] = .001

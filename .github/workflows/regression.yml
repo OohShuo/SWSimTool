@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r runtime/python/requirements.txt fast-simplification
+      - run: python -m pip install -r runtime/python/requirements.txt fast-simplification pymeshlab
       - run: ./tools/build/RunSuite.ps1 -Tier Medium
       - uses: actions/upload-artifact@v4
         if: always()

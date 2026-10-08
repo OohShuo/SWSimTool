@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -50,7 +50,7 @@ namespace SWSimTool.Simulation
                     foreach(var mesh in request.Meshes){
                         if(string.IsNullOrWhiteSpace(mesh.Id)||!ids.Add(mesh.Id)||!seen.Add(mesh.Relative))throw new InvalidDataException("Duplicate asset identity/path");
                         var target=AssetPath(request.Staging,mesh.Relative);
-                        if(mesh.Source.StartsWith(request.Staging.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Source cannot be inside staging");
+                        if(mesh.Source.StartsWith(request.Staging.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,PlatformPaths.Comparison))throw new InvalidDataException("Source cannot be inside staging");
                         if(NativeAssetPlanner.Hash(mesh.Source)!=mesh.Sha256)return new MeshPreparationResult(ToolResult.Failure(ToolFailure.InputChanged,"Source mesh changed"));
                     }
                     File.WriteAllText(manifest,serializer.Serialize(new{staging=request.Staging,result,meshes=request.Meshes.Select(m=>new{id=m.Id,source=m.Source,relative=m.Relative,sha256=m.Sha256}).ToArray()}),new UTF8Encoding(false));
@@ -88,7 +88,7 @@ namespace SWSimTool.Simulation
             }catch(Exception error){return new MeshPreparationResult(ToolResult.Failure(ToolFailure.Protocol,error.Message));}
         });
         static int StrictCount(object value){if(!(value is int)||((int)value)<0)throw new InvalidDataException("Invalid tool counter");return (int)value;}
-        static string AssetPath(string staging,string relative){var path=Path.GetFullPath(Path.Combine(staging,relative));if(Path.IsPathRooted(relative)||!path.StartsWith(staging.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||Path.GetExtension(path).ToLowerInvariant()!=".stl")throw new InvalidDataException("Invalid prepared asset path");return path;}
+        static string AssetPath(string staging,string relative){var path=Path.GetFullPath(Path.Combine(staging,relative));if(Path.IsPathRooted(relative)||!path.StartsWith(staging.TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,PlatformPaths.Comparison)||Path.GetExtension(path).ToLowerInvariant()!=".stl")throw new InvalidDataException("Invalid prepared asset path");return path;}
         Task<ToolResult> ModelOperation(ModelToolRequest request,string operation)=>Task.Run(()=>{
             try{
                 if(request.Context.Cancellation.IsCancellationRequested)return ToolResult.Failure(ToolFailure.Cancelled,"Tool cancelled before start");

@@ -35,3 +35,5 @@ CAD、官方及安装集成测试不会随上述纯回归自动运行。需要 S
 ## Modernization compatibility gates
 
 `tests/compatibility/Test-V2Persistence.ps1` reads immutable old JSON/XML. `tests/compatibility/Test-V2Cad.ps1 -OwnedLegacyFixture tests/fixtures/sw2mujoco-v2/cad` copies the frozen old CAD fixture into build/ and checks read-only load, save/reopen, stable identities and validated native export. No user project is used.
+
+`tests/platform/run.py` builds and runs net8 tests on Windows/Linux under three cultures. `tests/platform/compare.py` requires outputs from both systems and compares compiled models, multi-step dynamics, deterministic XML and frozen configuration fields. See [test environments](../docs/Testing.md).
