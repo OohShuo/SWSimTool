@@ -139,11 +139,11 @@ namespace SWSimTool.URDF
         void WriteForType(System.Xml.XmlWriter writer){base.WriteURDF(writer);}
         public override bool AreRequiredFieldsSatisfied()
         {
-            if(Type=="fixed"||Type=="floating"||Type=="planar"){
-                var copy=new Joint();copy.SetElement(this);copy.Limit.Unset();copy.Limit.SetRequired(false);return copy.ValidateForType();
-            }
-            Limit.SetRequired((Type == "prismatic" || Type == "revolute"));
-            return base.AreRequiredFieldsSatisfied();
+            var copy=new Joint();copy.SetElement(this);
+            if(Type=="fixed"||Type=="floating"||Type=="planar")copy.Limit.Unset();
+            else if(Type=="continuous")copy.Limit.ClearBounds();
+            copy.Limit.SetRequired(Type=="prismatic"||Type=="revolute");
+            return copy.ValidateForType();
         }
 
         public override void AppendToCSVDictionary(List<string> context, OrderedDictionary dictionary)

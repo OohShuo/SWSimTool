@@ -107,6 +107,7 @@ public static class ConfigurationRebuildTest {
    var persistedLimits=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(newTree),1.4);
    if(((LinkNode)persistedLimits.Nodes[0]).Link.Joint.Limit.Velocity!=2.5)throw new Exception("Tree persistence lost limit settings");
    Func<Joint,string> xml=j=>{var buffer=new System.Text.StringBuilder();using(var writer=System.Xml.XmlWriter.Create(buffer,new System.Xml.XmlWriterSettings{OmitXmlDeclaration=true}))j.WriteURDF(writer);return buffer.ToString();};
+   bool requiredBefore=limited.Limit.IsRequired();limited.AreRequiredFieldsSatisfied();if(limited.Limit.IsRequired()!=requiredBefore)throw new Exception("Joint validation modified stored required flags");
    if(!xml(limited).Contains("lower=\"-1.2\""))throw new Exception("Revolute output lost bounds");
    limited.Type="fixed";if(xml(limited).Contains("<limit"))throw new Exception("Fixed output incorrectly writes stored limit");
    limited.Type="continuous";var continuousXml=xml(limited);if(continuousXml.Contains("lower=")||!continuousXml.Contains("effort=\"7\""))throw new Exception("Continuous output must retain effort, omit bounds");
