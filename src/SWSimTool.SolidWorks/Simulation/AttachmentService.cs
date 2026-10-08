@@ -16,6 +16,7 @@ namespace SWSimTool.Simulation
         private readonly ExportHelper exporter;
         public SimulationProject Project { get; set; }
         ConfigurationSession session;
+        string openedTree;
         public void RequireCurrentDocument(){session?.RequireCurrent();}
         public void ReloadSavedProject(){Project=SimulationStorage.Load(exporter.ActiveSWModel)??new SimulationProject();session?.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
@@ -25,6 +26,28 @@ namespace SWSimTool.Simulation
             session=ConfigurationSession.Capture((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
             Project = SimulationStorage.Load(exporter.ActiveSWModel);
             if (Project == null) Project = new SimulationProject();
+            openedTree=SimulationStorage.LoadEntry(exporter.ActiveSWModel)?.urdf_xml;
+        }
+        public string RebuildCurrentDraft(SimulationProject draft,LinkNode tree=null){
+            RequireCurrentDocument();
+            tree=tree??collisionTree??ConfigurationSerialization.ReadTree(openedTree,1.4);
+            if(tree==null)throw new InvalidDataException("当前页面没有完整的 URDF 树，请先配置 URDF。");
+            var serializer=ExportFingerprint.Serializer();var snapshot=serializer.Deserialize<SimulationProject>(serializer.Serialize(draft));
+            var snapshotTree=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(tree),1.4);
+            ValidateDraftCadReferences(snapshotTree,snapshot);
+            string backup=SimulationStorage.RebuildCurrent(App,Model,session,snapshotTree,snapshot);
+            ReloadSavedProject();openedTree=SimulationStorage.LoadEntry(Model)?.urdf_xml;
+            SetCollisionTree(ConfigurationSerialization.ReadTree(openedTree,1.4));return backup;
+        }
+        public void ValidateDraftCadReferences(LinkNode tree,SimulationProject draft){
+            RequireCurrentDocument();StableReferences.ValidateIdentities(tree);StableReferences.Normalize(draft,tree);StableReferences.ValidateTree(tree);
+            SimulationConfigBuilder.ValidateReferences(draft,StableReferences.LinkNames(tree),JointDescriptor.FromTree(tree).ToDictionary(x=>x.id,x=>x.name));
+            CadTreeReferences.Normalize(Model,tree,true);
+            var unresolved=new List<string>();CommonSwOperations.LoadSWComponents(Model,tree,unresolved);
+            if(unresolved.Count!=0)throw new InvalidDataException("组件引用失效："+string.Join(", ",unresolved));
+            var previousTree=collisionTree;var previous=Project;
+            try{SetCollisionTree(tree);Project=draft;foreach(var site in draft.attachments)Resolve(site);foreach(var geometry in draft.collision?.geometries??new List<CollisionGeometry>())ResolveCollision(geometry);}
+            finally{Project=previous;SetCollisionTree(previousTree);}
         }
         public void Save()
         {
@@ -90,6 +113,7 @@ namespace SWSimTool.Simulation
         private Matrix<double> ResolveCore(Attachment attachment)
         {
             if(attachment.reference!=null)return ReferenceFrame(attachment.reference,attachment.type=="frame");
+            if(string.IsNullOrWhiteSpace(attachment.source_pid))throw new InvalidDataException("附着点 “"+attachment.name+"” 尚未拾取参考，请明确选择参考后重试。");
             ModelDoc2 model = exporter.ActiveSWModel;
             Component2 component = null;
             int error;

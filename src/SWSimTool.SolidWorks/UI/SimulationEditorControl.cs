@@ -46,10 +46,11 @@ namespace SWSimTool.UI {
    tabs.SelectedIndexChanged+=(s,e)=>JointEditorControl.PreserveScroll(this,()=>{top.Enabled=top.Visible=tabs.SelectedTab?.Text!="两点作用力";});
    }else{show.Text="实时预览约束端点 / 坐标系";ConstraintTab(tabs);}
    var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};var save=new Button{Text="保存配置到装配",AutoSize=true};var refreshCAD=new Button{Text="刷新 CAD 参考",AutoSize=true};refreshCAD.Click+=(s,e)=>{service.InvalidateCADCache();Schedule();};footer.Controls.Add(show);footer.Controls.Add(refreshCAD);footer.Controls.Add(save);footer.Controls.Add(status);Controls.Add(footer);
+   ConfigurationDraftCommands.Add(footer,service,draft,()=>{if(invalid.Count>0)throw new InvalidOperationException("请修正无效数字。");draft.NormalizeSiteReferences();draft.ValidateSolver();},path=>{Refresh();UpdateSites();status.Text="已全量重建并覆盖，请保存装配。备份："+path;},Guard);
    save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
-   cadTimer.Tick+=(s,e)=>Guard(()=>{if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
+   cadTimer.Tick+=(s,e)=>Guard(()=>{try{service.RequireCurrentDocument();}catch(Exception error){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=error.Message;return;}if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
    Refresh();cadTimer.Start();Schedule();
   }
   void Section(TableLayoutPanel parent,Func<bool> visible,Action<TableLayoutPanel> build){var host=Layout(parent);Add(parent,host);build(host);conditions.Add(()=>{bool enabled=visible();host.Visible=host.Enabled=enabled;foreach(var box in Descendants(host).OfType<TextBox>()){if(!enabled)invalid.Remove(box);else (box.Tag as Action)?.Invoke();}});}

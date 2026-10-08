@@ -93,7 +93,7 @@ namespace SWSimTool.UI
             Add(contacts,new Label{Text="添加后保存装配，并重新导出 MJCF。\n无碰撞模式的 link 不能加入允许列表。",AutoSize=true});
             timer.Tick+=(s,e)=>{timer.Stop();UpdatePreview(false);};
             cadTimer.Tick+=(s,e)=>{
-                try{string next=service.CollisionRevision;if(next==revision)return;revision=next;
+                try{try{service.RequireCurrentDocument();}catch(Exception error){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=error.Message;return;}string next=service.CollisionRevision;if(next==revision)return;revision=next;
                     if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="SW Configuration 已切换，请关闭后重新进入碰撞配置。";return;}
                     UpdatePreview(true);
                 }catch(Exception ex){status.Text=ex.Message;}
@@ -110,6 +110,7 @@ namespace SWSimTool.UI
             remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(linkIds.ContainsKey(owner)&&!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.Mode(linkIds[owner])=="primitive")draft.collision.SetMode(linkIds[owner],"none");current=null;RefreshList();};
             allow.Click+=(s,e)=>Guard(()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请先修正当前碰撞对的无效数字。");string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
+            ConfigurationDraftCommands.Add(footer,service,draft,()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请修正无效数字。");ReadCurrent();draft.collision.disable_internal=disable.Checked;},path=>{current=null;RefreshList();RefreshPairs();status.Text="已全量重建并覆盖，请保存装配。备份："+path;},Guard);
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
             pairA.SelectedIndex=links.Length>0?0:-1;pairB.SelectedIndex=links.Length>1?1:-1;
             loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;RefreshList();RefreshPairs();cadTimer.Start();

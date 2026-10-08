@@ -71,9 +71,20 @@ namespace SWSimTool.Simulation {
    var source=Identify(Parse(backup.payload),model);Entry entry;
    if(!source.configurations.TryGetValue(key,out entry))throw new InvalidDataException("备份中没有当前配置。");
    var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,entry.urdf_version);StableReferences.ValidateIdentities(tree);ValidateEntryReferences(model,tree,entry.simulation);
+   if(app!=null)new ExportHelper(app).GetSimulation().ValidateDraftCadReferences(tree,entry.simulation??new SimulationProject());
    entry.instance_id=Guid.NewGuid().ToString("N");entry.generation++;
    var target=Read(model);target.configurations[key]=entry;
    return ReplaceDocument(app,model,target,session,backupFolder);
+  }
+  public static string RebuildCurrent(SldWorks app,ModelDoc2 model,ConfigurationSession session,SWSimTool.URDF.LinkNode tree,SimulationProject draft,string backupFolder=null){
+   session.RequireCurrent();
+   var snapshot=Serializer().Deserialize<SimulationProject>(Serializer().Serialize(draft));
+   var snapshotTree=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(tree),1.4);
+   ValidateEntryReferences(model,snapshotTree,snapshot);
+   // Read only to preserve other SW configurations. No fields from the old target entry are merged.
+   var document=Read(model);string key=model.ConfigurationManager.ActiveConfiguration.Name;
+   document.configurations[key]=new Entry{configuration_id=ConfigurationId(model.ConfigurationManager.ActiveConfiguration),configuration_name=key,urdf_xml=ConfigurationSerialization.WriteTree(snapshotTree),simulation=snapshot};
+   return ReplaceDocument(app,model,document,session,backupFolder);
   }
   static string ReplaceDocument(SldWorks app,ModelDoc2 model,Document document,ConfigurationSession session,string backupFolder){
    if(string.IsNullOrWhiteSpace(model.GetPathName()))throw new InvalidDataException("请先保存装配，以便备份明确关联到文档。");
@@ -91,6 +102,7 @@ namespace SWSimTool.Simulation {
    if(project==null)return;
    var joints=JointDescriptor.FromTree(tree).ToDictionary(x=>x.id,x=>x.name);
    StableReferences.Normalize(project,tree);SimulationConfigBuilder.ValidateReferences(project,StableReferences.LinkNames(tree),joints);
+   project.assembly=model.GetPathName();project.configuration=model.ConfigurationManager.ActiveConfiguration.Name;
   }
   static void Write(SldWorks app,ModelDoc2 model,Document d){using(var timing=new SWSimTool.Utilities.PerformanceScope("storage.save")){
    int cadStamp=CadRevision.BeforeConfigurationWrite(model);

@@ -100,6 +100,7 @@ namespace SWSimTool.URDFExport
         private const int LabelJointNameID = 14;
         private const int dotNetTree = 16;
         private const int ButtonExportID = 17;
+        private const int RebuildConfigurationID = 44;
         private const int ComboBoxCoordSysID = 19;
         private const int LabelAxesID = 20;
         private const int LabelCoordSysID = 21;
@@ -385,6 +386,12 @@ namespace SWSimTool.URDFExport
 
                 case LoadConfigurationID:
                     LoadFromCSV();
+                    break;
+                case RebuildConfigurationID:
+                    Exporter.Simulation.RequireCurrentDocument();SaveActiveNode();
+                    var root=(LinkNode)Tree.Nodes[0];CommonSwOperations.RetrieveSWComponentPIDs(ActiveSWModel,root);
+                    string backup=SWSimTool.UI.ConfigurationDraftCommands.Rebuild(Exporter.Simulation,Exporter.Simulation.Project,root);
+                    if(backup!=null)MessageBox.Show("已从完整草稿重建并覆盖，请保存装配。备份："+backup,"SWSimTool");
                     break;
 
                 default:
@@ -966,6 +973,8 @@ namespace SWSimTool.URDFExport
                 (short)swPropertyManagerPageControlType_e.swControlType_Button,
                 "Preview and Export...", 0, (int)options, "Preview the generated URDF and export to a URDF package");
             (PMButtonExport as IPropertyManagerPageControl).Width = 200;
+            var rebuild=(IPropertyManagerPageControl)PMGroup.AddControl2(RebuildConfigurationID,(short)swPropertyManagerPageControlType_e.swControlType_Button,"从当前配置重建并覆盖",0,(int)options,"自动备份后，以完整编辑草稿替换当前插件配置，不合并旧保存内容");
+            rebuild.Width=200;
 
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle;
             caption = "Link Tree";

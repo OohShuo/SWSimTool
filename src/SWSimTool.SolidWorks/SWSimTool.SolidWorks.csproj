@@ -83,6 +83,7 @@
     <Compile Include="Simulation\CadReferenceSnapshot.cs" />
     <Compile Include="Simulation\ProjectSourceCache.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />
+    <Compile Include="UI\ConfigurationDraftCommands.cs" />
     <Compile Include="UI\SolverParametersControl.cs" />
     <Compile Include="UI\JointEditorControl.cs" />
     <Compile Include="UI\JointPropertyManager.cs" />
