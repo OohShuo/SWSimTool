@@ -335,6 +335,7 @@ namespace SWSimTool.URDFExport
                     previouslySelectedNode.Link.Joint.AxisName = PMComboBoxAxes.get_ItemText(-1);
                     previouslySelectedNode.Link.Joint.CoordinateSystemName = PMComboBoxCoordSys.get_ItemText(-1);
                     previouslySelectedNode.Link.Joint.Type = PMComboBoxJointType.get_ItemText(-1);
+                    jointLimits.SetType(previouslySelectedNode.Link.Joint.Type);jointLimits.Commit(previouslySelectedNode.Link.Joint);
                 }
                 else
                 {
@@ -380,6 +381,8 @@ namespace SWSimTool.URDFExport
         //Sets all the controls in the Property Manager from the Selected Node
         public void FillPropertyManager(LinkNode node)
         {
+            jointLimits.LoadJoint(node.Link.Joint,node.IsBaseNode);
+            ((IPropertyManagerPageControl)PMLimits).Visible=!node.IsBaseNode;
             PMTextBoxLinkName.Text = node.Link.Name;
             PMNumberBoxChildCount.Value = node.Nodes.Count;
 

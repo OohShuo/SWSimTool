@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -56,9 +56,10 @@ namespace SWSimTool.UI
                 new ThreadExceptionEventHandler(ExceptionHandler);
             AppDomain.CurrentDomain.UnhandledException +=
                 new UnhandledExceptionEventHandler(UnhandledException);
+            FormClosed+=(s,e)=>{Application.ThreadException-=ExceptionHandler;AppDomain.CurrentDomain.UnhandledException-=UnhandledException;};
             InitializeComponent();
             swApp = SwApp;
-            BaseNode = node;
+            BaseNode = new LinkNode(node.Snapshot());
             ActiveSWModel = swApp.ActiveDoc;
             Exporter = exporter;
             Text="SWSimTool — URDF 导出";
@@ -203,7 +204,7 @@ namespace SWSimTool.UI
                 treeViewJointTree.Nodes.Remove(node);
                 BaseNode.Nodes.Add(node);
             }
-            SaveConfigTree(ActiveSWModel, BaseNode, true);
+
             Close();
         }
 
@@ -213,7 +214,7 @@ namespace SWSimTool.UI
             {
                 SaveLinkDataFromPropertyBoxes(previouslySelectedNode.Link);
             }
-            SaveConfigTree(ActiveSWModel, BaseNode, true);
+
             Close();
         }
 
@@ -243,7 +244,7 @@ namespace SWSimTool.UI
         private void FinishExport(bool exportSTL)
         {
             logger.Info("Completing URDF export");
-            SaveConfigTree(ActiveSWModel, BaseNode, false);
+
 
             // Saving selected node
             LinkNode node = (LinkNode)treeViewLinkProperties.SelectedNode;

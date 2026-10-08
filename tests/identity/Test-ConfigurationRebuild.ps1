@@ -97,6 +97,22 @@ public static class ConfigurationRebuildTest {
     var other=new Link(uiTree.Link);other.Name="other";var otherNode=new LinkNode(other);uiTree.Nodes.Add(otherNode);LinkNode.Move(child,otherNode);
     if(child.Parent!=otherNode||child.Link.Parent!=otherNode.Link||child.IsBaseNode)throw new Exception("Legal drag parent state inconsistent");
    }
+   var limited=new Joint{Name="limited",Type="revolute"};limited.Parent.Name="base";limited.Child.Name="child";limited.Limit.SetInputs("-1.2","1.4","7","2.5");
+   using(var limits=new UrdfJointLimitControl()){
+    limits.LoadJoint(limited,false);limits.SetType("fixed");limits.Commit(limited);limits.SetType("revolute");limits.Commit(limited);
+    if(limited.Limit.Lower!=-1.2||limited.Limit.Upper!=1.4||limited.Limit.Effort!=7)throw new Exception("Type switch discarded hidden limit inputs");
+   }
+   ((LinkNode)newTree.Nodes[0]).Link.Joint.SetElement(limited);
+
+   var persistedLimits=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(newTree),1.4);
+   if(((LinkNode)persistedLimits.Nodes[0]).Link.Joint.Limit.Velocity!=2.5)throw new Exception("Tree persistence lost limit settings");
+   Func<Joint,string> xml=j=>{var buffer=new System.Text.StringBuilder();using(var writer=System.Xml.XmlWriter.Create(buffer,new System.Xml.XmlWriterSettings{OmitXmlDeclaration=true}))j.WriteURDF(writer);return buffer.ToString();};
+   if(!xml(limited).Contains("lower=\"-1.2\""))throw new Exception("Revolute output lost bounds");
+   limited.Type="fixed";if(xml(limited).Contains("<limit"))throw new Exception("Fixed output incorrectly writes stored limit");
+   limited.Type="continuous";var continuousXml=xml(limited);if(continuousXml.Contains("lower=")||!continuousXml.Contains("effort=\"7\""))throw new Exception("Continuous output must retain effort, omit bounds");
+   if(limited.Limit.Lower!=-1.2)throw new Exception("URDF generation modified stored bounds");
+   bool badLimit=false;try{limited.Limit.SetInputs("5","-1","7","2.5");}catch(ArgumentException){badLimit=true;}if(!badLimit||limited.Limit.Lower!=-1.2)throw new Exception("Invalid limit input partially changed joint");
+   Console.WriteLine("PASS: joint limits round-trip, hidden-input retention, fixed/continuous XML and atomic numeric validation");
    Console.WriteLine("PASS: isolated page cancel/confirm; clone coherence; pure snapshot/serialization; legal and illegal drag");
    // A constructor failure after claiming ownership must allow an immediate retry.
    var failConfig=new Mock<Configuration>();failConfig.SetupGet(x=>x.Name).Returns("fail");var failManager=new Mock<ConfigurationManager>();failManager.SetupGet(x=>x.ActiveConfiguration).Returns(failConfig.Object);

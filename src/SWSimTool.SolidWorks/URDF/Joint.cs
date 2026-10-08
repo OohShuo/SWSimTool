@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Runtime.Serialization;
 using System.Windows.Forms;
@@ -129,6 +129,13 @@ namespace SWSimTool.URDF
             return !string.IsNullOrWhiteSpace(Name) && !string.IsNullOrWhiteSpace(Type);
         }
 
+        public override void WriteURDF(System.Xml.XmlWriter writer){
+            var copy=new Joint();copy.SetElement(this);
+            if(Type=="fixed"||Type=="floating"||Type=="planar")copy.Limit.Unset();
+            else if(Type=="continuous")copy.Limit.ClearBounds();
+            copy.WriteForType(writer);
+        }
+        void WriteForType(System.Xml.XmlWriter writer){base.WriteURDF(writer);}
         public override bool AreRequiredFieldsSatisfied()
         {
             Limit.SetRequired((Type == "prismatic" || Type == "revolute"));

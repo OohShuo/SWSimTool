@@ -1,4 +1,5 @@
-﻿using System.Runtime.Serialization;
+using System;
+using System.Runtime.Serialization;
 using System.Windows.Forms;
 
 namespace SWSimTool.URDF
@@ -65,22 +66,18 @@ namespace SWSimTool.URDF
             boxVelocity.Text = VelocityAttribute.GetTextFromDoubleValue(format);
         }
 
+        public void ClearBounds(){LowerAttribute.Value=null;UpperAttribute.Value=null;}
+        public void SetInputs(string lower,string upper,string effort,string velocity){
+            Func<string,double?> parse=text=>{if(string.IsNullOrWhiteSpace(text))return null;double value;if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out value)||double.IsNaN(value)||double.IsInfinity(value))throw new System.ArgumentException("关节限位参数必须为有效数字。");return value;};
+            var l=parse(lower);var u=parse(upper);var e=parse(effort);var v=parse(velocity);
+            if(l.HasValue&&u.HasValue&&l>u)throw new System.ArgumentException("关节下限不能大于上限。");
+            if(e<0||v<0)throw new System.ArgumentException("最大力/力矩和速度不能为负数。");
+            LowerAttribute.Value=l;UpperAttribute.Value=u;EffortAttribute.Value=e;VelocityAttribute.Value=v;
+        }
         public void SetValues(TextBox boxLower, TextBox boxUpper,
             TextBox boxEffort, TextBox boxVelocity)
         {
-            if (string.IsNullOrWhiteSpace(boxLower.Text) &&
-                string.IsNullOrWhiteSpace(boxUpper.Text) &&
-                string.IsNullOrWhiteSpace(boxEffort.Text) &&
-                string.IsNullOrWhiteSpace(boxVelocity.Text) &&
-                !IsRequired())
-            {
-                // If all text boxes are empty and this element isn't required, then leave blank
-                return;
-            }
-            LowerAttribute.SetDoubleValueFromString(boxLower.Text);
-            UpperAttribute.SetDoubleValueFromString(boxUpper.Text);
-            EffortAttribute.SetDoubleValueFromString(boxEffort.Text);
-            VelocityAttribute.SetDoubleValueFromString(boxVelocity.Text);
+            SetInputs(boxLower.Text,boxUpper.Text,boxEffort.Text,boxVelocity.Text);
         }
 
         public override void SetRequired(bool required)

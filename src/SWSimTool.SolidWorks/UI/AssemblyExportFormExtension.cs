@@ -186,6 +186,10 @@ namespace SWSimTool.UI
                 labelKPosition.Text = "k position";
                 labelKVelocity.Text = "k velocity";
             }
+            bool bounded=joint!=null&&(joint.Type=="revolute"||joint.Type=="prismatic");
+            bool limited=bounded||joint?.Type=="continuous";
+            textBoxLimitLower.Visible=labelLowerLimit.Visible=textBoxLimitUpper.Visible=labelLimitUpper.Visible=bounded;
+            textBoxLimitEffort.Visible=labelEffort.Visible=textBoxLimitVelocity.Visible=labelVelocity.Visible=limited;
             comboBoxOrigin.Items.Clear();
             List<string> originNames = Exporter.GetRefCoordinateSystems();
             comboBoxOrigin.Items.AddRange(originNames.ToArray());
@@ -297,7 +301,7 @@ namespace SWSimTool.UI
                               textBoxAxisZ);
 
             Joint.Limit.SetRequired(Joint.Type == "revolute" || Joint.Type == "prismatic");
-            Joint.Limit.SetValues(textBoxLimitLower,
+            if(Joint.Type=="revolute"||Joint.Type=="continuous"||Joint.Type=="prismatic")Joint.Limit.SetValues(textBoxLimitLower,
                                   textBoxLimitUpper,
                                   textBoxLimitEffort,
                                   textBoxLimitVelocity);
