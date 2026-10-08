@@ -109,7 +109,7 @@ namespace SWSimTool.UI
                 int code = direct ? await NativeBackend.PreviewAsync(python.Text.Trim(),existing.Text.Trim(),Append,operation.Token) : await NativeBackend.RunAsync(python.Text.Trim(),project!=null?project.NativeModel():NativeBackend.LoadLocal(urdf.Text.Trim(),sidecar.Text.Trim()),output.Text.Trim(),preview,Append,meshSettingsPath,project?.ExportId,operation.Token);
                 if(code==0)project?.MarkSucceeded();
                 if (!IsDisposed) status.Text = code == 0 ? (preview ? "预览已结束。" : "MJCF 已保存：" + output.Text) : "运行失败，详情见日志。";
-            } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.Message); }
+            } catch (Exception error) { if (!IsDisposed) status.Text = "运行失败。"; Append(error.ToString()); SWSimTool.Utilities.Logger.GetLogger().Error("MJCF export/preview failed",error); }
             finally {try{project?.Dispose();}catch(Exception error){Append("临时文件清理失败："+error.Message);}operation?.Dispose();operation=null;busy=false;if (!IsDisposed){inputs.Enabled = actions.Enabled = true;if(closeWhenStopped)Close();} }
         }
         private static void RequireFile(string path)

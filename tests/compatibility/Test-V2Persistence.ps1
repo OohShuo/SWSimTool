@@ -27,6 +27,20 @@ public static class V2Compatibility {
   bool invalid=false;try{ConfigurationSerialization.ReadTree("<broken/>",1.4);}catch(InvalidDataException){invalid=true;}Check(invalid,"Invalid XML explicitly rejected");
   arm.Name=arm.Text=arm.Link.Name="renamed_arm";StableReferences.Normalize(original.simulation,tree);Check(arm.Link.StableId==id&&original.simulation.actuators[0].joint_id==jointId,"Rename retains identity");
   Check(MuJoCoSettings.DefaultPath.Contains("SWSimTool")&&MeshExportSettings.DefaultPath.Contains("SWSimTool"),"Local preferences isolated");
+  // A pre-Stable-ID tree is read separately by configuration loading and export.
+  // Those reads must share the migrated identities without requiring a CAD save.
+  var legacy=new JavaScriptSerializer{MaxJsonLength=16000000}.Deserialize<SimulationStorage.Document>(raw);
+  var legacyEntry=legacy.configurations["Default"];var legacyXml=XElement.Parse(legacyEntry.urdf_xml);
+  foreach(var element in System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(legacyXml.Descendants(),x=>x.Name.LocalName=="stableId")))element.Remove();
+  legacyEntry.urdf_xml=legacyXml.ToString();legacyEntry.simulation=new SimulationProject();
+  var legacyRaw=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(legacy);
+  var migrated=SimulationStorage.Parse(legacyRaw).configurations["Default"];
+  var loadedTree=ConfigurationSerialization.ReadTree(migrated.urdf_xml,1.4);
+  var exportedTree=ConfigurationSerialization.ReadTree(migrated.urdf_xml,1.4);
+  Check(loadedTree.Link.StableId==exportedTree.Link.StableId,"Legacy root identity shared by independent load/export reads");
+  Check(((LinkNode)loadedTree.Nodes[0]).Link.StableId==((LinkNode)exportedTree.Nodes[0]).Link.StableId,"Legacy child identity shared by independent reads");
+  Check(((LinkNode)loadedTree.Nodes[0]).Link.Joint.StableId==((LinkNode)exportedTree.Nodes[0]).Link.Joint.StableId,"Legacy joint identity shared by independent reads");
+  Check(legacyRaw==new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(legacy),"Read migration does not overwrite source document");
   Directory.CreateDirectory(output);File.WriteAllText(Path.Combine(output,"roundtrip.json"),saved);Console.WriteLine("Compatibility checks: "+checks);
  }
 }

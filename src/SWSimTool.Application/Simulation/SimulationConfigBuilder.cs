@@ -22,10 +22,10 @@ namespace SWSimTool.Simulation
     public static class SimulationConfigBuilder
     {
         // Name-only resolution is limited to legacy project input. An existing ID is authoritative.
-        internal static string Reference(string id,string name,IDictionary<string,string> objects,bool optional=false)
+        internal static string Reference(string id,string name,IDictionary<string,string> objects,bool optional=false,string kind="object")
         {
             if(!string.IsNullOrWhiteSpace(id)) {
-                if(!objects.ContainsKey(id))throw new InvalidDataException("Unknown stable reference: "+id);
+                if(!objects.ContainsKey(id))throw new InvalidDataException("Unknown stable reference: "+id+" ("+kind+" '"+(name??"<unnamed>")+"'). The referenced object is missing; select its intended replacement explicitly.");
                 return id;
             }
             if(optional&&string.IsNullOrWhiteSpace(name))return null;
@@ -44,13 +44,13 @@ namespace SWSimTool.Simulation
             var links=core.Links.ToDictionary(x=>x.Id,x=>x.Name);
             var joints=core.Joints.ToDictionary(x=>x.Id,x=>x.Name);
             var sites=geometry.Sites.ToDictionary(x=>x.Id,x=>x.Name);
-            Func<string,string,string> link=(id,name)=>Reference(id,name,links);
-            Func<string,string,string> joint=(id,name)=>Reference(id,name,joints);
-            Func<string,string,string> site=(id,name)=>Reference(id,name,sites);
+            Func<string,string,string> link=(id,name)=>Reference(id,name,links,kind:"link");
+            Func<string,string,string> joint=(id,name)=>Reference(id,name,joints,kind:"joint");
+            Func<string,string,string> site=(id,name)=>Reference(id,name,sites,kind:"site");
             var solver=p.solver==null?null:new SolverSnapshot(p.solver.timestep,p.solver.iterations,p.solver.tolerance,p.solver.noslip_iterations,p.solver.impratio,p.solver.enabled,Constraint(p.solver.equality),Constraint(p.solver.contact));
             var collision=p.collision??new CollisionConfiguration();
             DomainStableReferences.MigrateLegacyLinkModesByName(p,links);
-            var modes=collision.link_modes_by_id.ToDictionary(x=>Reference(x.Key,null,links),x=>x.Value);
+            var modes=collision.link_modes_by_id.ToDictionary(x=>Reference(x.Key,null,links,kind:"collision link mode"),x=>x.Value);
             var pairs=collision.allowed_pairs.Select(x=>new ContactPairSnapshot(Link1:link(x.link1_id,x.link1),Link1Id:link(x.link1_id,x.link1),Link2:link(x.link2_id,x.link2),Link2Id:link(x.link2_id,x.link2),Solver:Constraint(x.solver)));
             var collisionSnapshot=new CollisionSnapshot(collision.disable_internal,geometry.Collisions,pairs,modes);
             var settings=p.joints.Select(x=>new JointSettingsSnapshot(Joint:joint(x.joint_id,x.joint),JointId:joint(x.joint_id,x.joint),Type:x.type,LimitMode:x.limit_mode,SpringMode:x.spring_mode,Damping:x.damping,Frictionloss:x.frictionloss,Armature:x.armature,Stiffness:x.stiffness,Springref:x.springref,Ref:x.@ref,Margin:x.margin,Lower:x.lower,Upper:x.upper,Pos:x.pos,Axis:x.axis,LimitSolver:Constraint(x.limit_solver),FrictionSolver:Constraint(x.friction_solver)));
