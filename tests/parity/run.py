@@ -57,7 +57,7 @@ class NativeParity(unittest.TestCase):
         config = self.config if config is None else config
         sidecar.write_text(json.dumps(config), encoding='utf-8')
         output = self.folder / 'candidate/robot.xml'
-        result = subprocess.run(COMMAND+[ str(self.urdf), str(sidecar), str(output)], capture_output=True, text=True)
+        result = subprocess.run(COMMAND+[ str(self.urdf), str(sidecar), str(output)], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stderr)
         model = load_mjcf(output)
         artifacts=os.getenv('SWSIMTOOL_PLATFORM_ARTIFACTS')
@@ -67,7 +67,7 @@ class NativeParity(unittest.TestCase):
             shutil.copytree(output.parent,target)
         if CROSS_COMMAND:
             cross_output = self.folder / 'cross/robot.xml'
-            result = subprocess.run(CROSS_COMMAND+[str(self.urdf), str(sidecar), str(cross_output)], capture_output=True, text=True)
+            result = subprocess.run(CROSS_COMMAND+[str(self.urdf), str(sidecar), str(cross_output)], capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stderr)
             other = load_mjcf(cross_output)
             compiled_semantics(model, other)
@@ -290,7 +290,7 @@ class NativeParity(unittest.TestCase):
         RESULTS.append(dict(case='local_stable_identity_and_stale_pair',preserved=True))
 
     def test_csharp_immutable_and_invariant_checks(self):
-        result = subprocess.run(COMMAND+[ '--selftest'], capture_output=True, text=True)
+        result = subprocess.run(COMMAND+[ '--selftest'], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stderr)
 
 

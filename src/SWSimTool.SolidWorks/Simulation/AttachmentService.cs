@@ -1,4 +1,4 @@
-﻿using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra;
 using SolidWorks.Interop.sldworks;
 using SWSimTool.URDF;
 using SWSimTool.URDFExport;
@@ -14,51 +14,47 @@ namespace SWSimTool.Simulation
     public sealed partial class AttachmentService
     {
         private readonly ExportHelper exporter;
-        public SimulationProject Project { get; set; }
-        ConfigurationSession session;
-        string openedTree;
-        public void RequireCurrentDocument(){session?.RequireCurrent();}
-        public void ReloadSavedProject(){Project=SimulationStorage.Load(exporter.ActiveSWModel)??new SimulationProject();session?.Refresh();}
+        public ConfigurationEditingContext Editing {get;private set;}
+        public SWSimTool.UI.ConfigurationPageDraft PageDraft {get;private set;}
+        bool pageClosed;
+        public SimulationProject Project { get=>PageDraft==null?Editing.Project:PageDraft.Project; set{if(pageClosed)throw new InvalidDataException("配置页面已关闭。");if(PageDraft==null)Editing.Project=value;else PageDraft.Project=value;} }
+        public Link DraftTree {get=>PageDraft==null?Editing.Tree:PageDraft.Tree;set{if(PageDraft==null)Editing.Tree=value;else PageDraft.Tree=value;} }
+        public void BeginPage(){if(PageDraft!=null)throw new InvalidOperationException("此服务已被活动配置页面使用。");PageDraft=SWSimTool.UI.ConfigurationPageDraft.Open(Model,Editing);pageClosed=false;}
+        public void EndPage(){if(PageDraft!=null){PageDraft.Dispose();PageDraft=null;pageClosed=true;}}
+        public void FlushPage(){PageDraft?.Collect();}
+        ConfigurationSession session=>Editing.Session;
+        public void RequireCurrentDocument(){if(pageClosed)throw new InvalidDataException("配置页面已关闭，旧服务不可再保存或导出。");session?.RequireCurrent();PageDraft?.RequireCurrent();}
+        public void ReloadSavedProject(){session.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
-        public AttachmentService(ExportHelper exporter)
+        public AttachmentService(ExportHelper exporter,bool isolated=false)
         {
             this.exporter = exporter;
-            session=ConfigurationSession.Capture((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
-            Project = SimulationStorage.Load(exporter.ActiveSWModel);
-            if (Project == null) Project = new SimulationProject();
-            openedTree=SimulationStorage.LoadEntry(exporter.ActiveSWModel)?.urdf_xml;
-        }
-        public string RebuildCurrentDraft(SimulationProject draft,LinkNode tree=null){
-            RequireCurrentDocument();
-            tree=tree??collisionTree??ConfigurationSerialization.ReadTree(openedTree,1.4);
-            if(tree==null)throw new InvalidDataException("当前页面没有完整的 URDF 树，请先配置 URDF。");
-            var serializer=ExportFingerprint.Serializer();var snapshot=serializer.Deserialize<SimulationProject>(serializer.Serialize(draft));
-            var snapshotTree=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(tree),1.4);
-            ValidateDraftCadReferences(snapshotTree,snapshot);
-            string backup=SimulationStorage.RebuildCurrent(App,Model,session,snapshotTree,snapshot);
-            ReloadSavedProject();openedTree=SimulationStorage.LoadEntry(Model)?.urdf_xml;
-            SetCollisionTree(ConfigurationSerialization.ReadTree(openedTree,1.4));return backup;
-        }
-        public void ValidateDraftCadReferences(LinkNode tree,SimulationProject draft){
-            RequireCurrentDocument();StableReferences.ValidateIdentities(tree);StableReferences.Normalize(draft,tree);StableReferences.ValidateTree(tree);
-            SimulationConfigBuilder.ValidateReferences(draft,StableReferences.LinkNames(tree),JointDescriptor.FromTree(tree).ToDictionary(x=>x.id,x=>x.name));
-            CadTreeReferences.Normalize(Model,tree,true);
-            var unresolved=new List<string>();CommonSwOperations.LoadSWComponents(Model,tree,unresolved);
-            if(unresolved.Count!=0)throw new InvalidDataException("组件引用失效："+string.Join(", ",unresolved));
-            var previousTree=collisionTree;var previous=Project;
-            try{SetCollisionTree(tree);Project=draft;foreach(var site in draft.attachments)Resolve(site);foreach(var geometry in draft.collision?.geometries??new List<CollisionGeometry>())ResolveCollision(geometry);}
-            finally{Project=previous;SetCollisionTree(previousTree);}
+            Editing=isolated?ConfigurationEditingContext.Detached((SldWorks)exporter.iSwApp,exporter.ActiveSWModel):ConfigurationEditingContext.Get((SldWorks)exporter.iSwApp,exporter.ActiveSWModel);
         }
         public void Save()
         {
             RequireCurrentDocument();
-            Project.NormalizeSiteReferences();
-            Project.ValidateSolver();
+            FlushPage();
+            var candidate=ConfigurationEditingContext.CopyProject(Project);
+            var tree=DraftTree?.Clone();
+            candidate.NormalizeSiteReferences();
+            candidate.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
-            Project.assembly = exporter.ActiveSWModel.GetPathName();
-            Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
-            SimulationStorage.Save((SldWorks)exporter.iSwApp, exporter.ActiveSWModel, Project);
+            candidate.assembly = exporter.ActiveSWModel.GetPathName();
+            candidate.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
+            if(tree!=null)SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteBusinessTree(tree),1.4,candidate);
+            else SimulationStorage.Save(App,Model,candidate);
             session?.Refresh();
+            Editing.Commit(candidate,tree);
+            if(PageDraft!=null)SyncSavedReferences(PageDraft.Project,candidate);
+        }
+        static void SyncSavedReferences(SimulationProject target,SimulationProject saved){
+            foreach(string group in new[]{"attachments","sensors","actuators","equalities","site_forces","joints","joint_force_limits"}){
+                var property=typeof(SimulationProject).GetProperty(group);
+                var a=(System.Collections.IList)property.GetValue(target);var b=(System.Collections.IList)property.GetValue(saved);
+                if(a.Count!=b.Count)throw new InvalidDataException("保存结果的对象数量与候选草稿不同。");
+                for(int i=0;i<a.Count;i++)foreach(var field in a[i].GetType().GetProperties())if(field.CanWrite&&(field.Name=="id"||field.Name.EndsWith("_id",StringComparison.Ordinal)))field.SetValue(a[i],field.GetValue(b[i]));
+            }
         }
         public sealed class Source
         {
@@ -113,7 +109,6 @@ namespace SWSimTool.Simulation
         private Matrix<double> ResolveCore(Attachment attachment)
         {
             if(attachment.reference!=null)return ReferenceFrame(attachment.reference,attachment.type=="frame");
-            if(string.IsNullOrWhiteSpace(attachment.source_pid))throw new InvalidDataException("附着点 “"+attachment.name+"” 尚未拾取参考，请明确选择参考后重试。");
             ModelDoc2 model = exporter.ActiveSWModel;
             Component2 component = null;
             int error;

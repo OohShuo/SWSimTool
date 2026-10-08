@@ -14,10 +14,11 @@ namespace SWSimTool.URDFExport {
   public const string UrdfConfigurationSwAttributeName=SWSimTool.Persistence.DocumentStorageSchema.AttributeName;
   public static LinkNode ReadTree(string data,double version){ValidateVersion(data,version);var tree=DeserializeFromString(data);StableReferences.NormalizeTree(tree);return tree;}
   public static string WriteTree(LinkNode tree)=>tree==null?null:SerializeToString(tree);
+  public static string WriteBusinessTree(Link tree)=>tree==null?null:WriteTree(new LinkNode(tree.Clone()));
   static void ValidateVersion(string data,double version){if(!string.IsNullOrWhiteSpace(data)&&(version!=SerializationVersion))throw new InvalidDataException("Unsupported URDF configuration format: "+version);}
   public static void ValidateTreeData(string data,double version){ValidateVersion(data,version);if(!string.IsNullOrWhiteSpace(data)&&DeserializeFromString(data)==null)throw new InvalidDataException("Invalid URDF configuration");}
   public static LinkNode LoadBaseNodeFromModel(ModelDoc2 model,out bool error){error=false;var saved=SimulationStorage.LoadEntry(model);if(saved==null)return null;var tree=ReadTree(saved.urdf_xml,saved.urdf_version);CadTreeReferences.Normalize(model,tree);return tree;}
-  public static void SaveConfigTreeXML(SldWorks app,ModelDoc2 model,LinkNode tree,bool warnUser,SimulationProject completeDraft=null){var saved=SimulationStorage.LoadEntry(model);CadTreeReferences.Normalize(model,tree);var data=WriteTree(tree);if(saved!=null&&!SimulationStorage.RequiresNameMigration(model)&&saved.urdf_xml==data&&(completeDraft==null||ExportFingerprint.Hash(saved.simulation)==ExportFingerprint.Hash(completeDraft)))return;if(warnUser&&MessageBox.Show("Save configuration changes?","SWSimTool",MessageBoxButtons.YesNo)!=DialogResult.Yes)return;SimulationStorage.SaveTree(app,model,data,SerializationVersion,completeDraft);}
+  public static void SaveConfigTreeXML(SldWorks app,ModelDoc2 model,LinkNode tree,bool warnUser,SimulationProject completeDraft=null){tree=tree==null?null:new LinkNode(tree.Snapshot());completeDraft=completeDraft==null?null:ConfigurationEditingContext.CopyProject(completeDraft);var saved=SimulationStorage.LoadEntry(model);CadTreeReferences.Normalize(model,tree);var data=WriteTree(tree);if(saved!=null&&saved.urdf_xml==data&&(completeDraft==null||ExportFingerprint.Hash(saved.simulation)==ExportFingerprint.Hash(completeDraft)))return;if(warnUser&&MessageBox.Show("Save configuration changes?","SWSimTool",MessageBoxButtons.YesNo)!=DialogResult.Yes)return;SimulationStorage.SaveTree(app,model,data,SerializationVersion,completeDraft);}
         private static void SavePropertiesLinkNodeToLink(LinkNode node)
         {
             if (node.Link == null)
@@ -44,6 +45,7 @@ namespace SWSimTool.URDFExport {
         /// <returns>A string serialized utilizing DataContract serialization XML scheme</returns>
         private static string SerializeToString(LinkNode node)
         {
+            node=new LinkNode(node.Snapshot());
             SavePropertiesLinkNodeToLink(node);
             SWSimTool.Simulation.StableReferences.NormalizeTree(node);
             Link link = node.UpdateLinkTree(null);

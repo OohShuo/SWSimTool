@@ -20,11 +20,11 @@ namespace SWSimTool.Simulation
             CadTreeReferences.Normalize(document,tree,true);
             LoadComponents(document,tree);
             var helper=new ExportHelper(app){SavePath=workspace,PackageName="robot",ShowExportLocation=false,ExportSimulationInformation=true};
-            helper.GetSimulation().Project=project;
+            helper.GetExportSimulation().Project=project;
             var result=buildSource(helper,tree,workspace);
-            result.Frames=helper.GetSimulation().LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray());
-            helper.GetSimulation().UseExportFrames(result.Frames);
-            result.Geometry=helper.GetSimulation().ResolveNativeGeometry(result.Core);
+            result.Frames=helper.GetExportSimulation().LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray());
+            helper.GetExportSimulation().UseExportFrames(result.Frames);
+            result.Geometry=helper.GetExportSimulation().ResolveNativeGeometry(result.Core);
             return result;
         }
         static void LoadComponents(ModelDoc2 document,SWSimTool.URDF.LinkNode tree)
@@ -34,11 +34,11 @@ namespace SWSimTool.Simulation
         }
         static CadSourceSnapshot BuildNative(ExportHelper helper,SWSimTool.URDF.LinkNode tree,string workspace)
         {
-            helper.EnsureNativeReferences(tree);helper.GetSimulation().SetCollisionTree(tree);
+            helper.EnsureNativeReferences(tree);helper.GetExportSimulation().SetCollisionTree(tree);
             var directory=Path.Combine(workspace,"raw-mesh");
             var sources=helper.PlanConfiguredNativeMeshes(tree,directory);
-            var core=CadRobotCoreBuilder.Build("robot",helper.GetSimulation(),tree,sources);
-            helper.GetSimulation().UseExportFrames(helper.GetSimulation().LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray()));
+            var core=CadRobotCoreBuilder.Build("robot",helper.GetExportSimulation(),tree,sources);
+            helper.GetExportSimulation().UseExportFrames(helper.GetExportSimulation().LinkTransforms().ToDictionary(x=>x.Key,x=>x.Value.ToRowMajorArray()));
             helper.ExportConfiguredNativeMeshes(tree,directory);
             if(helper.URDFRobot!=null)throw new InvalidOperationException("Native source must not construct a URDF Robot");
             return new CadSourceSnapshot{Core=core};

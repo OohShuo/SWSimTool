@@ -4,6 +4,7 @@ $root=$(for($p=$PSScriptRoot;$p;$p=Split-Path -Parent $p){if(Test-Path (Join-Pat
 $bin=Join-Path $root ('build/'+$Payload)
 $refs=@("$bin/SWSimTool.dll","$bin/SWSimTool.Core.dll","$bin/SWSimTool.Application.dll","$bin/SWSimTool.Infrastructure.dll","$bin/MathNet.Numerics.dll",'System.Core','System.Xml','System.Xml.Linq','System.Web.Extensions','System.Runtime.Serialization','System.Windows.Forms')
 Get-ChildItem $bin -Filter *.dll | ForEach-Object {[Reflection.Assembly]::LoadFrom($_.FullName)|Out-Null}
+[SWSimTool.Utilities.Logger].GetField('Initialized',[Reflection.BindingFlags]'NonPublic,Static').SetValue($null,$true)
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Xml.Linq;using System.Web.Script.Serialization;using SWSimTool.Simulation;using SWSimTool.URDFExport;using SWSimTool.URDF;using SWSimTool.Persistence;
 public static class V2Compatibility {
@@ -21,7 +22,7 @@ public static class V2Compatibility {
   original.urdf_xml=xml;var saved=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(document);var reopened=SimulationStorage.Parse(saved).configurations["Default"];var reopenedTree=ConfigurationSerialization.ReadTree(reopened.urdf_xml,reopened.urdf_version);var reopenedArm=(LinkNode)reopenedTree.Nodes[0];
   Check(reopenedArm.Link.StableId==id&&reopenedArm.Link.Joint.StableId==jointId&&reopened.configuration_id==original.configuration_id,"IDs survive save/reopen");
   Check(before==new JavaScriptSerializer().Serialize(reopened.simulation),"Simulation survives save/reopen");
-  Check(DocumentStorageSchema.AttributeName=="SWSimTool Configuration"&&DocumentStorageSchema.LegacyAttributeName=="SW2MuJoCo Configuration","New display identifier and legacy identifier explicitly supported");
+  Check(DocumentStorageSchema.AttributeName=="SWSimTool Configuration"&&DocumentStorageSchema.LegacyAttributeName=="SW2MuJoCo Configuration","Storage identifier retained");
   foreach(int version in new[]{1,3}){bool rejected=false;try{SimulationStorage.Parse(raw.Replace("\"version\":2","\"version\":"+version));}catch(Exception){rejected=true;}Check(rejected,"Unsupported version "+version+" rejected");}
   foreach(string bad in new[]{"{}",raw.Replace("\"version\":2,", ""),"{\"version\":2}"}){bool rejected=false;try{SimulationStorage.Parse(bad);}catch(Exception){rejected=true;}Check(rejected,"Missing explicit storage envelope rejected");}
   bool invalid=false;try{ConfigurationSerialization.ReadTree("<broken/>",1.4);}catch(InvalidDataException){invalid=true;}Check(invalid,"Invalid XML explicitly rejected");
@@ -33,14 +34,14 @@ public static class V2Compatibility {
   var legacyEntry=legacy.configurations["Default"];var legacyXml=XElement.Parse(legacyEntry.urdf_xml);
   foreach(var element in System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(legacyXml.Descendants(),x=>x.Name.LocalName=="stableId")))element.Remove();
   legacyEntry.urdf_xml=legacyXml.ToString();legacyEntry.simulation=new SimulationProject();
-  var legacyRaw=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(legacy);
+  Directory.CreateDirectory(output);var legacyRaw=new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(legacy);var sourceFingerprint=ExportFingerprint.Hash(legacy);
   var migrated=SimulationStorage.Parse(legacyRaw).configurations["Default"];
   var loadedTree=ConfigurationSerialization.ReadTree(migrated.urdf_xml,1.4);
   var exportedTree=ConfigurationSerialization.ReadTree(migrated.urdf_xml,1.4);
   Check(loadedTree.Link.StableId==exportedTree.Link.StableId,"Legacy root identity shared by independent load/export reads");
   Check(((LinkNode)loadedTree.Nodes[0]).Link.StableId==((LinkNode)exportedTree.Nodes[0]).Link.StableId,"Legacy child identity shared by independent reads");
   Check(((LinkNode)loadedTree.Nodes[0]).Link.Joint.StableId==((LinkNode)exportedTree.Nodes[0]).Link.Joint.StableId,"Legacy joint identity shared by independent reads");
-  Check(legacyRaw==new JavaScriptSerializer{MaxJsonLength=16000000}.Serialize(legacy),"Read migration does not overwrite source document");
+  Check(sourceFingerprint==ExportFingerprint.Hash(legacy),"Read migration does not overwrite source document");
   Directory.CreateDirectory(output);File.WriteAllText(Path.Combine(output,"roundtrip.json"),saved);Console.WriteLine("Compatibility checks: "+checks);
  }
 }

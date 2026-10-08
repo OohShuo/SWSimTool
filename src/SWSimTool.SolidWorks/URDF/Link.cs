@@ -12,7 +12,8 @@ namespace SWSimTool.URDF
     public class Link : URDFElement//, ISerializable
     {
         [DataMember(IsRequired = false)]
-        private string stableId;
+        private string stableId=System.Guid.NewGuid().ToString("N");
+        internal string ExistingStableId=>stableId;
         public string StableId { get { return stableId ?? (stableId = System.Guid.NewGuid().ToString("N")); } }
         [DataMember]
         public Link Parent;
@@ -84,8 +85,7 @@ namespace SWSimTool.URDF
 
         public Link Clone()
         {
-            Link cloned = new Link();
-            cloned.SetElement(this);
+            Link cloned = CopyProperties();
             foreach (Link child in Children)
             {
                 Link clonedChild = child.Clone();
@@ -94,6 +94,7 @@ namespace SWSimTool.URDF
             }
             return cloned;
         }
+        internal Link CopyProperties(){var copy=new Link();copy.SetElement(this);return copy;}
 
         public Link(Link parent) : base("link", true)
         {
@@ -162,7 +163,9 @@ namespace SWSimTool.URDF
         public override void SetElement(URDFElement externalElement)
         {
             base.SetElement(externalElement);
-            stableId = ((Link)externalElement).StableId;
+            stableId = ((Link)externalElement).stableId;
+            STLQualityFine=((Link)externalElement).STLQualityFine;
+            isIncomplete=((Link)externalElement).isIncomplete;
             SetSWComponents((Link)externalElement);
         }
 
@@ -178,7 +181,7 @@ namespace SWSimTool.URDF
             }
             if (externalLink.SWComponentPIDs != null)
             {
-                SWComponentPIDs = new List<byte[]>(externalLink.SWComponentPIDs);
+                SWComponentPIDs = externalLink.SWComponentPIDs.Select(p=>p==null?null:(byte[])p.Clone()).ToList();
             }
             else
             {
@@ -186,7 +189,7 @@ namespace SWSimTool.URDF
             }
 
             SWMainComponent = externalLink.SWMainComponent;
-            SWMainComponentPID = externalLink.SWMainComponentPID;
+            SWMainComponentPID = externalLink.SWMainComponentPID==null?null:(byte[])externalLink.SWMainComponentPID.Clone();
 
             isFixedFrame = externalLink.isFixedFrame;
         }

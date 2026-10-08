@@ -9,24 +9,23 @@ using System.Windows.Forms;
 namespace SWSimTool.UI {
  sealed class JointScrollPanel:Panel{protected override Point ScrollToControl(Control activeControl){return DisplayRectangle.Location;}}
  public sealed class JointEditorControl:UserControl {
-  readonly AttachmentService service;readonly SimulationProject draft;readonly List<JointDescriptor> descriptors;
+  bool ownsPage;readonly AttachmentService service;readonly SimulationProject draft;readonly List<JointDescriptor> descriptors;
   readonly ComboBox joint=new CollisionComboBox();readonly Panel details=new JointScrollPanel{Dock=DockStyle.Fill,AutoScroll=true};
   readonly HashSet<TextBox> invalid=new HashSet<TextBox>();readonly Label status=new Label{AutoSize=true,MaximumSize=new Size(320,0)};
   readonly CheckBox show=new CheckBox{Text="实时预览关节轴 / 限位范围",Checked=true,AutoSize=true};readonly Timer timer=new Timer{Interval=180},cadTimer=new Timer{Interval=500};
   readonly CollisionPreview preview;readonly string configuration;string revision,displayed;JointConfiguration current;JointDescriptor descriptor;bool loading;readonly List<Action> refresh=new List<Action>();
   public Action BeginSelection{get;set;}
-  public JointEditorControl(AttachmentService service,List<JointDescriptor> descriptors){
-   this.service=service;this.descriptors=descriptors;draft=new JavaScriptSerializer{MaxJsonLength=16*1024*1024}.Deserialize<SimulationProject>(new JavaScriptSerializer{MaxJsonLength=16*1024*1024}.Serialize(service.Project));
+  public JointEditorControl(AttachmentService service,List<JointDescriptor> descriptors){try{
+   this.service=service;service.BeginPage();ownsPage=true;this.descriptors=descriptors;draft=service.Project;
    configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;preview=new CollisionPreview(service);Dock=DockStyle.Fill;
    Controls.Add(details);
    var top=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=1};top.Controls.Add(new Label{Text="所属 joint（各关节独立配置）",AutoSize=true});top.Controls.Add(joint);joint.Dock=DockStyle.Top;
    joint.Items.AddRange(descriptors.Select(d=>d.name).ToArray());Controls.Add(top);
    var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};footer.Controls.Add(show);var refreshCAD=new Button{Text="刷新 CAD 参考",AutoSize=true};refreshCAD.Click+=(s,e)=>{service.InvalidateCADCache();Schedule();};footer.Controls.Add(refreshCAD);var save=new Button{Text="保存配置到装配",AutoSize=true};footer.Controls.Add(save);footer.Controls.Add(status);Controls.Add(footer);
    joint.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;joint.SelectedItem=displayed;loading=false;status.Text="请先修正无效数字。";return;}displayed=(string)joint.SelectedItem;descriptor=descriptors.First(d=>d.name==displayed);current=draft.joints.FirstOrDefault(j=>!string.IsNullOrWhiteSpace(descriptor.id)?j.joint_id==descriptor.id:string.IsNullOrWhiteSpace(j.joint_id)&&j.joint==displayed);if(current==null){current=new JointConfiguration{joint=displayed,joint_id=descriptor.id};if(new[]{"revolute","continuous","prismatic"}.Contains(descriptor.type))draft.joints.Add(current);}Build();Schedule();};
-   save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();timer.Tick+=(s,e)=>{timer.Stop();if(invalid.Count==0)Preview();};cadTimer.Tick+=(s,e)=>{try{service.RequireCurrentDocument();}catch(Exception error){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=error.Message;return;}if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}if(revision!=service.CollisionRevision){revision=service.CollisionRevision;Schedule();}};
-   ConfigurationDraftCommands.Add(footer,service,draft,ValidateDraft,path=>{current=draft.joints.FirstOrDefault(x=>x.joint_id==descriptor?.id);Build();Schedule();status.Text="已全量重建并覆盖，请保存装配。备份："+path;},Guard);
-   if(joint.Items.Count>0)joint.SelectedIndex=0;else Build();cadTimer.Start();
-  }
+   save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();timer.Tick+=(s,e)=>{timer.Stop();if(invalid.Count==0)Preview();};cadTimer.Tick+=(s,e)=>{if(!CheckSession())return;if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}if(revision!=service.CollisionRevision){revision=service.CollisionRevision;Schedule();}};
+   service.PageDraft.Flush=FlushDraft;if(joint.Items.Count>0)joint.SelectedIndex=0;else Build();cadTimer.Start();
+  }catch{Dispose();throw;}}
   static void Add(TableLayoutPanel p,Control c){c.Dock=DockStyle.Top;c.Margin=new Padding(0,2,0,2);p.Controls.Add(c);}
   static void Note(TableLayoutPanel p,string text)=>Add(p,new Label{Text=text,AutoSize=true,MaximumSize=new Size(310,0)});
   void RefreshFields(){PreserveScroll(details,()=>{foreach(var action in refresh)action();});}
@@ -65,8 +64,9 @@ namespace SWSimTool.UI {
   string previewKey;
   void Preview(){if(!show.Checked||current==null){preview.Clear();previewKey=null;return;}string key=service.CollisionRevision+new JavaScriptSerializer().Serialize(new{descriptor,current.joint,current.type,current.limit_mode,current.lower,current.upper,current.@ref});if(key==previewKey)return;Guard(()=>{preview.Show(service.JointPreview(descriptor,current),null);previewKey=key;status.Text="关节预览已更新。";});}
   void Guard(Action action){try{action();}catch(Exception e){status.Text=e.Message;}}
-  void ValidateDraft(){if(invalid.Count>0)throw new InvalidOperationException("请填写并修正无效数字。");if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("Configuration 已切换。");draft.joint_defaults=true;draft.ValidateSolver();foreach(var j in draft.joints){var d=descriptors.FirstOrDefault(x=>x.name==j.joint);if(d==null)throw new InvalidOperationException("关节已失效："+j.joint);bool changed=j.type!="inherit"&&j.type!=(d.type=="prismatic"?"slide":"hinge");if(changed&&j.limit_mode=="inherit")throw new InvalidOperationException("改变关节类型时必须选择无限位或自定义限位。");}}
-  public void Save(){ValidateDraft();var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配，请保存 .sldasm。";}
-  protected override void Dispose(bool disposing){if(disposing){timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+  public void Save(){if(invalid.Count>0)throw new InvalidOperationException("请填写并修正无效数字。");if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("Configuration 已切换。");draft.joint_defaults=true;draft.ValidateSolver();foreach(var j in draft.joints){var d=descriptors.FirstOrDefault(x=>x.name==j.joint);if(d==null)throw new InvalidOperationException("关节已失效："+j.joint);bool changed=j.type!="inherit"&&j.type!=(d.type=="prismatic"?"slide":"hinge");if(changed&&j.limit_mode=="inherit")throw new InvalidOperationException("改变关节类型时必须选择无限位或自定义限位。");}var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配，请保存 .sldasm。";}
+  bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
+        void FlushDraft(){ValidateChildren();if(invalid.Count>0)throw new InvalidOperationException("请修正关节配置中的无效数字。");draft.joint_defaults=true;}
+  protected override void Dispose(bool disposing){if(disposing){if(ownsPage){ownsPage=false;service.EndPage();}timer.Dispose();cadTimer.Dispose();preview?.Dispose();}base.Dispose(disposing);}
  }
 }

@@ -7,7 +7,8 @@ namespace SWSimTool.Simulation {
   readonly string temporary;
   readonly ModelDoc2 document;
   readonly ConfigurationSession session;
-  public void RequireCurrent(){session.RequireCurrent();}
+  readonly string draftFingerprint;
+  public void RequireCurrent(){session.RequireCurrent();if(draftFingerprint!=ConfigurationEditingContext.Fingerprint(document))throw new InvalidDataException("编辑草稿已改变，本次导出失效；保留上次正式产物。");}
   public string Urdf{get;private set;} public string Sidecar{get;private set;}
   public SWSimTool.RobotModel.RobotCoreSnapshot Core{get;private set;}
   SWSimTool.RobotModel.SimulationConfigSnapshot simulation;
@@ -19,7 +20,7 @@ namespace SWSimTool.Simulation {
   public static ProjectExport ForReferenceTests(SldWorks app,ModelDoc2 expected,string configuration)=>new ProjectExport(app,expected,configuration,false);
   private ProjectExport(SldWorks app,ModelDoc2 expected,string configuration,bool nativeOnly){
    if(!ReferenceEquals(app.ActiveDoc,expected)||expected.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("当前装配或 Configuration 已切换，请重新打开工程导出。");
-   document=expected;session=ConfigurationSession.Capture(app,expected);temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+   document=expected;session=ConfigurationSession.Capture(app,expected);draftFingerprint=ConfigurationEditingContext.Fingerprint(expected);temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
    try{
     var current=SimulationStorage.Load(expected)??new SimulationProject();current.NormalizeSiteReferences();current.ValidateSolver();current.collision=current.collision??new CollisionConfiguration();
     var entry=SimulationStorage.LoadEntry(expected);string treeData=entry?.urdf_xml;
@@ -32,20 +33,20 @@ namespace SWSimTool.Simulation {
      bool geometryChanged=cached.geometry!=geometry;
      if(nativeOnly){
       var resolvedGeometry=cached.resolvedGeometry;
-      if(cached.geometry!=geometry){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);resolvedGeometry=resolver.ResolveNativeGeometry(Core);cached.resolvedGeometry=resolvedGeometry;cached.geometry=geometry;}
+      if(cached.geometry!=geometry){var resolver=new ExportHelper(app).GetExportSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);resolvedGeometry=resolver.ResolveNativeGeometry(Core);cached.resolvedGeometry=resolvedGeometry;cached.geometry=geometry;}
       simulation=SimulationConfigBuilder.Build(current,Core,resolvedGeometry);return;
      }
      Urdf=cached.urdf==null?null:Path.Combine(cached.folder,cached.urdf);Sidecar=Path.Combine(temporary,"robot.sim.json");
      System.Collections.Generic.Dictionary<string,object> data;
      if(cached.geometry==geometry)data=ProjectSourceCache.Overlay(cached,current);
      else{
-      var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);
+      var resolver=new ExportHelper(app).GetExportSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);
       data=resolver.Export(Urdf??"robot.urdf");if(cached.sidecar.ContainsKey("urdf_sha256"))data["urdf_sha256"]=cached.sidecar["urdf_sha256"];
       if(cached.sidecar.ContainsKey("identities"))data["identities"]=cached.sidecar["identities"];
       cached.geometry=geometry;cached.sidecar=data;
      }
      SimulationProjectSerializer.Write(Sidecar,data);
-     if(geometryChanged&&Core!=null){var resolver=new ExportHelper(app).GetSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);cached.resolvedGeometry=resolver.ResolveNativeGeometry(Core);}
+     if(geometryChanged&&Core!=null){var resolver=new ExportHelper(app).GetExportSimulation();resolver.Project=current;resolver.UseExportFrames(cached.frames,Core);cached.resolvedGeometry=resolver.ResolveNativeGeometry(Core);}
      if(Core!=null&&cached.resolvedGeometry!=null)simulation=SimulationConfigBuilder.Build(current,Core,cached.resolvedGeometry);return;
     }
     SourceBuildCount++;CadRevision.Invalidate(expected);

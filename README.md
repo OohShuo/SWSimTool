@@ -13,7 +13,7 @@ SolidWorks 2025 插件：配置 URDF 树、碰撞几何、关节、传感器、�
 - [文档导航](docs/README.md)
 - [3.2.1 稳定引用审计](docs/SWSimTool_3.2.1稳定引用审计.md)
 
-SWSimTool 使用独立安装与 COM 身份。新旧插件允许并存安装；建议仅启用一个插件编辑同一工程配置。工程内的 `SW2MuJoCo Configuration` v2 配置可继续使用，保存时自动备份并更名为 `SWSimTool Configuration`；旧缓存、偏好与外部附加配置不导入。
+SWSimTool 使用独立安装与 COM 身份。新旧插件允许并存安装；建议仅启用一个插件编辑同一工程配置。工程内的 `SW2MuJoCo Configuration` v2 配置可继续使用；旧缓存、偏好与外部附加配置不导入。
 
 Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Python 环境。URDF 导出可选附加配置；MJCF 交付目录只包含 XML 与 `meshes/*.stl`。
 

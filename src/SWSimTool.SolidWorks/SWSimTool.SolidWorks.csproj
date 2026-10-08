@@ -80,10 +80,12 @@
     <Compile Include="URDFExport\ExportHelperNativeSource.cs" />
     <Compile Include="Simulation\SimulationSession.cs" />
     <Compile Include="Simulation\ConfigurationSession.cs" />
+    <Compile Include="Simulation\ConfigurationEditingContext.cs" />
+    <Compile Include="UI\ConfigurationPageDraft.cs" />
+    <Compile Include="Simulation\ConfigurationRebuild.cs" />
     <Compile Include="Simulation\CadReferenceSnapshot.cs" />
     <Compile Include="Simulation\ProjectSourceCache.cs" />
     <Compile Include="UI\SimulationEditorControl.cs" />
-    <Compile Include="UI\ConfigurationDraftCommands.cs" />
     <Compile Include="UI\SolverParametersControl.cs" />
     <Compile Include="UI\JointEditorControl.cs" />
     <Compile Include="UI\JointPropertyManager.cs" />

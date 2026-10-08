@@ -1,4 +1,4 @@
-﻿#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
 using JsonSerializer = SWSimTool.Persistence.PortableJsonSerializer;
 #else
 using JsonSerializer = System.Web.Script.Serialization.JavaScriptSerializer;

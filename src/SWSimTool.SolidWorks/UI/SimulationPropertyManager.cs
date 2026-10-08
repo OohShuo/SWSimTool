@@ -1,4 +1,4 @@
-﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Interop.swpublished;
 using SWSimTool.Simulation;
@@ -11,15 +11,15 @@ namespace SWSimTool.UI
     [ComVisible(true)]
     public sealed class SimulationPropertyManager : PropertyManagerPage2Handler9
     {
-        readonly PropertyManagerPage2 page;
+        PropertyManagerPage2 page;
         readonly string title;
-        readonly PropertyManagerPageSelectionbox selection;
-        readonly SimulationEditorControl editor;
+        PropertyManagerPageSelectionbox selection;
+        SimulationEditorControl editor;
         bool retry;
         readonly PropertyManagerTransition transition=new PropertyManagerTransition();
         public Action Closed { get; set; }
         public SimulationPropertyManager(AttachmentService service, string selectedLink, System.Collections.Generic.Dictionary<string,string> joints,bool constraintsOnly=false)
-        {
+        {try{
             // Export/coordinate-frame construction can leave components selected.
             // Do not seed the reference picker with those unrelated selections.
             service.Model.ClearSelection2(true);
@@ -34,9 +34,9 @@ namespace SWSimTool.UI
             window.Height=270;
             editor=new SimulationEditorControl(service,selectedLink,joints,constraintsOnly);
             if(!constraintsOnly)editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
-            window.SetWindowHandlex64(editor.Handle.ToInt64());
-        }
-        public void Show(){page.Show2(0);}
+            window.SetWindowHandlex64(editor.Handle.ToInt64());service.PageDraft.Close=()=>page.Close(false);
+        }catch{editor?.Dispose();transition.Dispose();throw;}}
+        public void Show(){try{page.Show2(0);}catch{editor.Dispose();transition.Dispose();throw;}}
         void IPropertyManagerPage2Handler9.AfterActivation() {  }
         void IPropertyManagerPage2Handler9.OnButtonPress(int Id) {  }
         void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{editor.Save();}catch(Exception e){retry=true;MessageBox.Show(e.Message,title+"未保存");} }
@@ -73,7 +73,7 @@ namespace SWSimTool.UI
         void IPropertyManagerPage2Handler9.OnWhatsNew() {  }
         void IPropertyManagerPage2Handler9.OnListboxRMBUp(int Id, int PosX, int PosY) {  }
         void IPropertyManagerPage2Handler9.OnNumberBoxTrackingCompleted(int Id, double Value) {  }
-        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;transition.Post(()=>page.Show2(0));}else {editor.Dispose();transition.Post(()=>{try{Closed?.Invoke();}finally{transition.Dispose();}});} }
+        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;transition.Post(()=>page.Show2(0));}else {editor.Dispose();editor=null;page=null;selection=null;var closed=Closed;Closed=null;transition.Post(()=>{try{closed?.Invoke();}finally{transition.Dispose();}});} }
         int IPropertyManagerPage2Handler9.OnActiveXControlCreated(int Id, bool Status) { return 0; }
     }
 }

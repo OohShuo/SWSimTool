@@ -42,4 +42,3 @@ public static class ConfigBuilderProbe {
 }
 '@
 [ConfigBuilderProbe]::Run()
-

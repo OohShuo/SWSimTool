@@ -9,6 +9,8 @@ public static class CandidateRunner
 {
     public static int Main(string[] args)
     {
+        // Captured output is a UTF-8 contract, independent of the launching terminal.
+        Console.OutputEncoding = new UTF8Encoding(false);
         try {
             var culture=Environment.GetEnvironmentVariable("SWSIMTOOL_TEST_CULTURE");
             if(!String.IsNullOrEmpty(culture))System.Globalization.CultureInfo.CurrentCulture=System.Globalization.CultureInfo.CurrentUICulture=System.Globalization.CultureInfo.GetCultureInfo(culture);

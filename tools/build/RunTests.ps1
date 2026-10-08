@@ -18,12 +18,10 @@ Run 'sdk-build' { & $Python -B tests/architecture/Test-SdkBuild.py }
 Run 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
 Run 'core' { & "$root/build/bin/CoreTests/$Configuration/net48/CoreTests.exe" }
 Run 'tools' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call(sys.argv[1:],env=dict(os.environ)))" "$root/build/bin/CandidateRunner/$Configuration/net48/SWSimTool.CandidateRunner.exe" --tooltest $Python "$root/tests/tools/fake_tool.py" }
-foreach($path in @('integration/install/Test-CadProcessGuard.ps1','architecture/Test-ProductionBoundary.ps1','compatibility/Test-V2Persistence.ps1','identity/Test-StableReferenceAudit.ps1','identity/Test-ConfigurationRebuild.ps1','identity/Test-LinkModeIdentity.ps1','model/Test-ResolvedCadModel.ps1','model/Test-SimulationConfigBuilder.ps1','ui/Test-CollisionNavigation.ps1','ui/Test-ToolFormLifecycle.ps1')) {
+foreach($path in @('integration/install/Test-CadProcessGuard.ps1','architecture/Test-ProductionBoundary.ps1','compatibility/Test-V2Persistence.ps1','identity/Test-StableReferenceAudit.ps1','identity/Test-LinkModeIdentity.ps1','identity/Test-ConfigurationRebuild.ps1','identity/Test-ConfigurationReplacement.ps1','identity/Test-ConfigurationNodeMigration.ps1','model/Test-ResolvedCadModel.ps1','model/Test-SimulationConfigBuilder.ps1','ui/Test-CollisionNavigation.ps1','ui/Test-ToolFormLifecycle.ps1')) {
     Run ([IO.Path]::GetFileNameWithoutExtension($path)) { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/$path" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 }
 
 Run 'modern-host' { & $Python -B tests/targets/Test-ModernHost.py }
-Run 'configuration-replacement' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/identity/Test-ConfigurationReplacement.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
-Run 'configuration-node-migration' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/identity/Test-ConfigurationNodeMigration.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 Run 'cross-target-parity' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call([sys.executable,'-B','tests/parity/run.py'],env=dict(os.environ,SWSIMTOOL_TEST_FRAMEWORK='net8.0',SWSIMTOOL_CROSS_TARGET='1')))" }
 & "$root/tools/build/ValidationReceipt.ps1" -Mode Write -Configuration $Configuration

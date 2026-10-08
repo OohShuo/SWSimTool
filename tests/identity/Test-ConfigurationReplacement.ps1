@@ -1,4 +1,4 @@
-param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48')
+﻿param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48')
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $bin=Join-Path $root ('build/'+$Payload)
@@ -17,6 +17,12 @@ public static class ReplacementTest {
   s=new Store();int checks=0;rejected=false;try{ConfigurationReplacement.Replace(s,"new",()=>{if(++checks==2)throw new InvalidDataException("expired lease");},x=>{},x=>"backup");}catch(InvalidDataException){rejected=true;}Assert(rejected&&s.Writes==0,"Expired session wrote replacement");
   s=new Store();var path=ConfigurationReplacement.Replace(s,"new",()=>{},x=>{},x=>ConfigurationBackup.Write(folder,"测试.SLDASM","默认",x,"test"));Assert(s.Data=="new"&&ConfigurationBackup.Read(path).payload=="old","Success or recoverable backup mismatch");
   var data=File.ReadAllText(path);File.WriteAllText(path,data.Replace("old","tampered"));rejected=false;try{ConfigurationBackup.Read(path);}catch(InvalidDataException){rejected=true;}Assert(rejected,"Tampered backup accepted");
+  string raw="{\"version\":2,\"extra\":\"keep\",\"configurations\":{\"Default\":{\"configuration_id\":\"swcfg:7\",\"simulation\":{\"oldDanglingID\":\"A\"}},\"Other\":{\"configuration_id\":\"swcfg:8\",\"unknown\":{\"value\":9}}}}";
+  string fresh="{\"configuration_id\":\"swcfg:7\",\"simulation\":{\"unsaved\":42}}";
+  string replaced=ConfigurationEnvelopeReplacement.ReplaceEntry(raw,"Default","swcfg:7",fresh);
+  Assert(replaced.Contains("unsaved")&&!replaced.Contains("oldDanglingID")&&replaced.Contains("unknown")&&replaced.Contains("keep"),"Replacement merged old target or discarded other entries");
+  replaced=ConfigurationEnvelopeReplacement.ReplaceEntry(raw,"Renamed","swcfg:7",fresh);Assert(replaced.Contains("Renamed")&&!replaced.Contains("Default")&&replaced.Contains("Other"),"Configuration identity rename mismatch");
+  rejected=false;try{ConfigurationEnvelopeReplacement.ReplaceEntry(raw,"Default","swcfg:new",fresh);}catch(InvalidDataException){rejected=true;}Assert(rejected,"Same-name replacement inherited another SW configuration identity");
   Console.WriteLine("PASS: backup/validation/session failures prevent writes; write/readback roll back; rollback failures preserve evidence; Unicode backup round-trip and tamper detection");
  }
 }

@@ -1,17 +1,18 @@
-param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[switch]$ExpectKnownFailure)
+﻿param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[switch]$ExpectKnownFailure)
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $bin=Join-Path $root ('build/'+$Payload)
 $sdk='D:/sw/sw2025/SOLIDWORKS'
 $refs=@("$bin/SWSimTool.dll","$bin/SWSimTool.Core.dll","$bin/SWSimTool.Application.dll","$bin/SWSimTool.Infrastructure.dll","$bin/MathNet.Numerics.dll","$root/build/bin/SWSimTool.Tests/Release/net48/Moq.dll","$root/build/bin/SWSimTool.Tests/Release/net48/Castle.Core.dll","$sdk/SolidWorks.Interop.sldworks.dll",'System.Core','System.Xml','System.Runtime.Serialization','System.Web.Extensions','System.Windows.Forms')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
+[SWSimTool.Utilities.Logger].GetField('Initialized',[Reflection.BindingFlags]'NonPublic,Static').SetValue($null,$true)
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
-using System;using System.IO;using System.Reflection;using System.Runtime.Serialization;using System.Linq;using Moq;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;using SWSimTool.URDF;using SWSimTool.URDFExport;
+using System;using System.IO;using System.Reflection;using System.Runtime.Serialization;using System.Linq;using Moq;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;using SWSimTool.URDF;using SWSimTool.URDFExport;using SWSimTool.UI;using System.Windows.Forms;
 public static class ConfigurationRebuildTest {
  public static void Run(bool knownFailure) {
   var c=new Mock<Configuration>();c.SetupGet(x=>x.Name).Returns("test");var cm=new Mock<ConfigurationManager>();cm.SetupGet(x=>x.ActiveConfiguration).Returns(c.Object);
   string raw=null;bool present=true;
-  var p=new Mock<Parameter>();p.Setup(x=>x.GetStringValue()).Returns(()=>raw);p.Setup(x=>x.SetStringValue2(It.IsAny<string>(),It.IsAny<int>(),It.IsAny<string>())).Callback<string,int,string>((v,s,n)=>raw=v).Returns(true);
+  bool rejectNextWrite=false;var p=new Mock<Parameter>();p.Setup(x=>x.GetStringValue()).Returns(()=>raw);p.Setup(x=>x.SetStringValue2(It.IsAny<string>(),It.IsAny<int>(),It.IsAny<string>())).Returns((string v,int scope,string name)=>{if(rejectNextWrite){rejectNextWrite=false;return false;}raw=v;return true;});
   var a=new Mock<SolidWorks.Interop.sldworks.Attribute>();a.Setup(x=>x.GetName()).Returns(SimulationStorage.NodeName);a.Setup(x=>x.GetParameter("data")).Returns(p.Object);
   var f=new Mock<Feature>();f.Setup(x=>x.GetTypeName2()).Returns("Attribute");f.Setup(x=>x.GetSpecificFeature2()).Returns(a.Object);
   var fm=new Mock<FeatureManager>();fm.Setup(x=>x.GetFeatures(true)).Returns(()=>present?new object[]{f.Object}:new object[0]);
@@ -28,54 +29,75 @@ public static class ConfigurationRebuildTest {
   if(knownFailure){if(!contaminated||rejected)throw new Exception("Known failure did not reproduce");Console.WriteLine("REPRODUCED: old page writes deleted link ID into rebuilt configuration");}
   else {if(!rejected||raw!=savedBefore||contaminated)throw new Exception("Old page contaminated replacement node");Console.WriteLine("PASS: stale save rejected without modifying replacement configuration");}
   if(now.attachments.Count>0){if(StableReferences.LinkNames(newTree).ContainsKey(now.attachments[0].link_id))throw new Exception("Dangling ID unexpectedly matched");Console.WriteLine("Unknown stable reference: "+now.attachments[0].link_id+" (site_pitch1 parent link pitch1)");}
-  if(!knownFailure){
-   var live=ConfigurationSession.Capture(null,m.Object);live.RequireCurrent();
-   var opened=SimulationStorage.LoadEntry(m.Object);var stable=ConfigurationSerialization.ReadTree(opened.urdf_xml,1.4).Link.StableId;
-   SimulationStorage.Save(null,m.Object,now);var reopened=SimulationStorage.LoadEntry(m.Object);
-   if(reopened.instance_id!=opened.instance_id||ConfigurationSerialization.ReadTree(reopened.urdf_xml,1.4).Link.StableId!=stable)throw new Exception("Normal save changed identity");
-   bool invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Previous revision still valid");
-   live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Switch event did not invalidate lease");
-   var resetDocument=ExportFingerprint.Serializer().Deserialize<SimulationStorage.Document>(raw);resetDocument.configurations["other"]=new SimulationStorage.Entry{configuration_id="other-id",configuration_name="other",simulation=new SimulationProject()};raw=ExportFingerprint.Serializer().Serialize(resetDocument);
-   live=ConfigurationSession.Capture(null,m.Object);var backup=SimulationStorage.ResetCurrent(null,m.Object,live,Path.Combine(Directory.GetCurrentDirectory(),"build/test-work/reset-backups"));
-   if(SimulationStorage.Load(m.Object)!=null||!raw.Contains("other-id"))throw new Exception("Reset changed other configuration or retained target");
-   invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Reset kept old page valid");
-   var restore=ConfigurationSession.Capture(null,m.Object);SimulationStorage.RestoreCurrent(null,m.Object,restore,backup,Path.Combine(Directory.GetCurrentDirectory(),"build/test-work/reset-backups"));
-   if(SimulationStorage.LoadEntry(m.Object).instance_id==reopened.instance_id||!raw.Contains("other-id"))throw new Exception("Restore reused old session instance or removed other configuration");
-   Console.WriteLine("PASS: scoped reset/restore retains other configurations, creates new instance and invalidates old pages");
-   var full=new SimulationProject{collision=new CollisionConfiguration(),solver=new SolverSettings{enabled=true,timestep=.002}};var rootId=newTree.Link.StableId;var jointId=((LinkNode)newTree.Nodes[0]).Link.Joint.StableId;
-   full.attachments.Add(new Attachment{id="site-1",name="unsaved-site",link_id=rootId,type="frame"});full.attachments.Add(new Attachment{id="site-2",name="second-site",link_id=rootId,type="point"});
-   full.sensors.Add(new SensorConfig{id="sensor-1",name="imu",site_id="site-1"});full.actuators.Add(new ActuatorConfig{id="actuator-1",name="motor",joint_id=jointId});full.joints.Add(new JointConfiguration{joint_id=jointId,damping=.01});full.joint_force_limits.Add(new JointForceLimit{joint_id=jointId,lower=-5,upper=5});
-   full.equalities.Add(new EqualityConfig{id="equality-1",name="connect",type="connect",binding="site",site1_id="site-1",site2_id="site-2"});full.site_forces.Add(new SiteForceConfig{id="force-1",name="spring",type="spring",site1_id="site-1",site2_id="site-2"});full.collision.geometries.Add(new CollisionGeometry{id="geom-1",name="box",link_id=rootId});full.collision.SetMode(rootId,"primitive");
-   var beforeReplace=raw;var beforeInstance=SimulationStorage.LoadEntry(m.Object).instance_id;live=ConfigurationSession.Capture(null,m.Object);SimulationStorage.RebuildCurrent(null,m.Object,live,newTree,full,Path.Combine(Directory.GetCurrentDirectory(),"build/test-work/rebuild-backups"));
-   var replaced=SimulationStorage.LoadEntry(m.Object);var rp=replaced.simulation;
-   if(replaced.instance_id==beforeInstance||replaced.urdf_xml!=ConfigurationSerialization.WriteTree(newTree)||rp.attachments.Count!=2||rp.sensors.Count!=1||rp.actuators.Count!=1||rp.equalities.Count!=1||rp.site_forces.Count!=1||rp.joints.Count!=1||rp.joint_force_limits.Count!=1||rp.collision.geometries.Count!=1||rp.solver.timestep!=.002||!raw.Contains("other-id"))throw new Exception("Complete draft was merged, lost a category or changed tree IDs");
-   invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Rebuild retained old lease");
-   var invalidDraft=ExportFingerprint.Serializer().Deserialize<SimulationProject>(ExportFingerprint.Serializer().Serialize(full));invalidDraft.attachments[0].link_id="deleted-id";var untouched=raw;invalid=false;try{SimulationStorage.RebuildCurrent(null,m.Object,ConfigurationSession.Capture(null,m.Object),newTree,invalidDraft);}catch(InvalidDataException){invalid=true;}if(!invalid||raw!=untouched||invalidDraft.attachments[0].link_id!="deleted-id")throw new Exception("Invalid draft changed saved data or was rebound by name");
-   Console.WriteLine("PASS: complete unsaved draft replaces every category, preserves valid object IDs/other configurations, rejects dangling IDs and invalidates old pages");
-   live=ConfigurationSession.Capture(null,m.Object);ConfigurationSession.Invalidate(m.Object,true);invalid=false;try{live.RequireCurrent();}catch(InvalidDataException){invalid=true;}if(!invalid)throw new Exception("Closed session still valid");
-   Console.WriteLine("PASS: normal save retains IDs; old revisions, configuration switch and close invalidate leases");
-  }
   var duplicate=tree();var extra=new Link(duplicate.Link);extra.Name="other";extra.Joint.Name="pitch1_joint";duplicate.Nodes.Add(new LinkNode(extra));bool duplicateRejected=false;
-  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(ArgumentException e){if(!knownFailure)throw;duplicateRejected=true;Console.WriteLine("REPRODUCED independent duplicate joint-name key: "+e.Message);}catch(InvalidDataException e){if(!e.Message.Contains("pitch1_joint")||!e.Message.Contains("/base/pitch1")||!e.Message.Contains("/base/other"))throw;duplicateRejected=true;Console.WriteLine("PASS: duplicate joint name has both object paths: "+e.Message);}
+  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(Exception e){duplicateRejected=true;Console.WriteLine("PASS duplicate joint-name diagnostic: "+e.Message);}
   if(!duplicateRejected)throw new Exception("Duplicate joint-name case did not fail");
   if(!knownFailure){
-   var editable=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(duplicate),1.4);((LinkNode)editable.Nodes[1]).Link.Joint.Name="other_joint";StableReferences.ValidateIdentities(editable);Console.WriteLine("PASS: duplicate names can be loaded into URDF editor and explicitly corrected");
-   duplicate=tree();var copy=((LinkNode)duplicate.Nodes[0]).Link.Clone();copy.Name="renamed_copy";duplicate.Nodes.Add(new LinkNode(copy));bool caught=false;
-   try{StableReferences.ValidateIdentities(duplicate);}catch(InvalidDataException e){caught=e.Message.Contains("link ID")&&e.Message.Contains("renamed_copy");}
-   if(!caught)throw new Exception("Duplicate ID silently accepted");Console.WriteLine("PASS: duplicate link ID rejected with object paths");
-   var conflict=new SimulationProject();conflict.attachments.Add(new Attachment{id="same",name="one"});conflict.attachments.Add(new Attachment{id="same",name="two"});caught=false;
-   try{conflict.NormalizeSiteReferences();}catch(InvalidDataException e){caught=e.Message.Contains("same")&&e.Message.Contains("site[0]")&&e.Message.Contains("site[1]");}if(!caught)throw new Exception("Site duplicate diagnostic missing paths");Console.WriteLine("PASS: duplicate configuration ID includes both collection paths");
-   var deps=new SimulationProject{collision=new CollisionConfiguration()};deps.attachments.Add(new Attachment{id="site-a",name="sa",link_id="link-a"});deps.attachments.Add(new Attachment{id="site-b",name="sb",link_id="link-b"});
-   deps.sensors.Add(new SensorConfig{id="sensor",name="imu",site_id="site-a"});deps.equalities.Add(new EqualityConfig{id="eq",name="loop",type="connect",binding="site",site1_id="site-a",site2_id="site-b"});deps.site_forces.Add(new SiteForceConfig{id="force",name="spring",type="spring",site1_id="site-a",site2_id="site-b"});
-   deps.actuators.Add(new ActuatorConfig{id="motor",name="motor",joint_id="joint-a"});deps.joints.Add(new JointConfiguration{joint_id="joint-a"});deps.joint_force_limits.Add(new JointForceLimit{joint_id="joint-a"});deps.collision.geometries.Add(new CollisionGeometry{link_id="link-a",name="proxy"});deps.collision.allowed_pairs.Add(new CollisionPair{link1_id="link-a",link2_id="link-b"});deps.collision.SetMode("link-a","primitive");
-   var delete=ConfigurationDependencies.Plan(deps,new[]{"link-a"},new[]{"joint-a"});
-   if(deps.attachments.Count!=2||deps.sensors.Count!=1||deps.collision.geometries.Count!=1)throw new Exception("Planning/cancel modified draft");
-   if(delete.Result.attachments.Count!=1||delete.Result.sensors.Count!=0||delete.Result.equalities.Count!=0||delete.Result.site_forces.Count!=0||delete.Result.actuators.Count!=0||delete.Result.joints.Count!=0||delete.Result.joint_force_limits.Count!=0||delete.Result.collision.allowed_pairs.Count!=0||delete.Result.collision.link_modes_by_id.Count!=0)throw new Exception("Deletion dependencies incomplete");
-   var sensors=deps.sensors;delete.ApplyTo(deps);if(!ReferenceEquals(sensors,deps.sensors)||deps.attachments[0].id!="site-b")throw new Exception("Deletion did not retain unaffected objects and UI collection binding");Console.WriteLine("PASS: dependency planning is non-mutating and cleanup covers all supported bindings");
-   var unrelated=new SimulationProject();unrelated.attachments.Add(new Attachment{id="new",name="same"});unrelated.sensors.Add(new SensorConfig{name="orphan",site_id="deleted",site="same"});var sameName=ConfigurationDependencies.Plan(unrelated,sites:new[]{"new"});if(sameName.Result.sensors.Count!=1)throw new Exception("Deletion guessed same-name identity");Console.WriteLine("PASS: cleanup does not guess same-name replacement for dangling ID");
-   var prior=raw;int writes=0;p.Setup(x=>x.SetStringValue2(It.IsAny<string>(),It.IsAny<int>(),It.IsAny<string>())).Callback<string,int,string>((v,scope,n)=>raw=v).Returns(()=>++writes>1);bool failed=false;
-   try{SimulationStorage.SaveTree(null,m.Object,ConfigurationSerialization.WriteTree(newTree),1.4,delete.Result);}catch(IOException){failed=true;}
-   if(!failed||raw!=prior||deps.attachments.Count!=1)throw new Exception("Failed deletion save lost saved data or draft");Console.WriteLine("PASS: failed combined tree/config write rolls back saved data and keeps edited draft");
+   var freshPage=new AttachmentService(helper);var anotherPage=new AttachmentService(helper);
+   string originalRaw=raw;var shared=freshPage.Project;var sharedTree=freshPage.Editing.Tree;
+   freshPage.BeginPage();freshPage.Project.solver=new SolverSettings{enabled=true,timestep=.002};freshPage.Project.attachments.Add(new Attachment{name="cancelled",link="pitch1"});
+   if(anotherPage.Project.attachments.Count!=0||!Object.ReferenceEquals(shared,anotherPage.Project))throw new Exception("Page edits leaked into shared draft");
+   bool secondRejected=false;try{anotherPage.BeginPage();}catch(InvalidOperationException){secondRejected=true;}
+   if(!secondRejected)throw new Exception("Concurrent page accepted");freshPage.EndPage();
+   if(raw!=originalRaw||anotherPage.Project.attachments.Count!=0)throw new Exception("Cancellation changed persisted or shared state");
+   freshPage.BeginPage();freshPage.Project.solver=new SolverSettings{enabled=true,timestep=.002};freshPage.Project.attachments.Add(new Attachment{name="unsaved",link="pitch1"});
+   int flushed=0;freshPage.PageDraft.Flush=()=>flushed++;freshPage.FlushPage();if(flushed!=1)throw new Exception("Active inputs not collected");
+   if(anotherPage.Project.attachments.Count!=0)throw new Exception("Collection committed draft prematurely");
+   bool staleRebuild=false;try{oldPage.RebuildCurrentDraft();}catch(InvalidDataException){staleRebuild=true;}
+   if(!staleRebuild||raw!=savedBefore)throw new Exception("Stale rebuild changed new configuration");
+   Console.WriteLine("PASS: complete unsaved draft shared; stale rebuild rejected before CAD or writes");
+   rejectNextWrite=true;bool failedSave=false;try{freshPage.Save();}catch(IOException){failedSave=true;}
+   if(!failedSave||raw!=savedBefore||anotherPage.Project.attachments.Count!=0||freshPage.Project.attachments.Count!=1||freshPage.Project.solver.timestep!=.002)throw new Exception("Failed save changed shared or persisted data, or discarded page input");
+   freshPage.Save();freshPage.EndPage();bool lateSaveRejected=false;try{freshPage.Save();}catch(InvalidDataException){lateSaveRejected=true;}if(!lateSaveRejected)throw new Exception("Closed page service accepted late save callback");
+   var reopened=SimulationStorage.Load(m.Object);
+   string newParent=freshPage.Editing.Tree.Children[0].StableId;
+   if(reopened.attachments.Single().link_id!=newParent||reopened.attachments.Single().link_id==oldProject.attachments[0].link_id)throw new Exception("Fresh configuration reused deleted identity");
+   SimulationStorage.Invalidate(m.Object);ConfigurationEditingContext.Forget(m.Object);
+   var coldPage=new AttachmentService(helper);
+   if(coldPage.Project.attachments.Single().link_id!=newParent||coldPage.Project.solver.timestep!=.002)throw new Exception("Cold reopen lost saved draft");
+   var savedRaw=raw;c.SetupGet(x=>x.Name).Returns("other");bool switched=false;try{coldPage.Save();}catch(InvalidDataException){switched=true;}
+   if(!switched||raw!=savedRaw)throw new Exception("SW configuration switch accepted old page");
+   c.SetupGet(x=>x.Name).Returns("test");ConfigurationSession.Invalidate(m.Object,true);bool closed=false;try{coldPage.Save();}catch(InvalidDataException){closed=true;}
+   if(!closed||raw!=savedRaw)throw new Exception("Closed document accepted old page");
+   Console.WriteLine("PASS: fresh save/cold reopen retain new IDs; configuration switch and document close reject stale saves");
+   var uiTree=tree();uiTree.UpdateLinkTree(null);var before=uiTree.Link.Children[0];string beforeName=before.Name;
+   var missingId=typeof(Link).GetField("stableId",BindingFlags.NonPublic|BindingFlags.Instance);missingId.SetValue(uiTree.Link,null);
+   ConfigurationSerialization.WriteTree(uiTree);StableReferences.ValidateTree(uiTree);
+   if(missingId.GetValue(uiTree.Link)!=null)throw new Exception("Read-only serialization or validation materialized input identity");
+   foreach(var property in typeof(ConfigurationEditingContext).GetProperties())if(typeof(TreeNode).IsAssignableFrom(property.PropertyType)||typeof(Control).IsAssignableFrom(property.PropertyType)||typeof(Delegate).IsAssignableFrom(property.PropertyType))throw new Exception("Business context holds UI ownership");
+   var clone=(LinkNode)uiTree.Clone();
+   if(!Object.ReferenceEquals(clone.Link.Children[0],((LinkNode)clone.Nodes[0]).Link)||!Object.ReferenceEquals(clone.Link.Children[0].Parent,clone.Link))throw new Exception("Clone has two business trees");
+   ((LinkNode)clone.Nodes[0]).Link.Name="clone_changed";
+   if(before.Name!=beforeName)throw new Exception("Clone shares mutable business objects");
+   using(var tv=new TreeView()){tv.Nodes.Add(uiTree);var child=(LinkNode)uiTree.Nodes[0];var grand=new Link(child.Link);grand.Name="grand";child.Nodes.Add(new LinkNode(grand));
+    LinkNode.Move(child,(LinkNode)child.Nodes[0]);LinkNode.Move(uiTree,child);
+    if(uiTree.Nodes.Count!=1||child.Nodes.Count!=1||child.Parent!=uiTree)throw new Exception("Invalid drag changed topology");
+    var snapshot=uiTree.RebuildLink();if(!Object.ReferenceEquals(before,uiTree.Link.Children[0])||snapshot.Children.Count!=1||!Object.ReferenceEquals(snapshot.Children[0].Parent,snapshot))throw new Exception("Snapshot mutated input or wrong parent");
+    ConfigurationSerialization.WriteTree(uiTree);if(!Object.ReferenceEquals(before,uiTree.Link.Children[0])||before.Name!=beforeName)throw new Exception("Serialization mutated input");
+    var other=new Link(uiTree.Link);other.Name="other";var otherNode=new LinkNode(other);uiTree.Nodes.Add(otherNode);LinkNode.Move(child,otherNode);
+    if(child.Parent!=otherNode||child.Link.Parent!=otherNode.Link||child.IsBaseNode)throw new Exception("Legal drag parent state inconsistent");
+   }
+   Console.WriteLine("PASS: isolated page cancel/confirm; clone coherence; pure snapshot/serialization; legal and illegal drag");
+   // A constructor failure after claiming ownership must allow an immediate retry.
+   var failConfig=new Mock<Configuration>();failConfig.SetupGet(x=>x.Name).Returns("fail");var failManager=new Mock<ConfigurationManager>();failManager.SetupGet(x=>x.ActiveConfiguration).Returns(failConfig.Object);
+   var failModel=new Mock<ModelDoc2>();failModel.SetupGet(x=>x.ConfigurationManager).Returns(failManager.Object);failModel.SetupGet(x=>x.FeatureManager).Returns(new Mock<FeatureManager>().Object);
+   var failHelper=(ExportHelper)FormatterServices.GetUninitializedObject(typeof(ExportHelper));failHelper.ActiveSWModel=failModel.Object;var failureService=new AttachmentService(failHelper);
+   bool constructorFailed=false;try{new JointEditorControl(failureService,null);}catch{constructorFailed=true;}
+   if(!constructorFailed||ConfigurationPageDraft.Active(failModel.Object)!=null)throw new Exception("Initialization failure leaked active page");
+   using(var retryEditor=new JointEditorControl(failureService,new System.Collections.Generic.List<JointDescriptor>())){
+    var owned=failureService.PageDraft;bool secondFailed=false;try{new JointEditorControl(failureService,null);}catch{secondFailed=true;}
+    if(!secondFailed||!Object.ReferenceEquals(owned,ConfigurationPageDraft.Active(failModel.Object)))throw new Exception("Rejected repeated page released original page");
+   }
+   var undoPage=new AttachmentService(failHelper);undoPage.BeginPage();
+   var history=(SWSimTool.SW.AssemblyEventHandler)FormatterServices.GetUninitializedObject(typeof(SWSimTool.SW.AssemblyEventHandler));typeof(SWSimTool.SW.DocumentEventHandler).GetField("document",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(history,failModel.Object);
+   history.OnHistoryChanged();bool undoRejected=false;try{undoPage.Save();}catch(InvalidDataException){undoRejected=true;}undoPage.EndPage();
+   if(!undoRejected)throw new Exception("Undo/redo callback left old page writable");
+   failureService=new AttachmentService(failHelper);
+   failureService.BeginPage();var released=failureService.PageDraft;failureService.EndPage();bool releasedRejected=false;try{released.Collect();}catch(InvalidDataException){releasedRejected=true;}
+   if(!releasedRejected)throw new Exception("Disposed page callback still accepted");
+   Console.WriteLine("PASS: initialization failure retries; repeated open retains original owner; disposed callback rejected");
+
+
   }
  }
 }

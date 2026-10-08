@@ -119,6 +119,8 @@ namespace SWSimTool.SW
         public override bool AttachEventHandlers()
         {
             doc.DestroyNotify += new DPartDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.UndoPostNotify += new DPartDocEvents_UndoPostNotifyEventHandler(OnHistoryChanged);
+            doc.RedoPostNotify += new DPartDocEvents_RedoPostNotifyEventHandler(OnHistoryChanged);
             doc.NewSelectionNotify += new DPartDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
             ConnectModelViews();
@@ -129,12 +131,21 @@ namespace SWSimTool.SW
         public override bool DetachEventHandlers()
         {
             doc.DestroyNotify -= new DPartDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.UndoPostNotify -= new DPartDocEvents_UndoPostNotifyEventHandler(OnHistoryChanged);
+            doc.RedoPostNotify -= new DPartDocEvents_RedoPostNotifyEventHandler(OnHistoryChanged);
             doc.NewSelectionNotify -= new DPartDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
             DisconnectModelViews();
 
             userAddin.DetachModelEventHandler(document);
             return true;
+        }
+
+        public int OnHistoryChanged(){
+            SWSimTool.Simulation.ConfigurationSession.Invalidate(document);
+            SWSimTool.Simulation.SimulationStorage.Invalidate(document);
+            SWSimTool.Simulation.ConfigurationEditingContext.Forget(document);
+            return 0;
         }
 
         //Event Handlers
@@ -167,6 +178,9 @@ namespace SWSimTool.SW
         public override bool AttachEventHandlers()
         {
             doc.DestroyNotify += new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.UndoPostNotify += new DAssemblyDocEvents_UndoPostNotifyEventHandler(OnHistoryChanged);
+            doc.RedoPostNotify += new DAssemblyDocEvents_RedoPostNotifyEventHandler(OnHistoryChanged);
+            doc.DeleteItemNotify += new DAssemblyDocEvents_DeleteItemNotifyEventHandler(OnItemDeleted);
             doc.ActiveConfigChangePostNotify += new DAssemblyDocEvents_ActiveConfigChangePostNotifyEventHandler(OnConfigurationChanged);
             doc.NewSelectionNotify += new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 += new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
@@ -181,6 +195,9 @@ namespace SWSimTool.SW
         public override bool DetachEventHandlers()
         {
             doc.DestroyNotify -= new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
+            doc.UndoPostNotify -= new DAssemblyDocEvents_UndoPostNotifyEventHandler(OnHistoryChanged);
+            doc.RedoPostNotify -= new DAssemblyDocEvents_RedoPostNotifyEventHandler(OnHistoryChanged);
+            doc.DeleteItemNotify -= new DAssemblyDocEvents_DeleteItemNotifyEventHandler(OnItemDeleted);
             doc.ActiveConfigChangePostNotify -= new DAssemblyDocEvents_ActiveConfigChangePostNotifyEventHandler(OnConfigurationChanged);
             doc.NewSelectionNotify -= new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 -= new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
@@ -191,6 +208,21 @@ namespace SWSimTool.SW
 
             userAddin.DetachModelEventHandler(document);
             return true;
+        }
+
+        public int OnItemDeleted(int type,string name){
+            if(name==SWSimTool.Persistence.DocumentStorageSchema.AttributeName||name==SWSimTool.Persistence.DocumentStorageSchema.LegacyAttributeName){
+                SWSimTool.Simulation.ConfigurationSession.Invalidate(document);
+                SWSimTool.Simulation.SimulationStorage.Invalidate(document);
+                SWSimTool.Simulation.ConfigurationEditingContext.Forget(document);
+            }return 0;
+        }
+
+        public int OnHistoryChanged(){
+            SWSimTool.Simulation.ConfigurationSession.Invalidate(document);
+            SWSimTool.Simulation.SimulationStorage.Invalidate(document);
+            SWSimTool.Simulation.ConfigurationEditingContext.Forget(document);
+            return 0;
         }
 
         //Event Handlers

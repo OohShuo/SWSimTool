@@ -1,4 +1,4 @@
-﻿using SWSimTool.Simulation;
+using SWSimTool.Simulation;
 using SWSimTool.Utilities;
 using System;
 using System.Collections;
@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 namespace SWSimTool.UI {
  public sealed class SimulationEditorControl:UserControl {
-  readonly AttachmentService service;
+  bool ownsPage;readonly AttachmentService service;
   readonly SimulationProject draft;
   readonly CollisionPreview preview;
   readonly ComboBox link=new CollisionComboBox();
@@ -27,8 +27,8 @@ namespace SWSimTool.UI {
   Attachment armed;readonly bool constraintsOnly;EqualityConfig selectedEquality;SiteForceConfig selectedForce;
   bool loading;
   public Action BeginSelection{get;set;}
-  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){
-   this.service=service;this.constraintsOnly=constraintsOnly;jointOwners=joints;var serializer=new JavaScriptSerializer{MaxJsonLength=16*1024*1024};draft=serializer.Deserialize<SimulationProject>(serializer.Serialize(service.Project));
+  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){try{
+   this.service=service;service.BeginPage();ownsPage=true;this.constraintsOnly=constraintsOnly;jointOwners=joints;draft=service.Project;
    draft.NormalizeSiteReferences();preview=new CollisionPreview(service);Dock=DockStyle.Fill;
    configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
    var tabs=new TabControl{Dock=DockStyle.Fill};Controls.Add(tabs);tabs.SelectedIndexChanged+=(s,e)=>{armed=null;};
@@ -46,13 +46,12 @@ namespace SWSimTool.UI {
    tabs.SelectedIndexChanged+=(s,e)=>JointEditorControl.PreserveScroll(this,()=>{top.Enabled=top.Visible=tabs.SelectedTab?.Text!="两点作用力";});
    }else{show.Text="实时预览约束端点 / 坐标系";ConstraintTab(tabs);}
    var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false};var save=new Button{Text="保存配置到装配",AutoSize=true};var refreshCAD=new Button{Text="刷新 CAD 参考",AutoSize=true};refreshCAD.Click+=(s,e)=>{service.InvalidateCADCache();Schedule();};footer.Controls.Add(show);footer.Controls.Add(refreshCAD);footer.Controls.Add(save);footer.Controls.Add(status);Controls.Add(footer);
-   ConfigurationDraftCommands.Add(footer,service,draft,()=>{if(invalid.Count>0)throw new InvalidOperationException("请修正无效数字。");draft.NormalizeSiteReferences();draft.ValidateSolver();},path=>{Refresh();UpdateSites();status.Text="已全量重建并覆盖，请保存装配。备份："+path;},Guard);
    save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
-   cadTimer.Tick+=(s,e)=>Guard(()=>{try{service.RequireCurrentDocument();}catch(Exception error){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=error.Message;return;}if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
-   Refresh();cadTimer.Start();Schedule();
-  }
+   cadTimer.Tick+=(s,e)=>Guard(()=>{if(!CheckSession())return;if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
+   service.PageDraft.Flush=FlushDraft;Refresh();cadTimer.Start();Schedule();
+  }catch{Dispose();throw;}}
   void Section(TableLayoutPanel parent,Func<bool> visible,Action<TableLayoutPanel> build){var host=Layout(parent);Add(parent,host);build(host);conditions.Add(()=>{bool enabled=visible();host.Visible=host.Enabled=enabled;foreach(var box in Descendants(host).OfType<TextBox>()){if(!enabled)invalid.Remove(box);else (box.Tag as Action)?.Invoke();}});}
   void SiteChoice(TableLayoutPanel p,object item,string key,string title,Func<bool> allowPoint){
    var name=item.GetType().GetProperty(key);var id=item.GetType().GetProperty(key+"_id");var box=new CollisionComboBox();Field(p,title,box);var owner=new Label{AutoSize=true};Add(p,owner);
@@ -160,6 +159,8 @@ namespace SWSimTool.UI {
    foreach(IEnumerable values in new IEnumerable[]{draft.attachments,draft.sensors,draft.actuators,draft.equalities,draft.site_forces}){var names=new HashSet<string>();foreach(object item in values){string name=(string)item.GetType().GetProperty("name").GetValue(item);if(string.IsNullOrWhiteSpace(name)||!names.Add(name))throw new InvalidOperationException("名称不能为空或重复："+name);}}
    draft.NormalizeSiteReferences();draft.ValidateSolver();var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";
   }
-  protected override void Dispose(bool disposing){if(disposing){timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+  bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
+        void FlushDraft(){ValidateChildren();if(invalid.Count>0)throw new InvalidOperationException("请修正仿真配置中的无效数字。");}
+  protected override void Dispose(bool disposing){if(disposing){if(ownsPage){ownsPage=false;service.EndPage();}timer.Dispose();cadTimer.Dispose();preview?.Dispose();}base.Dispose(disposing);}
  }
 }

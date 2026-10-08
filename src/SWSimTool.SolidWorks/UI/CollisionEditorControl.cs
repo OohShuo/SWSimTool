@@ -32,7 +32,7 @@ namespace SWSimTool.UI
     }
     public sealed class CollisionEditorControl : UserControl
     {
-        readonly AttachmentService service;
+        bool ownsPage;readonly AttachmentService service;
         readonly SimulationProject draft;
         readonly Dictionary<string,string> linkIds;
         readonly CollisionPreview preview;
@@ -59,8 +59,8 @@ namespace SWSimTool.UI
         bool refreshReferences=true;
         public Action BeginSelection { get; set; }
         public CollisionEditorControl(AttachmentService service,string selectedLink)
-        {
-            this.service=service;draft=Clone(service.Project);draft.collision=draft.collision??new CollisionConfiguration();
+        {try{
+            this.service=service;service.BeginPage();ownsPage=true;draft=service.Project;draft.collision=draft.collision??new CollisionConfiguration();
             var identities=service.LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(draft,identities);linkIds=identities.ToDictionary(x=>x.Value,x=>x.Key);
             preview=new CollisionPreview(service);Dock=DockStyle.Fill;AutoScroll=false;
             configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
@@ -93,7 +93,7 @@ namespace SWSimTool.UI
             Add(contacts,new Label{Text="添加后保存装配，并重新导出 MJCF。\n无碰撞模式的 link 不能加入允许列表。",AutoSize=true});
             timer.Tick+=(s,e)=>{timer.Stop();UpdatePreview(false);};
             cadTimer.Tick+=(s,e)=>{
-                try{try{service.RequireCurrentDocument();}catch(Exception error){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=error.Message;return;}string next=service.CollisionRevision;if(next==revision)return;revision=next;
+                try{if(!CheckSession())return;string next=service.CollisionRevision;if(next==revision)return;revision=next;
                     if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="SW Configuration 已切换，请关闭后重新进入碰撞配置。";return;}
                     UpdatePreview(true);
                 }catch(Exception ex){status.Text=ex.Message;}
@@ -110,11 +110,10 @@ namespace SWSimTool.UI
             remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(linkIds.ContainsKey(owner)&&!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.Mode(linkIds[owner])=="primitive")draft.collision.SetMode(linkIds[owner],"none");current=null;RefreshList();};
             allow.Click+=(s,e)=>Guard(()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请先修正当前碰撞对的无效数字。");string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
-            ConfigurationDraftCommands.Add(footer,service,draft,()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请修正无效数字。");ReadCurrent();draft.collision.disable_internal=disable.Checked;},path=>{current=null;RefreshList();RefreshPairs();status.Text="已全量重建并覆盖，请保存装配。备份："+path;},Guard);
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
             pairA.SelectedIndex=links.Length>0?0:-1;pairB.SelectedIndex=links.Length>1?1:-1;
-            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;RefreshList();RefreshPairs();cadTimer.Start();
-        }
+            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;service.PageDraft.Flush=FlushDraft;RefreshList();RefreshPairs();cadTimer.Start();
+        }catch{Dispose();throw;}}
         static TableLayoutPanel Layout(Control parent){var p=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Padding=new Padding(4)};p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));parent.Controls.Add(p);return p;}
         static void Add(TableLayoutPanel parent,Control c){c.Dock=DockStyle.Top;c.Margin=new Padding(0,2,0,2);parent.Controls.Add(c);}
         void Field(TableLayoutPanel parent,string label,Control c){var row=new TableLayoutPanel{AutoSize=true,ColumnCount=1};row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));row.Controls.Add(new Label{Text=label,AutoSize=true,Anchor=AnchorStyles.Left});c.Dock=DockStyle.Fill;row.Controls.Add(c);Add(parent,row);rows[c]=row;}
@@ -198,13 +197,15 @@ namespace SWSimTool.UI
         }
         void RefreshPairs(){pairs.Items.Clear();foreach(var p in draft.collision.allowed_pairs)pairs.Items.Add(p);if(pairs.Items.Count>0)pairs.SelectedIndex=0;}
         void Guard(Action action){try{action();}catch(Exception ex){status.Text=ex.Message;}}
+        bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
+        void FlushDraft(){ValidateChildren();if(solverInvalid.Count>0)throw new InvalidOperationException("请修正碰撞配置中的无效数字。");if(current!=null)ReadCurrent(true);}
         public void Save(){
             if(solverInvalid.Count>0)throw new InvalidOperationException("请修正求解参数中的无效数字。");draft.ValidateSolver();timer.Stop();if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("SW Configuration 已切换，请重新进入碰撞配置。");ReadCurrent();
             var frames=service.LinkTransforms();var names=new HashSet<string>();foreach(var g in draft.collision.geometries){service.ResolveCollision(g);if(!names.Add(g.name))throw new InvalidOperationException("碰撞几何体名称重复："+g.name);}
             foreach(var m in draft.collision.link_modes_by_id){var owner=linkIds.SingleOrDefault(x=>x.Value==m.Key);if(owner.Key==null)throw new InvalidOperationException("碰撞模式 link ID 已失效："+m.Key);if(m.Value=="primitive"&&!draft.collision.geometries.Any(g=>g.link==owner.Key))throw new InvalidOperationException("简单几何体模式至少需要一个几何体。");}
             foreach(var p in draft.collision.allowed_pairs){if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");if(draft.collision.Mode(linkIds[p.link1])=="none"||draft.collision.Mode(linkIds[p.link2])=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}
-            draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=Clone(draft);try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
+            draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
         }
-        protected override void Dispose(bool disposing){if(disposing){timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+        protected override void Dispose(bool disposing){if(disposing){if(ownsPage){ownsPage=false;service.EndPage();}timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview?.Dispose();}base.Dispose(disposing);}
     }
 }

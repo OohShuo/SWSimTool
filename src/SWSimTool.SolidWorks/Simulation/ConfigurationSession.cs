@@ -6,7 +6,7 @@ using SolidWorks.Interop.sldworks;
 namespace SWSimTool.Simulation {
     // A lease belongs to a document open, SW configuration and exact persisted revision.
     public sealed class ConfigurationSession {
-        sealed class State { public string observation;public long generation;public bool closed;public string id=Guid.NewGuid().ToString("N"); }
+        sealed class State { public string observation;public string identity;public long generation;public bool closed;public string id=Guid.NewGuid().ToString("N"); }
         static readonly ConditionalWeakTable<ModelDoc2,State> states=new ConditionalWeakTable<ModelDoc2,State>();
         readonly ModelDoc2 model;readonly SldWorks app;readonly State state;
         readonly string configuration;long generation;
@@ -21,6 +21,9 @@ namespace SWSimTool.Simulation {
         }
         void CheckObservation(){
             var next=Observe(model);
+            string identity=model.ConfigurationManager.ActiveConfiguration.Name+"|"+SolidWorksAttributeDocumentStore.NodeIdentity(model);
+            if(state.identity!=null&&state.identity!=identity){ProjectSourceCache.Clear(model);CadSnapshotCache.Clear(model);}
+            state.identity=identity;
             if(state.observation!=next){state.observation=next;state.generation++;}
         }
         public void RequireCurrent(){
@@ -30,7 +33,23 @@ namespace SWSimTool.Simulation {
             if(configuration!=model.ConfigurationManager.ActiveConfiguration.Name||generation!=state.generation)
                 throw new InvalidDataException("配置节点已删除、重建、切换或被其他页面修改。旧草稿/任务已失效，请重新进入；不会向新配置写回旧引用。");
         }
-        public void Refresh(){if(state.closed)throw new InvalidDataException("文档已关闭。");CheckObservation();generation=state.generation;Instance=SimulationStorage.LoadEntry(model)?.instance_id;}
+        public void Refresh(){
+            if(state.closed||configuration!=model.ConfigurationManager.ActiveConfiguration.Name)throw new InvalidDataException("文档已关闭或 SolidWorks 配置已切换。");CheckObservation();generation=state.generation;
+            string raw=new SolidWorksAttributeDocumentStore(null,model).ReadConfiguration();
+            Instance=null;
+            if(!string.IsNullOrWhiteSpace(raw)){
+                var envelope=SWSimTool.Persistence.DocumentEnvelopeSerializer.Serializer().Deserialize<SimulationStorage.Document>(raw);
+                SimulationStorage.Entry entry;
+                if(envelope?.configurations!=null&&envelope.configurations.TryGetValue(configuration,out entry))Instance=entry.instance_id;
+            }
+        }
+        public static void RecordSaved(ModelDoc2 model){
+            var s=states.GetValue(model,x=>new State());
+            string identity=model.ConfigurationManager.ActiveConfiguration.Name+"|"+SolidWorksAttributeDocumentStore.NodeIdentity(model);
+            if(s.identity!=null&&s.identity!=identity){ProjectSourceCache.Clear(model);CadSnapshotCache.Clear(model);}
+            s.identity=identity;string observation=Observe(model);
+            if(s.observation!=observation){s.observation=observation;s.generation++;}
+        }
         public static void Invalidate(ModelDoc2 model,bool closed=false){var s=states.GetValue(model,x=>new State());s.generation++;s.closed=closed;ProjectSourceCache.Clear(model);CadSnapshotCache.Clear(model);}
     }
 }
