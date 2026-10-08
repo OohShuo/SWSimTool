@@ -17,7 +17,8 @@ namespace SWSimTool.URDF
     public class Joint : URDFElement
     {
         [DataMember(IsRequired = false)]
-        private string stableId;
+        private string stableId=System.Guid.NewGuid().ToString("N");
+        internal string ExistingStableId=>stableId;
         public string StableId { get { return stableId ?? (stableId = System.Guid.NewGuid().ToString("N")); } }
         public static readonly List<string> AvailableTypes = new List<string>
         {
@@ -153,7 +154,7 @@ namespace SWSimTool.URDF
 
             // The base method already performs the type check, so we don't have to for this cast
             Joint joint = (Joint)externalElement;
-            stableId = joint.StableId;
+            stableId = joint.stableId;
 
             // These strings aren't kept as URDFAttribute objects and so they are tracked separately
             CoordinateSystemName = joint.CoordinateSystemName;

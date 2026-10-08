@@ -9,6 +9,7 @@ namespace SWSimTool.Simulation {
   public double[] axis;
   public double? lower,upper;
   public static List<JointDescriptor> FromTree(SWSimTool.URDF.LinkNode root){
+   if(root!=null){root=new SWSimTool.URDF.LinkNode(root.Snapshot());StableReferences.NormalizeTree(root);}
    StableReferences.ValidateIdentities(root);
    var result=new List<JointDescriptor>();Action<SWSimTool.URDF.LinkNode> visit=null;
    visit=n=>{foreach(SWSimTool.URDF.LinkNode c in n.Nodes){var j=c.Link.Joint;var d=new JointDescriptor{id=j.StableId,name=j.Name,parent=n.Link.Name,child=c.Link.Name,type=j.Type,axis_name=j.AxisName,axis=j.Axis.GetXYZ()};try{d.lower=j.Limit.Lower;d.upper=j.Limit.Upper;}catch(NullReferenceException){}result.Add(d);visit(c);}};visit(root);return result;

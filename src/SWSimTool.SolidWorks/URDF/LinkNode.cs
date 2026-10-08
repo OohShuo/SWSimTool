@@ -14,7 +14,7 @@ namespace SWSimTool.URDF
         { get; set; }
 
         public bool IsBaseNode
-        { get; set; }
+        { get=>Parent==null; set { } }
 
         public bool IsIncomplete
         { get; set; }
@@ -51,6 +51,7 @@ namespace SWSimTool.URDF
         {
             Link.Children.Clear();
             Link.Parent = parent;
+            IsBaseNode=parent==null;
             foreach (LinkNode child in Nodes)
             {
                 Link.Children.Add(child.UpdateLinkTree(Link));
@@ -60,19 +61,36 @@ namespace SWSimTool.URDF
 
         public override object Clone()
         {
-            LinkNode cloned = (LinkNode)base.Clone();
-            cloned.Link = Link.Clone();
-            return cloned;
+            return new LinkNode(Snapshot());
+        }
+
+        // The UI topology is authoritative only inside this page. Reading it
+        // creates a new business tree; it never mutates links held by the page.
+        public Link Snapshot(Link parent=null)
+        {
+            var copy=Link.CopyProperties();copy.Name=Name;copy.Parent=parent;
+            foreach(LinkNode child in Nodes)copy.Children.Add(child.Snapshot(copy));
+            return copy;
         }
 
         public Link RebuildLink()
         {
-            Link.Children.Clear();
-            foreach (LinkNode child in Nodes)
-            {
-                Link.Children.Add(child.RebuildLink());
-            }
-            return Link;
+            return Snapshot();
+        }
+
+        public static bool CanMove(LinkNode node,LinkNode target)
+        {
+            if(node==null||target==null||node.Parent==null||node.TreeView!=target.TreeView)return false;
+            for(TreeNode p=target;p!=null;p=p.Parent)if(ReferenceEquals(p,node))return false;
+            return true;
+        }
+        public static void Move(LinkNode node,LinkNode target)
+        {
+            if(!CanMove(node,target))return;
+            var parent=node.Parent;int index=node.Index;
+            try{node.Remove();target.Nodes.Add(node);}
+            catch{node.Remove();parent.Nodes.Insert(index,node);throw;}
+            ((LinkNode)node.TreeView.Nodes[0]).UpdateLinkTree(null);
         }
     }
 }

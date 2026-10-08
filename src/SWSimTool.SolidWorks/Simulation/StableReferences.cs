@@ -11,6 +11,7 @@ namespace SWSimTool.Simulation
     {
         public static Dictionary<string,string> LinkNames(LinkNode tree)
         {
+            if(tree!=null){tree=new LinkNode(tree.Snapshot());NormalizeTree(tree);}
             ValidateIdentities(tree,false);
             var names=new Dictionary<string,string>();
             if(tree!=null){Action<LinkNode> visit=null;visit=n=>{names.Add(n.Link.StableId,n.Name);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);}return names;
@@ -68,6 +69,7 @@ namespace SWSimTool.Simulation
         public static void NormalizeTree(LinkNode tree)
         {
             if(tree==null)return;
+            Action<LinkNode> materialize=null;materialize=n=>{var id=n.Link.StableId;if(n.Link.Joint!=null){var jointId=n.Link.Joint.StableId;}foreach(LinkNode child in n.Nodes)materialize(child);};materialize(tree);
             ValidateIdentities(tree,false);
             var nodes=new List<LinkNode>();Action<LinkNode> visit=null;visit=n=>{nodes.Add(n);foreach(LinkNode c in n.Nodes)visit(c);};visit(tree);
             var joints=nodes.Where(n=>n.Parent!=null).ToDictionary(n=>n.Link.Joint.StableId,n=>n.Link.Joint.Name);
@@ -86,13 +88,14 @@ namespace SWSimTool.Simulation
             Action<LinkNode,string> visit=null;visit=(node,parent)=>{
                 string path=parent+"/"+node.Name;
                 if(node.Link==null)throw new InvalidDataException("缺少 link 对象："+path);
-                add(links,node.Link.StableId,path,"link ID");if(checkNames)add(names,node.Name,path,"link 名称");
-                if(node.Parent!=null&&node.Link.Joint!=null){add(joints,node.Link.Joint.StableId,path,"joint ID");if(checkNames)add(jointNames,node.Link.Joint.Name,path,"joint 名称");}
+                add(links,node.Link.ExistingStableId,path,"link ID");if(checkNames)add(names,node.Name,path,"link 名称");
+                if(node.Parent!=null&&node.Link.Joint!=null){add(joints,node.Link.Joint.ExistingStableId,path,"joint ID");if(checkNames)add(jointNames,node.Link.Joint.Name,path,"joint 名称");}
                 foreach(LinkNode child in node.Nodes)visit(child,path);
             };visit(tree,"");
         }
         public static void ValidateTree(LinkNode tree)
         {
+            if(tree!=null)tree=new LinkNode(tree.Snapshot());
             NormalizeTree(tree);if(tree==null)return;var joints=new Dictionary<string,string>();Action<LinkNode> collect=null;collect=n=>{if(n.Parent!=null)joints.Add(n.Link.Joint.StableId,n.Link.Joint.Name);foreach(LinkNode c in n.Nodes)collect(c);};collect(tree);
             Action<LinkNode> check=null;check=n=>{var mimic=n.Link.Joint?.Mimic;if(mimic!=null&&mimic.ElementContainsData())SimulationConfigBuilder.Reference(mimic.SourceJointId,mimic.JointName,joints);foreach(LinkNode c in n.Nodes)check(c);};check(tree);
         }
