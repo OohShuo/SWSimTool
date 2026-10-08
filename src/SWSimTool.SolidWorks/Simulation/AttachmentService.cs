@@ -39,7 +39,7 @@ namespace SWSimTool.Simulation
             candidate.NormalizeSiteReferences();candidate.ValidateSolver();
             if(string.IsNullOrEmpty(Model.GetPathName()))throw new InvalidOperationException("Save the assembly first.");
             candidate.assembly=Model.GetPathName();candidate.configuration=Model.ConfigurationManager.ActiveConfiguration.Name;
-            if(tree!=null){var nodes=new LinkNode(tree);CadTreeReferences.Normalize(Model,nodes);tree=nodes.Snapshot();StableReferences.Normalize(candidate,nodes);}
+            if(tree!=null){var nodes=new LinkNode(tree);if(ConfigurationSerialization.WriteBusinessTree(tree)!=ConfigurationSerialization.WriteBusinessTree(Editing.Tree))CadTreeReferences.Normalize(Model,nodes);tree=nodes.Snapshot();StableReferences.Normalize(candidate,nodes);}
             var preparedProject=ConfigurationEditingContext.CopyProject(candidate);
             var preparedTree=ConfigurationEditingContext.CopyTree(tree);
             var sync=PageDraft==null?new List<Action>():PrepareSavedReferences(PageDraft.Project,candidate);

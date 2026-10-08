@@ -16,7 +16,7 @@ public static class ConfigurationRebuildTest {
   var a=new Mock<SolidWorks.Interop.sldworks.Attribute>();a.Setup(x=>x.GetName()).Returns(SimulationStorage.NodeName);a.Setup(x=>x.GetParameter("data")).Returns(p.Object);
   var f=new Mock<Feature>();f.Setup(x=>x.GetTypeName2()).Returns("Attribute");f.Setup(x=>x.GetSpecificFeature2()).Returns(a.Object);
   var fm=new Mock<FeatureManager>();fm.Setup(x=>x.GetFeatures(true)).Returns(()=>present?new object[]{f.Object}:new object[0]);
-  var m=new Mock<ModelDoc2>();m.SetupGet(x=>x.FeatureManager).Returns(fm.Object);m.SetupGet(x=>x.ConfigurationManager).Returns(cm.Object);m.Setup(x=>x.GetConfigurationNames()).Returns(new[]{"test"});m.Setup(x=>x.GetConfigurationByName("test")).Returns(c.Object);m.Setup(x=>x.GetPathName()).Returns("isolated.SLDASM");
+  var m=new Mock<ModelDoc2>();var nodeExtension=new Mock<ModelDocExtension>();nodeExtension.Setup(x=>x.GetPersistReference3(It.IsAny<object>())).Returns(new byte[]{9,8,7});m.SetupGet(x=>x.Extension).Returns(nodeExtension.Object);m.SetupGet(x=>x.FeatureManager).Returns(fm.Object);m.SetupGet(x=>x.ConfigurationManager).Returns(cm.Object);m.Setup(x=>x.GetConfigurationNames()).Returns(new[]{"test"});m.Setup(x=>x.GetConfigurationByName("test")).Returns(c.Object);m.Setup(x=>x.GetPathName()).Returns("isolated.SLDASM");
   Func<LinkNode> tree=()=>{var r=new Link(null);r.Name="base";var n=new LinkNode(r);var l=new Link(r);l.Name="pitch1";l.Joint.Name="pitch1_joint";n.Nodes.Add(new LinkNode(l));return n;};
   var oldTree=tree();var oldProject=new SimulationProject();oldProject.attachments.Add(new Attachment{name="site_pitch1",link="pitch1",type="point"});StableReferences.Normalize(oldProject,oldTree);
   var d=new SimulationStorage.Document();d.configurations["test"]=new SimulationStorage.Entry{urdf_xml=ConfigurationSerialization.WriteTree(oldTree),simulation=oldProject};raw=ExportFingerprint.Serializer().Serialize(d);
@@ -55,7 +55,17 @@ public static class ConfigurationRebuildTest {
    SimulationStorage.Invalidate(m.Object);ConfigurationEditingContext.Forget(m.Object);
    var coldPage=new AttachmentService(helper);
    if(coldPage.Project.attachments.Single().link_id!=newParent||coldPage.Project.solver.timestep!=.002)throw new Exception("Cold reopen lost saved draft");
-   coldPage.BeginPage();coldPage.Project.solver.timestep=.003;
+   SimulationSession.ExportSucceeded(m.Object);
+   coldPage.BeginPage();coldPage.Project.solver.timestep=.0025;var solverSave=coldPage.Save();
+   var dirty=SimulationSession.Dirty(m.Object);
+   if(!solverSave.RefreshSucceeded||dirty!=(SimulationDirtyFlags.Solver|SimulationDirtyFlags.Mjcf))throw new Exception("Timestep-only page save incorrectly marked source/mesh dirty: "+dirty);
+   var identityMethod=typeof(AttachmentService).Assembly.GetType("SWSimTool.Simulation.SolidWorksAttributeDocumentStore").GetMethod("NodeIdentity",BindingFlags.Static|BindingFlags.NonPublic);
+   nodeExtension.Setup(x=>x.GetPersistReference3(It.IsAny<object>())).Returns((object)null);bool identityRejected=false;
+   try{identityMethod.Invoke(null,new object[]{m.Object});}catch(TargetInvocationException e){identityRejected=e.InnerException is InvalidDataException;}
+   if(!identityRejected)throw new Exception("Unavailable CAD persistent identity silently accepted");
+   nodeExtension.Setup(x=>x.GetPersistReference3(It.IsAny<object>())).Returns(new byte[]{9,8,7});
+   Console.WriteLine("PASS: timestep-only page save marks only solver/MJCF; unavailable node identity fails closed");
+   coldPage.Project.solver.timestep=.003;
    m.Setup(x=>x.SetSaveFlag()).Throws(new IOException("injected post-commit refresh failure"));
    var committed=coldPage.Save();
    if(!committed.Committed||committed.RefreshSucceeded||!committed.Message.Contains("已提交")||SimulationStorage.Load(m.Object).solver.timestep!=.003)throw new Exception("Post-commit failure reported unsaved or lost committed data");

@@ -3,7 +3,7 @@ using SolidWorks.Interop.swconst;
 using SWSimTool.Persistence;
 using System;
 using System.IO;
-using System.Runtime.CompilerServices;
+
 namespace SWSimTool.Simulation {
  internal sealed class SolidWorksAttributeDocumentStore:IConfigurationTransactionStore {
   readonly SldWorks app;readonly ModelDoc2 model;readonly SolidWorks.Interop.sldworks.Attribute known;readonly string backupFolder;
@@ -20,9 +20,10 @@ namespace SWSimTool.Simulation {
   }
   internal static string NodeIdentity(ModelDoc2 model){
    var a=Find(model,SimulationStorage.NodeName);if(a==null)return "absent";
-   foreach(Feature f in (object[])model.FeatureManager.GetFeatures(true)??new object[0])if(f.GetTypeName2()=="Attribute"&&ReferenceEquals(f.GetSpecificFeature2(),a)){
-    var bytes=model.Extension?.GetPersistReference3(f) as byte[];if(bytes!=null)return Convert.ToBase64String(bytes);
-   }return "node:"+RuntimeHelpers.GetHashCode(a);
+   foreach(Feature f in (object[])model.FeatureManager.GetFeatures(true)??new object[0])if(f.GetTypeName2()=="Attribute"&&(f.GetSpecificFeature2() as SolidWorks.Interop.sldworks.Attribute)?.GetName()==a.GetName()){
+    var bytes=model.Extension?.GetPersistReference3(f) as byte[];if(bytes!=null&&bytes.Length>0)return Convert.ToBase64String(bytes);
+    throw new InvalidDataException("无法取得插件配置节点的 CAD 持久引用。已停止编辑/导出，请重新打开工程后重试；不会使用临时 COM 身份。");
+   }throw new InvalidDataException("插件配置节点在读取期间发生变化，请重新进入配置。");
   }
   static string Read(SolidWorks.Interop.sldworks.Attribute a){if(a==null)return null;var p=a.GetParameter("data") as Parameter;if(p==null)throw new InvalidDataException("插件配置节点缺少 data 参数。");return p.GetStringValue();}
   static void Set(SolidWorks.Interop.sldworks.Attribute a,string data){var p=a.GetParameter("data") as Parameter;if(p==null||!p.SetStringValue2(data,(int)swInConfigurationOpts_e.swAllConfiguration,"")||Read(a)!=data)throw new IOException("配置写入或回读验证失败。");}

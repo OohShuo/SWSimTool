@@ -37,7 +37,7 @@ public static class StableReferenceAudit {
    var attribute=new Mock<SolidWorks.Interop.sldworks.Attribute>();attribute.Setup(x=>x.GetName()).Returns(SimulationStorage.NodeName);attribute.Setup(x=>x.GetParameter("data")).Returns(parameter.Object);
    var feature=new Mock<Feature>();feature.Setup(x=>x.GetTypeName2()).Returns("Attribute");feature.Setup(x=>x.GetSpecificFeature2()).Returns(attribute.Object);
    var features=new Mock<FeatureManager>();features.Setup(x=>x.GetFeatures(true)).Returns(new object[]{feature.Object});
-   var m=new Mock<ModelDoc2>();m.SetupGet(x=>x.FeatureManager).Returns(features.Object);m.SetupGet(x=>x.ConfigurationManager).Returns(manager.Object);m.Setup(x=>x.GetConfigurationNames()).Returns(new[]{"test"});m.Setup(x=>x.GetConfigurationByName("test")).Returns(config.Object);return m;
+   var m=new Mock<ModelDoc2>();var nodeExtension=new Mock<ModelDocExtension>();nodeExtension.Setup(x=>x.GetPersistReference3(It.IsAny<object>())).Returns(new byte[]{9,8,7});m.SetupGet(x=>x.Extension).Returns(nodeExtension.Object);m.SetupGet(x=>x.FeatureManager).Returns(features.Object);m.SetupGet(x=>x.ConfigurationManager).Returns(manager.Object);m.Setup(x=>x.GetConfigurationNames()).Returns(new[]{"test"});m.Setup(x=>x.GetConfigurationByName("test")).Returns(config.Object);return m;
   };
   var mock=model();var loaded=SimulationStorage.Load(mock.Object);var entry=SimulationStorage.LoadEntry(mock.Object);var tree=ConfigurationSerialization.ReadTree(entry.urdf_xml,1.4);var a=(LinkNode)tree.Nodes[0];
   Check(loaded.attachments[0].link_id==a.Link.StableId,"Name-only site parent matches independently loaded export tree");
