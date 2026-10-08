@@ -1,4 +1,4 @@
-﻿using SWSimTool.Simulation;
+using SWSimTool.Simulation;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -60,7 +60,7 @@ namespace SWSimTool.UI
         public Action BeginSelection { get; set; }
         public CollisionEditorControl(AttachmentService service,string selectedLink)
         {
-            this.service=service;draft=Clone(service.Project);draft.collision=draft.collision??new CollisionConfiguration();
+            this.service=service;draft=service.Project;draft.collision=draft.collision??new CollisionConfiguration();
             var identities=service.LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(draft,identities);linkIds=identities.ToDictionary(x=>x.Value,x=>x.Key);
             preview=new CollisionPreview(service);Dock=DockStyle.Fill;AutoScroll=false;
             configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
@@ -72,6 +72,10 @@ namespace SWSimTool.UI
             var links=service.LinkTransforms().Keys.ToArray();link.Items.AddRange(links);pairA.Items.AddRange(links);pairB.Items.AddRange(links);
             Field(geometry,"所属 link",link);mode.Items.AddRange(new[]{"原网格","简单几何体","无碰撞"});Field(geometry,"碰撞模式",mode);
             list.Height=65;Add(geometry,list);var buttons=new FlowLayoutPanel{AutoSize=true};var create=new Button{Text="添加"};var remove=new Button{Text="删除"};buttons.Controls.Add(create);buttons.Controls.Add(remove);Add(geometry,buttons);
+            var rebind=new Button{Text="重新绑定到所选 link",AutoSize=true};Add(geometry,rebind);
+            rebind.Click+=(s,e)=>Guard(()=>{if(current==null||link.SelectedItem==null)return;service.RequireCurrentDocument();string target=(string)link.SelectedItem;if(MessageBox.Show("将几何体 '"+current.name+"' 绑定到 '"+target+"'。CAD 参考将重新计算；手工相对位姿保留当前值。继续？","重新绑定碰撞几何体",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;current.link=target;current.link_id=linkIds[target];RefreshList(current);Schedule();});
+            var clean=new Button{Text="清理失效 link 的关联配置",AutoSize=true};Add(geometry,clean);
+            clean.Click+=(s,e)=>Guard(()=>{service.RequireCurrentDocument();var missing=new HashSet<string>(draft.collision.link_modes_by_id.Keys.Where(id=>!linkIds.Values.Contains(id)));foreach(var g in draft.collision.geometries)if(!string.IsNullOrEmpty(g.link_id)&&!linkIds.Values.Contains(g.link_id))missing.Add(g.link_id);if(missing.Count==0){status.Text="没有失效 link 的碰撞配置。";return;}var plan=ConfigurationDependencies.Plan(draft,links:missing);if(MessageBox.Show("失效 ID：\n"+string.Join("\n",missing)+"\n\n将清理：\n"+string.Join("\n",plan.Affected),"清理失效关联",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;service.RequireCurrentDocument();plan.ApplyTo(draft);current=null;RefreshList();RefreshPairs();Schedule();});
             Field(geometry,"名称",name);shape.Items.AddRange(new[]{"box","sphere","cylinder","capsule"});Field(geometry,"形状",shape);Field(geometry,"标定方式",definition);
             for(int i=0;i<3;i++){int slot=i;picks[i]=new Button{AutoSize=true};picks[i].Click+=(s,e)=>{armed=slot;armedDimension=null;status.Text="请在模型中选择："+picks[slot].Text;BeginSelection?.Invoke();};Add(geometry,picks[i]);}
             referenceInfo.AutoSize=true;Add(geometry,referenceInfo);
@@ -89,7 +93,7 @@ namespace SWSimTool.UI
             Add(contacts,new Label{Text="添加后保存装配，并重新导出 MJCF。\n无碰撞模式的 link 不能加入允许列表。",AutoSize=true});
             timer.Tick+=(s,e)=>{timer.Stop();UpdatePreview(false);};
             cadTimer.Tick+=(s,e)=>{
-                try{string next=service.CollisionRevision;if(next==revision)return;revision=next;
+                try{if(!CheckSession())return;string next=service.CollisionRevision;if(next==revision)return;revision=next;
                     if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="SW Configuration 已切换，请关闭后重新进入碰撞配置。";return;}
                     UpdatePreview(true);
                 }catch(Exception ex){status.Text=ex.Message;}
@@ -103,12 +107,12 @@ namespace SWSimTool.UI
             shape.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;current.type=(string)shape.SelectedItem;current.size=current.type=="box"?new[]{.05,.04,.03}:current.type=="sphere"?new[]{.01}:new[]{.01,.05};current.definition="manual";current.references.Clear();current.dimension_references.Clear();LoadCurrent();RefreshNames();};
             definition.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;Guard(()=>ReadCurrent(true));current.definition=((Choice)definition.SelectedItem).Key;current.references.Clear();current.dimension_references.Clear();LoadCurrent();};
             create.Click+=(s,e)=>Guard(()=>{ReadCurrent(true);if(link.SelectedItem==null)return;var g=new CollisionGeometry{link=(string)link.SelectedItem,link_id=linkIds[(string)link.SelectedItem],name="collision_"+Guid.NewGuid().ToString("N").Substring(0,8)};draft.collision.geometries.Add(g);draft.collision.SetMode(g.link_id,"primitive");RefreshList(g);});
-            remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.Mode(linkIds[owner])=="primitive")draft.collision.SetMode(linkIds[owner],"none");current=null;RefreshList();};
+            remove.Click+=(s,e)=>{if(current==null)return;string owner=current.link;draft.collision.geometries.Remove(current);if(linkIds.ContainsKey(owner)&&!draft.collision.geometries.Any(g=>g.link==owner)&&draft.collision.Mode(linkIds[owner])=="primitive")draft.collision.SetMode(linkIds[owner],"none");current=null;RefreshList();};
             allow.Click+=(s,e)=>Guard(()=>{if(solverInvalid.Count>0)throw new InvalidOperationException("请先修正当前碰撞对的无效数字。");string a=(string)pairA.SelectedItem,b=(string)pairB.SelectedItem;if(a==null||b==null||a==b)throw new InvalidOperationException("请选择两个不同的 link。");if(!draft.collision.allowed_pairs.Any(p=>(p.link1==a&&p.link2==b)||(p.link1==b&&p.link2==a)))draft.collision.allowed_pairs.Add(new CollisionPair{link1=a,link2=b});RefreshPairs();});
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
             pairA.SelectedIndex=links.Length>0?0:-1;pairB.SelectedIndex=links.Length>1?1:-1;
-            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;RefreshList();RefreshPairs();cadTimer.Start();
+            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;service.Editing.Register(FlushDraft);RefreshList();RefreshPairs();cadTimer.Start();
         }
         static TableLayoutPanel Layout(Control parent){var p=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Padding=new Padding(4)};p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));parent.Controls.Add(p);return p;}
         static void Add(TableLayoutPanel parent,Control c){c.Dock=DockStyle.Top;c.Margin=new Padding(0,2,0,2);parent.Controls.Add(c);}
@@ -123,7 +127,7 @@ namespace SWSimTool.UI
         static void Values(TextBox[] fields,double[] values,double scale){for(int i=0;i<fields.Length;i++)fields[i].Text=(i<values.Length?values[i]*scale:0).ToString("G12",CultureInfo.InvariantCulture);}
         void Visible(Control c,bool visible){rows[c].Visible=visible;}
         void RefreshNames(){loading=true;int selected=list.SelectedIndex;for(int i=0;i<list.Items.Count;i++)list.Items[i]=list.Items[i];list.SelectedIndex=selected;loading=false;}
-        void RefreshList(CollisionGeometry select=null){loading=true;displayedLink=(string)link.SelectedItem;list.Items.Clear();foreach(var g in draft.collision.geometries.Where(g=>g.link==displayedLink))list.Items.Add(g);string m=draft.collision.Mode(linkIds[displayedLink]);mode.SelectedIndex=m=="primitive"?1:m=="none"?2:0;list.SelectedItem=select??list.Items.Cast<CollisionGeometry>().FirstOrDefault();current=list.SelectedItem as CollisionGeometry;loading=false;LoadCurrent();}
+        void RefreshList(CollisionGeometry select=null){loading=true;displayedLink=(string)link.SelectedItem;list.Items.Clear();foreach(var g in draft.collision.geometries.Where(g=>g.link==displayedLink||(!string.IsNullOrEmpty(g.link_id)&&!linkIds.Values.Contains(g.link_id))))list.Items.Add(g);string m=draft.collision.Mode(linkIds[displayedLink]);mode.SelectedIndex=m=="primitive"?1:m=="none"?2:0;list.SelectedItem=select??list.Items.Cast<CollisionGeometry>().FirstOrDefault();current=list.SelectedItem as CollisionGeometry;loading=false;LoadCurrent();}
         void LoadCurrent(){JointEditorControl.PreserveScroll(this,LoadCurrentCore);}
   void LoadCurrentCore(){
             loading=true;armed=-1;armedDimension=null;definition.Items.Clear();
@@ -193,13 +197,15 @@ namespace SWSimTool.UI
         }
         void RefreshPairs(){pairs.Items.Clear();foreach(var p in draft.collision.allowed_pairs)pairs.Items.Add(p);if(pairs.Items.Count>0)pairs.SelectedIndex=0;}
         void Guard(Action action){try{action();}catch(Exception ex){status.Text=ex.Message;}}
+        bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
+        void FlushDraft(){ValidateChildren();if(solverInvalid.Count>0)throw new InvalidOperationException("请修正碰撞配置中的无效数字。");if(current!=null)ReadCurrent(true);}
         public void Save(){
             if(solverInvalid.Count>0)throw new InvalidOperationException("请修正求解参数中的无效数字。");draft.ValidateSolver();timer.Stop();if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("SW Configuration 已切换，请重新进入碰撞配置。");ReadCurrent();
             var frames=service.LinkTransforms();var names=new HashSet<string>();foreach(var g in draft.collision.geometries){service.ResolveCollision(g);if(!names.Add(g.name))throw new InvalidOperationException("碰撞几何体名称重复："+g.name);}
             foreach(var m in draft.collision.link_modes_by_id){var owner=linkIds.SingleOrDefault(x=>x.Value==m.Key);if(owner.Key==null)throw new InvalidOperationException("碰撞模式 link ID 已失效："+m.Key);if(m.Value=="primitive"&&!draft.collision.geometries.Any(g=>g.link==owner.Key))throw new InvalidOperationException("简单几何体模式至少需要一个几何体。");}
             foreach(var p in draft.collision.allowed_pairs){if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");if(draft.collision.Mode(linkIds[p.link1])=="none"||draft.collision.Mode(linkIds[p.link2])=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}
-            draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=Clone(draft);try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
+            draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
         }
-        protected override void Dispose(bool disposing){if(disposing){timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+        protected override void Dispose(bool disposing){if(disposing){service.Editing.Unregister(FlushDraft);timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
     }
 }

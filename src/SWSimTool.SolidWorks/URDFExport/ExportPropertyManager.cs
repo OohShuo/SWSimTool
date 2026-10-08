@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -143,7 +143,7 @@ namespace SWSimTool.URDFExport
             int alignment = 0;
 
 
-            Exporter.GetSimulation();
+            Exporter.GetSimulation().Editing.Register(FlushEditingDraft);
 
             #region Create and instantiate components of PM page
 
@@ -408,6 +408,10 @@ namespace SWSimTool.URDFExport
             }
         }
 
+        void FlushEditingDraft(){
+            Exporter.GetSimulation().RequireCurrentDocument();SaveActiveNode();
+            if(Tree.Nodes.Count>0){var root=(LinkNode)Tree.Nodes[0];CommonSwOperations.RetrieveSWComponentPIDs(ActiveSWModel,root);Exporter.GetSimulation().Editing.Tree=root;}
+        }
         void IPropertyManagerPage2Handler9.OnClose(int Reason)
         {
             try
@@ -432,6 +436,7 @@ namespace SWSimTool.URDFExport
                 MessageBox.Show("There was a problem closing the property manager: \n\"" +
                     e.Message + "\"\nEmail your maintainer with the log file found at " + Logger.GetFileName());
             }
+            finally{Exporter.GetSimulation().Editing.Unregister(FlushEditingDraft);}
         }
 
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id)
@@ -567,8 +572,7 @@ namespace SWSimTool.URDFExport
         {
             try
             {
-                LinkNode parent = (LinkNode)rightClickedNode.Parent;
-                parent.Nodes.Remove(rightClickedNode);
+                RemoveLinkNodes(new[]{rightClickedNode});
             }
             catch (Exception ex)
             {
@@ -577,6 +581,20 @@ namespace SWSimTool.URDFExport
                     ex.Message + "\"\nEmail your maintainer with the log file found at " +
                     Logger.GetFileName());
             }
+        }
+
+        private bool RemoveLinkNodes(IEnumerable<LinkNode> nodes)
+        {
+            var removing=nodes.ToArray();if(removing.Length==0)return true;
+            Exporter.Simulation.RequireCurrentDocument();
+            var root=removing[0];while(root.Parent is LinkNode)root=(LinkNode)root.Parent;
+            SWSimTool.Simulation.StableReferences.ValidateIdentities(root);
+            var links=new HashSet<string>();var joints=new HashSet<string>();
+            Action<LinkNode> collect=null;collect=n=>{links.Add(n.Link.StableId);joints.Add(n.Link.Joint.StableId);foreach(LinkNode child in n.Nodes)collect(child);};foreach(var node in removing)collect(node);
+            var plan=SWSimTool.Simulation.ConfigurationDependencies.Plan(Exporter.Simulation.Project,links,joints);
+            var mimics=new List<LinkNode>();Action<LinkNode> find=null;find=n=>{if(!links.Contains(n.Link.StableId)&&joints.Contains(n.Link.Joint.Mimic.SourceJointId))mimics.Add(n);foreach(LinkNode child in n.Nodes)find(child);};find(root);
+            if(MessageBox.Show("将删除 link 子树：\n"+string.Join("\n",removing.Select(n=>n.Name))+"\n及以下关联配置：\n"+string.Join("\n",plan.Affected.Concat(mimics.Select(n=>"mimic: "+n.Name)))+"\n\n删除并清理关联配置？","删除 link",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return false;
+            Exporter.Simulation.RequireCurrentDocument();plan.ApplyTo(Exporter.Simulation.Project);foreach(var node in mimics)node.Link.Joint.Mimic.Clear();foreach(var node in removing)node.Remove();return true;
         }
 
         // The callback for the configuration page context menu 'Rename Child' option

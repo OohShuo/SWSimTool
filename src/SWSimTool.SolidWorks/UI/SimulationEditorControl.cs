@@ -1,4 +1,4 @@
-﻿using SWSimTool.Simulation;
+using SWSimTool.Simulation;
 using SWSimTool.Utilities;
 using System;
 using System.Collections;
@@ -28,7 +28,7 @@ namespace SWSimTool.UI {
   bool loading;
   public Action BeginSelection{get;set;}
   public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){
-   this.service=service;this.constraintsOnly=constraintsOnly;jointOwners=joints;var serializer=new JavaScriptSerializer{MaxJsonLength=16*1024*1024};draft=serializer.Deserialize<SimulationProject>(serializer.Serialize(service.Project));
+   this.service=service;this.constraintsOnly=constraintsOnly;jointOwners=joints;draft=service.Project;
    draft.NormalizeSiteReferences();preview=new CollisionPreview(service);Dock=DockStyle.Fill;
    configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
    var tabs=new TabControl{Dock=DockStyle.Fill};Controls.Add(tabs);tabs.SelectedIndexChanged+=(s,e)=>{armed=null;};
@@ -49,8 +49,8 @@ namespace SWSimTool.UI {
    save.Click+=(s,e)=>Guard(Save);show.CheckedChanged+=(s,e)=>Schedule();
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
-   cadTimer.Tick+=(s,e)=>Guard(()=>{if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
-   Refresh();cadTimer.Start();Schedule();
+   cadTimer.Tick+=(s,e)=>Guard(()=>{if(!CheckSession())return;if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
+   service.Editing.Register(FlushDraft);Refresh();cadTimer.Start();Schedule();
   }
   void Section(TableLayoutPanel parent,Func<bool> visible,Action<TableLayoutPanel> build){var host=Layout(parent);Add(parent,host);build(host);conditions.Add(()=>{bool enabled=visible();host.Visible=host.Enabled=enabled;foreach(var box in Descendants(host).OfType<TextBox>()){if(!enabled)invalid.Remove(box);else (box.Tag as Action)?.Invoke();}});}
   void SiteChoice(TableLayoutPanel p,object item,string key,string title,Func<bool> allowPoint){
@@ -104,15 +104,17 @@ namespace SWSimTool.UI {
    var buttons=new FlowLayoutPanel{AutoSize=true};var add=new Button{Text="添加"};var remove=new Button{Text="删除"};buttons.Controls.Add(add);buttons.Controls.Add(remove);Add(panel,buttons);
    var name=new TextBox();Field(panel,"名称",name);var type=new CollisionComboBox();type.Items.AddRange(new[]{"point","frame"});Field(panel,"类型",type);
    var pick=new Button{Text="拾取参考",AutoSize=true};Add(panel,pick);var source=new Label{AutoSize=true,MaximumSize=new Size(320,0)};Add(panel,source);
+   var rebind=new Button{Text="重新绑定到所选 link",AutoSize=true};Add(panel,rebind);
    Note(panel,"point：参考点、顶点、草图点，只记录位置。\nframe：参考坐标系，记录位置与方向。\n均相对所属 link；确认保存允许保留未拾取草稿，导出时严格检查。");
    Attachment current=null;
    Action load=()=>{bool previous=loading;loading=true;current=list.SelectedItem as Attachment;name.Text=current?.name??"";type.SelectedItem=current?.type;source.Text=current?.source_name??"尚未拾取";name.Enabled=type.Enabled=pick.Enabled=current!=null;loading=previous;};
-   Action refresh=()=>{loading=true;string selected=current?.name;list.Items.Clear();foreach(var a in draft.attachments.Where(a=>a.link==Owner))list.Items.Add(a);list.SelectedItem=list.Items.Cast<Attachment>().FirstOrDefault(a=>a.name==selected)??list.Items.Cast<Attachment>().FirstOrDefault();load();loading=false;};refreshers.Add(refresh);
+   Action refresh=()=>{loading=true;string selected=current?.name;list.Items.Clear();var identities=service.LinkIdentities();foreach(var a in draft.attachments.Where(a=>a.link==Owner||(!string.IsNullOrEmpty(a.link_id)&&!identities.ContainsKey(a.link_id))))list.Items.Add(a);list.SelectedItem=list.Items.Cast<Attachment>().FirstOrDefault(a=>a.name==selected)??list.Items.Cast<Attachment>().FirstOrDefault();load();if(current!=null&&!string.IsNullOrEmpty(current.link_id)&&!identities.ContainsKey(current.link_id))source.Text="所属 link 失效："+current.link+" / "+current.link_id+"\n"+source.Text;loading=false;};refreshers.Add(refresh);
+   rebind.Click+=(s,e)=>Guard(()=>{if(current==null)return;service.RequireCurrentDocument();var target=service.LinkIdentities().Single(x=>x.Value==Owner);if(MessageBox.Show("将 site '"+current.name+"' 显式绑定到 link '"+target.Value+"'。参考几何体保留，导出时重新计算相对位置。继续？","重新绑定 site",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;current.link_id=target.Key;current.link=target.Value;refresh();UpdateSites();Schedule();});
    list.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;list.SelectedItem=current;loading=false;status.Text="请先修正无效输入。";return;}armed=null;load();Schedule();};
    name.TextChanged+=(s,e)=>{if(loading||current==null)return;Guard(()=>{draft.RenameSite(current,name.Text);invalid.Remove(name);name.BackColor=SystemColors.Window;RefreshListDisplay(list);UpdateSites();});if(current.name!=name.Text.Trim()){invalid.Add(name);name.BackColor=Color.MistyRose;}};
    type.SelectedIndexChanged+=(s,e)=>{if(loading||current==null)return;current.type=(string)type.SelectedItem;current.reference=null;current.source_pid=null;current.source_name=null;source.Text="类型已改变，请重新拾取。";RefreshListDisplay(list);UpdateSites();};
    add.Click+=(s,e)=>{if(invalid.Count>0)return;current=new Attachment{name=Unique("site"),link=Owner,type="point"};draft.attachments.Add(current);refresh();};
-   remove.Click+=(s,e)=>{if(current==null)return;invalid.Remove(name);draft.attachments.Remove(current);current=null;armed=null;refresh();UpdateSites();};
+   remove.Click+=(s,e)=>Guard(()=>{if(current==null)return;service.RequireCurrentDocument();var plan=ConfigurationDependencies.Plan(draft,sites:new[]{current.id});if(MessageBox.Show("将删除以下配置：\n"+string.Join("\n",plan.Affected)+"\n\n删除并清理关联配置？","删除 site",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;service.RequireCurrentDocument();plan.ApplyTo(draft);invalid.Remove(name);current=null;armed=null;Refresh();UpdateSites();Schedule();status.Text="已清理关联配置；保存配置后写入装配。";});
    pick.Click+=(s,e)=>{armed=current;status.Text=current.type=="frame"?"请选择参考坐标系。":"请选择参考点、顶点或草图点。";BeginSelection?.Invoke();};
   }
   void Rules<T>(TabControl tabs,string title,List<T> items,Func<T> create,Func<T,bool> filter,string[] kinds,string hint,Action<TableLayoutPanel,T> fields)where T:class{
@@ -157,6 +159,8 @@ namespace SWSimTool.UI {
    foreach(IEnumerable values in new IEnumerable[]{draft.attachments,draft.sensors,draft.actuators,draft.equalities,draft.site_forces}){var names=new HashSet<string>();foreach(object item in values){string name=(string)item.GetType().GetProperty("name").GetValue(item);if(string.IsNullOrWhiteSpace(name)||!names.Add(name))throw new InvalidOperationException("名称不能为空或重复："+name);}}
    draft.NormalizeSiteReferences();draft.ValidateSolver();var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="配置已写入装配；请保存 .sldasm。未完成参考在导出时检查。";
   }
-  protected override void Dispose(bool disposing){if(disposing){timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+  bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
+        void FlushDraft(){ValidateChildren();if(invalid.Count>0)throw new InvalidOperationException("请修正仿真配置中的无效数字。");}
+  protected override void Dispose(bool disposing){if(disposing){service.Editing.Unregister(FlushDraft);timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
  }
 }

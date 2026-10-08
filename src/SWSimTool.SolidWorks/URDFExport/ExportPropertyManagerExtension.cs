@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015 Stephen Brawner
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,10 +39,11 @@ namespace SWSimTool.URDFExport
 
         public void SaveConfigTree(ModelDoc2 model, LinkNode BaseNode, bool warnUser)
         {
+            Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
-            ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser);
-            // Keep attachment/collision ownership synchronized with saved link renames.
-            if(Exporter.Simulation!=null)Exporter.Simulation.Save();
+            ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser,Exporter.Simulation?.Project);
+            // SaveTree already normalizes the stored simulation. Do not write a second old draft.
+            Exporter.Simulation?.ReloadSavedProject();
         }
 
         //As nodes are created and destroyed, this menu gets called a lot. It basically just
@@ -119,10 +120,7 @@ namespace SWSimTool.URDFExport
                 LinkNode node = CreateEmptyNode(currentNode);
                 currentNode.Nodes.Add(node);
             }
-            for (int i = 0; i < -number; i++)
-            {
-                currentNode.Nodes.RemoveAt(currentNode.Nodes.Count - 1);
-            }
+            if(number<0){var removing=new List<LinkNode>();for(int i=0;i<-number;i++)removing.Add((LinkNode)currentNode.Nodes[currentNode.Nodes.Count-1-i]);if(!RemoveLinkNodes(removing))PMNumberBoxChildCount.Value=currentNode.Nodes.Count;}
             int itemsCount = CommonSwOperations.GetCount(Tree.Nodes);
             int itemHeight = 1 + itemsCount * Tree.ItemHeight;
             int min = 163;
@@ -506,7 +504,7 @@ namespace SWSimTool.URDFExport
         /// <returns>bool representing success of load. If false, PMPage should not open</returns>
         public bool LoadConfigTree()
         {
-            LinkNode baseNode = ConfigurationSerialization.LoadBaseNodeFromModel(ActiveSWModel, out bool abortProcess);
+            bool abortProcess=false;LinkNode baseNode = Exporter.GetSimulation().Editing.Tree;
 
             if (abortProcess)
             {
@@ -549,6 +547,7 @@ namespace SWSimTool.URDFExport
                 }
             }
 
+            Exporter.GetSimulation().Editing.Tree=baseNode;
             AddDocMenu(baseNode);
 
             Tree.Nodes.Clear();

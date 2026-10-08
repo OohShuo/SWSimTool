@@ -1,10 +1,11 @@
-param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[switch]$ExpectKnownFailure)
+﻿param([string]$Payload='bin/SWSimTool.SolidWorks/Release/net48',[switch]$ExpectKnownFailure)
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $bin=Join-Path $root ('build/'+$Payload)
 $sdk='D:/sw/sw2025/SOLIDWORKS'
 $refs=@("$bin/SWSimTool.dll","$bin/SWSimTool.Core.dll","$bin/SWSimTool.Application.dll","$bin/SWSimTool.Infrastructure.dll","$bin/MathNet.Numerics.dll","$root/build/bin/SWSimTool.Tests/Release/net48/Moq.dll","$root/build/bin/SWSimTool.Tests/Release/net48/Castle.Core.dll","$sdk/SolidWorks.Interop.sldworks.dll",'System.Core','System.Xml','System.Runtime.Serialization','System.Web.Extensions','System.Windows.Forms')
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
+[SWSimTool.Utilities.Logger].GetField('Initialized',[Reflection.BindingFlags]'NonPublic,Static').SetValue($null,$true)
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.IO;using System.Reflection;using System.Runtime.Serialization;using System.Linq;using Moq;using SolidWorks.Interop.sldworks;using SWSimTool.Simulation;using SWSimTool.URDF;using SWSimTool.URDFExport;
 public static class ConfigurationRebuildTest {
@@ -29,8 +30,19 @@ public static class ConfigurationRebuildTest {
   else {if(!rejected||raw!=savedBefore||contaminated)throw new Exception("Old page contaminated replacement node");Console.WriteLine("PASS: stale save rejected without modifying replacement configuration");}
   if(now.attachments.Count>0){if(StableReferences.LinkNames(newTree).ContainsKey(now.attachments[0].link_id))throw new Exception("Dangling ID unexpectedly matched");Console.WriteLine("Unknown stable reference: "+now.attachments[0].link_id+" (site_pitch1 parent link pitch1)");}
   var duplicate=tree();var extra=new Link(duplicate.Link);extra.Name="other";extra.Joint.Name="pitch1_joint";duplicate.Nodes.Add(new LinkNode(extra));bool duplicateRejected=false;
-  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(ArgumentException e){duplicateRejected=true;Console.WriteLine("REPRODUCED independent duplicate joint-name key: "+e.Message);}
+  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(Exception e){duplicateRejected=true;Console.WriteLine("PASS duplicate joint-name diagnostic: "+e.Message);}
   if(!duplicateRejected)throw new Exception("Duplicate joint-name case did not fail");
+  if(!knownFailure){
+   var freshPage=new AttachmentService(helper);var anotherPage=new AttachmentService(helper);
+   if(!Object.ReferenceEquals(freshPage.Project,anotherPage.Project)||!Object.ReferenceEquals(freshPage.Editing.Tree,anotherPage.Editing.Tree))throw new Exception("Pages do not share complete draft");
+   freshPage.Project.solver=new SolverSettings{enabled=true,timestep=.002};anotherPage.Project.attachments.Add(new Attachment{name="unsaved",link="pitch1"});
+   if(freshPage.Project.attachments.Count!=1||anotherPage.Project.solver.timestep!=.002)throw new Exception("Unsaved edits lost between pages");
+   int flushed=0;Action flush=()=>flushed++;freshPage.Editing.Register(flush);anotherPage.Editing.Flush();freshPage.Editing.Unregister(flush);
+   if(flushed!=1)throw new Exception("Complete draft did not flush all pages");
+   bool staleRebuild=false;try{oldPage.RebuildCurrentDraft();}catch(InvalidDataException){staleRebuild=true;}
+   if(!staleRebuild||raw!=savedBefore)throw new Exception("Stale rebuild changed new configuration");
+   Console.WriteLine("PASS: complete unsaved draft shared; stale rebuild rejected before CAD or writes");
+  }
  }
 }
 '@
