@@ -39,8 +39,16 @@ public static class ConfigurationRebuildTest {
    Console.WriteLine("PASS: normal save retains IDs; old revisions, configuration switch and close invalidate leases");
   }
   var duplicate=tree();var extra=new Link(duplicate.Link);extra.Name="other";extra.Joint.Name="pitch1_joint";duplicate.Nodes.Add(new LinkNode(extra));bool duplicateRejected=false;
-  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(ArgumentException e){duplicateRejected=true;Console.WriteLine("REPRODUCED independent duplicate joint-name key: "+e.Message);}
+  try{JointDescriptor.FromTree(duplicate).ToDictionary(x=>x.name);}catch(ArgumentException e){if(!knownFailure)throw;duplicateRejected=true;Console.WriteLine("REPRODUCED independent duplicate joint-name key: "+e.Message);}catch(InvalidDataException e){if(!e.Message.Contains("pitch1_joint")||!e.Message.Contains("/base/pitch1")||!e.Message.Contains("/base/other"))throw;duplicateRejected=true;Console.WriteLine("PASS: duplicate joint name has both object paths: "+e.Message);}
   if(!duplicateRejected)throw new Exception("Duplicate joint-name case did not fail");
+  if(!knownFailure){
+   var editable=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(duplicate),1.4);((LinkNode)editable.Nodes[1]).Link.Joint.Name="other_joint";StableReferences.ValidateIdentities(editable);Console.WriteLine("PASS: duplicate names can be loaded into URDF editor and explicitly corrected");
+   duplicate=tree();var copy=((LinkNode)duplicate.Nodes[0]).Link.Clone();copy.Name="renamed_copy";duplicate.Nodes.Add(new LinkNode(copy));bool caught=false;
+   try{StableReferences.ValidateIdentities(duplicate);}catch(InvalidDataException e){caught=e.Message.Contains("link ID")&&e.Message.Contains("renamed_copy");}
+   if(!caught)throw new Exception("Duplicate ID silently accepted");Console.WriteLine("PASS: duplicate link ID rejected with object paths");
+   var conflict=new SimulationProject();conflict.attachments.Add(new Attachment{id="same",name="one"});conflict.attachments.Add(new Attachment{id="same",name="two"});caught=false;
+   try{conflict.NormalizeSiteReferences();}catch(InvalidDataException e){caught=e.Message.Contains("same")&&e.Message.Contains("site[0]")&&e.Message.Contains("site[1]");}if(!caught)throw new Exception("Site duplicate diagnostic missing paths");Console.WriteLine("PASS: duplicate configuration ID includes both collection paths");
+  }
  }
 }
 '@

@@ -15,6 +15,7 @@ namespace SWSimTool.Simulation
         static CadSourceSnapshot Build(SldWorks app,ModelDoc2 document,string workspace,SimulationProject project,Func<ExportHelper,SWSimTool.URDF.LinkNode,string,CadSourceSnapshot> buildSource)
         {
             bool error;var tree=ConfigurationSerialization.LoadBaseNodeFromModel(document,out error);
+            StableReferences.ValidateIdentities(tree);
             if(error||tree==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
             CadTreeReferences.Normalize(document,tree,true);
             LoadComponents(document,tree);

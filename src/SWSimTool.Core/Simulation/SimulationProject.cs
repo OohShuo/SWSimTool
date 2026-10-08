@@ -169,6 +169,7 @@ namespace SWSimTool.Simulation
         public bool joint_defaults { get; set; } = true;
 
         public void NormalizeSiteReferences(){
+            ConfigurationIdentityValidation.Validate(this);
             var ids=new HashSet<string>();foreach(var a in attachments){if(string.IsNullOrWhiteSpace(a.id))a.id=Guid.NewGuid().ToString("N");if(!ids.Add(a.id))throw new InvalidDataException("site 内部 ID 重复。");}
             if(site_forces==null)throw new InvalidDataException("两点作用力配置不完整。");
             foreach(var force in site_forces){var a=FindSite(force.site1_id,force.site1);var b=FindSite(force.site2_id,force.site2);if(a!=null){force.site1_id=a.id;force.site1=a.name;}else if(string.IsNullOrWhiteSpace(force.site1_id)&&!string.IsNullOrWhiteSpace(force.site1))force.site1_id=Guid.NewGuid().ToString("N");if(b!=null){force.site2_id=b.id;force.site2=b.name;}else if(string.IsNullOrWhiteSpace(force.site2_id)&&!string.IsNullOrWhiteSpace(force.site2))force.site2_id=Guid.NewGuid().ToString("N");}
