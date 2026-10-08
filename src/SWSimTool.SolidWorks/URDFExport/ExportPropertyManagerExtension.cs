@@ -41,7 +41,8 @@ namespace SWSimTool.URDFExport
         {
             Exporter.Simulation?.RequireCurrentDocument();
             CommonSwOperations.RetrieveSWComponentPIDs(model, BaseNode);
-            ConfigurationSerialization.SaveConfigTreeXML(swApp, model, BaseNode, warnUser,Exporter.Simulation?.Project);
+            Exporter.GetSimulation().DraftTree=BaseNode.Snapshot();
+            Exporter.GetSimulation().Save();
             // SaveTree already normalizes the stored simulation. Do not write a second old draft.
             Exporter.Simulation?.ReloadSavedProject();
         }
@@ -504,7 +505,7 @@ namespace SWSimTool.URDFExport
         /// <returns>bool representing success of load. If false, PMPage should not open</returns>
         public bool LoadConfigTree()
         {
-            bool abortProcess=false;LinkNode baseNode = Exporter.GetSimulation().Editing.Tree;
+            bool abortProcess=false;LinkNode baseNode = Exporter.GetSimulation().DraftTree==null?null:new LinkNode(Exporter.GetSimulation().DraftTree.Clone());
 
             if (abortProcess)
             {
@@ -547,7 +548,7 @@ namespace SWSimTool.URDFExport
                 }
             }
 
-            Exporter.GetSimulation().Editing.Tree=baseNode;
+            Exporter.GetSimulation().DraftTree=baseNode.Snapshot();
             AddDocMenu(baseNode);
 
             Tree.Nodes.Clear();

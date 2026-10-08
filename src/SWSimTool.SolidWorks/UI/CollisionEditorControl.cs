@@ -32,7 +32,7 @@ namespace SWSimTool.UI
     }
     public sealed class CollisionEditorControl : UserControl
     {
-        readonly AttachmentService service;
+        bool ownsPage;readonly AttachmentService service;
         readonly SimulationProject draft;
         readonly Dictionary<string,string> linkIds;
         readonly CollisionPreview preview;
@@ -59,8 +59,8 @@ namespace SWSimTool.UI
         bool refreshReferences=true;
         public Action BeginSelection { get; set; }
         public CollisionEditorControl(AttachmentService service,string selectedLink)
-        {
-            this.service=service;draft=service.Project;draft.collision=draft.collision??new CollisionConfiguration();
+        {try{
+            this.service=service;service.BeginPage();ownsPage=true;draft=service.Project;draft.collision=draft.collision??new CollisionConfiguration();
             var identities=service.LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(draft,identities);linkIds=identities.ToDictionary(x=>x.Value,x=>x.Key);
             preview=new CollisionPreview(service);Dock=DockStyle.Fill;AutoScroll=false;
             configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
@@ -112,8 +112,8 @@ namespace SWSimTool.UI
             deny.Click+=(s,e)=>{var p=pairs.SelectedItem as CollisionPair;if(p!=null){draft.collision.allowed_pairs.Remove(p);RefreshPairs();}};
             save.Click+=(s,e)=>Guard(Save);disable.Checked=draft.collision.disable_internal;
             pairA.SelectedIndex=links.Length>0?0:-1;pairB.SelectedIndex=links.Length>1?1:-1;
-            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;service.Editing.Register(FlushDraft);RefreshList();RefreshPairs();cadTimer.Start();
-        }
+            loading=true;link.SelectedItem=links.Contains(selectedLink)?selectedLink:links.FirstOrDefault();loading=false;service.PageDraft.Flush=FlushDraft;RefreshList();RefreshPairs();cadTimer.Start();
+        }catch{Dispose();throw;}}
         static TableLayoutPanel Layout(Control parent){var p=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Padding=new Padding(4)};p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));parent.Controls.Add(p);return p;}
         static void Add(TableLayoutPanel parent,Control c){c.Dock=DockStyle.Top;c.Margin=new Padding(0,2,0,2);parent.Controls.Add(c);}
         void Field(TableLayoutPanel parent,string label,Control c){var row=new TableLayoutPanel{AutoSize=true,ColumnCount=1};row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));row.Controls.Add(new Label{Text=label,AutoSize=true,Anchor=AnchorStyles.Left});c.Dock=DockStyle.Fill;row.Controls.Add(c);Add(parent,row);rows[c]=row;}
@@ -206,6 +206,6 @@ namespace SWSimTool.UI
             foreach(var p in draft.collision.allowed_pairs){if(!frames.ContainsKey(p.link1)||!frames.ContainsKey(p.link2))throw new InvalidOperationException("允许碰撞对的 link 已失效。");if(draft.collision.Mode(linkIds[p.link1])=="none"||draft.collision.Mode(linkIds[p.link2])=="none")throw new InvalidOperationException("允许碰撞对不能引用无碰撞 link。");}
             draft.collision.disable_internal=disable.Checked;var previous=service.Project;service.Project=draft;try{service.Save();}catch{service.Project=previous;throw;}status.Text="已写入装配配置节点，请保存 .sldasm。";
         }
-        protected override void Dispose(bool disposing){if(disposing){service.Editing.Unregister(FlushDraft);timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+        protected override void Dispose(bool disposing){if(disposing){if(ownsPage){ownsPage=false;service.EndPage();}timer.Stop();timer.Dispose();cadTimer.Stop();cadTimer.Dispose();preview?.Dispose();}base.Dispose(disposing);}
     }
 }

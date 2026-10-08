@@ -273,42 +273,44 @@ namespace SWSimTool.SW
         public void RebuildConfiguration(){
             try{
                 ModelDoc2 model=SwApp.ActiveDoc;if(model==null)throw new InvalidOperationException("请先打开装配。");
-                var service=new ExportHelper((SldWorks)SwApp).GetSimulation();service.RequireCurrentDocument();service.Editing.Flush();
+                var service=new ExportHelper((SldWorks)SwApp).GetSimulation();service.RequireCurrentDocument();
                 if(MessageBox.Show("将使用当前完整编辑草稿（包含尚未保存的修改），全量替换当前 SolidWorks 配置条目，并保存为 SWSimTool Configuration。\n旧保存内容不会合并或补回；其他 SW 配置条目保留。执行前自动备份。零件、配合、草图和参考几何体不变。", "重建配置",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;
-                var reopen=service.Editing.ReopenPage??(Action)OpenUrdfConfiguration;var backup=service.RebuildCurrentDraft();
+                var reopen=lastConfigurationPage??(Action)OpenUrdfConfiguration;var backup=service.RebuildCurrentDraft();
                 var transition=new PropertyManagerTransition();transition.Post(()=>{try{if(ReferenceEquals(SwApp.ActiveDoc,model))reopen();}finally{transition.Dispose();}});
                 MessageBox.Show("重建完成。配置页面将重新加载，请保存装配。下一次导出会重新构建模型。\n备份："+backup,"SWSimTool");
             }catch(Exception e){logger.Error("Configuration rebuild failed",e);MessageBox.Show(e.Message,"SWSimTool 重建配置",MessageBoxButtons.OK,MessageBoxIcon.Error);}
         }
-        public void OpenUrdfConfiguration(){ModelDoc2 model=SwApp.ActiveDoc;if(model!=null)ConfigurationEditingContext.Get((SldWorks)SwApp,model).ReopenPage=OpenUrdfConfiguration;AssemblyURDFExporter();}
+        Action lastConfigurationPage;
+        public void OpenUrdfConfiguration(){lastConfigurationPage=OpenUrdfConfiguration;AssemblyURDFExporter();}
         public int UrdfEnableMethod(){ModelDoc2 model=SwApp.ActiveDoc;return model!=null&&(model.GetType()==(int)swDocumentTypes_e.swDocPART||model.GetType()==(int)swDocumentTypes_e.swDocASSEMBLY)?1:0;}
-        public void OpenUrdfExport(){ModelDoc2 model=SwApp.ActiveDoc;if(model!=null&&model.GetType()==(int)swDocumentTypes_e.swDocPART)PartURDFExporter();else AssemblyURDFExporter();}
+        public void OpenUrdfExport(){ModelDoc2 model=SwApp.ActiveDoc;if(!CanOpenExport(model))return;if(model!=null&&model.GetType()==(int)swDocumentTypes_e.swDocPART)PartURDFExporter();else AssemblyURDFExporter();}
+        bool CanOpenExport(ModelDoc2 model){if(model==null)return false;if(ConfigurationPageDraft.Active(model)==null)return true;MessageBox.Show("请先确认或取消当前配置页面，再导出。若要使用未保存输入，请选择重建配置。","SWSimTool");return false;}
         public void OpenLocalExport(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Local));}
         public void OpenExistingPreview(){ShowTools(new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Preview));}
         public void OpenProjectExport(){
-            ModelDoc2 model=SwApp.ActiveDoc;if(model==null)return;string configuration=model.ConfigurationManager.ActiveConfiguration.Name;
+            ModelDoc2 model=SwApp.ActiveDoc;if(model==null||!CanOpenExport(model))return;string configuration=model.ConfigurationManager.ActiveConfiguration.Name;
             var form=new MuJoCoToolsForm(MuJoCoSettings.DefaultPath,null,MuJoCoToolMode.Project,()=>new ProjectExport((SldWorks)SwApp,model,configuration));
             form.SetProjectName(System.IO.Path.GetFileNameWithoutExtension(model.GetTitle()));ShowTools(form);
         }
         void ShowTools(MuJoCoToolsForm form){if(muJoCoTools!=null&&!muJoCoTools.IsDisposed){muJoCoTools.Close();if(!muJoCoTools.IsDisposed){form.Dispose();return;}}muJoCoTools=form;form.Show();form.BringToFront();}
         private JointPropertyManager jointPage;
-        SWSimTool.URDF.LinkNode LoadEditingTree(ModelDoc2 model,out bool error){error=false;var context=ConfigurationEditingContext.Get((SldWorks)SwApp,model);context.Flush();return context.Tree;}
+        SWSimTool.URDF.LinkNode LoadEditingTree(ModelDoc2 model,out bool error){error=false;var context=ConfigurationEditingContext.Get((SldWorks)SwApp,model);ConfigurationPageDraft.RequireAvailable(model);return context.Tree==null?null:new SWSimTool.URDF.LinkNode(context.Tree.Clone());}
         public void OpenJointConfiguration(){
             try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=LoadEditingTree(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
-                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().Editing.ReopenPage=OpenJointConfiguration;helper.GetSimulation().SetCollisionTree(root);
-                jointPage=new JointPropertyManager(helper.GetSimulation(),JointDescriptor.FromTree(root));jointPage.Show();
+                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);lastConfigurationPage=OpenJointConfiguration;helper.GetSimulation().SetCollisionTree(root);
+                jointPage=new JointPropertyManager(helper.GetSimulation(),JointDescriptor.FromTree(root));var opened=jointPage;opened.Closed=()=>{if(ReferenceEquals(jointPage,opened))jointPage=null;};opened.Show();
             }catch(Exception e){MessageBox.Show(e.Message,"SWSimTool 关节配置");}
         }
         private SimulationPropertyManager simulationPage;
         public void OpenSimulationConfiguration(){
             try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=LoadEditingTree(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");
-                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().Editing.ReopenPage=OpenSimulationConfiguration;helper.GetSimulation().SetCollisionTree(root);
-                simulationPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child));simulationPage.Show();
+                CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);lastConfigurationPage=OpenSimulationConfiguration;helper.GetSimulation().SetCollisionTree(root);
+                simulationPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child));var opened=simulationPage;opened.Closed=()=>{if(ReferenceEquals(simulationPage,opened))simulationPage=null;};opened.Show();
             }catch(Exception e){MessageBox.Show(e.Message,"SWSimTool 仿真配置");}
         }
         private SimulationPropertyManager constraintPage;
         public void OpenConstraintConfiguration(){
-            try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=LoadEditingTree(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);helper.GetSimulation().Editing.ReopenPage=OpenConstraintConfiguration;helper.GetSimulation().SetCollisionTree(root);constraintPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child),true);constraintPage.Show();}catch(Exception e){MessageBox.Show(e.Message,"SWSimTool 约束配置");}
+            try{ModelDoc2 model=SwApp.ActiveDoc;bool error;var root=LoadEditingTree(model,out error);if(error||root==null)throw new InvalidOperationException("请先配置并保存 URDF 树。");CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());var helper=new ExportHelper((SldWorks)SwApp);lastConfigurationPage=OpenConstraintConfiguration;helper.GetSimulation().SetCollisionTree(root);constraintPage=new SimulationPropertyManager(helper.GetSimulation(),root.Link.Name,JointDescriptor.FromTree(root).Where(d=>new[]{"revolute","continuous","prismatic"}.Contains(d.type)).ToDictionary(d=>d.name,d=>d.child),true);var opened=constraintPage;opened.Closed=()=>{if(ReferenceEquals(constraintPage,opened))constraintPage=null;};opened.Show();}catch(Exception e){MessageBox.Show(e.Message,"SWSimTool 约束配置");}
         }
         public void OpenMuJoCoTools()
         {
@@ -339,9 +341,9 @@ namespace SWSimTool.SW
                 if(error||root==null)throw new InvalidOperationException("请先使用 URDF 配置并保存 link 树。");
                 CommonSwOperations.LoadSWComponents(model,root,new System.Collections.Generic.List<string>());
                 var helper=new ExportHelper((SldWorks)SwApp);
-                helper.GetSimulation().Editing.ReopenPage=OpenCollisionConfiguration;helper.GetSimulation().SetCollisionTree(root);
+                lastConfigurationPage=OpenCollisionConfiguration;helper.GetSimulation().SetCollisionTree(root);
                 collisionPage=new SWSimTool.UI.CollisionPropertyManager(helper.GetSimulation(),root.Link.Name);
-                collisionPage.Show();
+                var opened=collisionPage;opened.Closed=()=>{if(ReferenceEquals(collisionPage,opened))collisionPage=null;};opened.Show();
             }
             catch(Exception e){MessageBox.Show(e.Message,"碰撞配置",MessageBoxButtons.OK,MessageBoxIcon.Error);}
         }
@@ -361,6 +363,7 @@ namespace SWSimTool.SW
 
         public void SetupAssemblyExporter()
         {
+            ConfigurationPageDraft.RequireAvailable(SwApp.ActiveDoc);
             ModelDoc2 modeldoc = SwApp.ActiveDoc;
             logger.Info("Assembly export called for file " + modeldoc.GetTitle());
             bool saveAndRebuild = false;
@@ -407,6 +410,7 @@ namespace SWSimTool.SW
         public void SetupPropertyManager()
         {
             ExportPropertyManager pm = new ExportPropertyManager((SldWorks)SwApp);
+            try{
             logger.Info("Loading config tree");
             bool success = pm.LoadConfigTree();
 
@@ -415,6 +419,8 @@ namespace SWSimTool.SW
                 logger.Info("Showing property manager");
                 pm.Show();
             }
+            else pm.ReleasePage();
+            }catch{pm.ReleasePage();throw;}
         }
 
         public void SetupPartExporter()

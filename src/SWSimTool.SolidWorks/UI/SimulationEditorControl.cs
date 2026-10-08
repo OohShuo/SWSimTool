@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 namespace SWSimTool.UI {
  public sealed class SimulationEditorControl:UserControl {
-  readonly AttachmentService service;
+  bool ownsPage;readonly AttachmentService service;
   readonly SimulationProject draft;
   readonly CollisionPreview preview;
   readonly ComboBox link=new CollisionComboBox();
@@ -27,8 +27,8 @@ namespace SWSimTool.UI {
   Attachment armed;readonly bool constraintsOnly;EqualityConfig selectedEquality;SiteForceConfig selectedForce;
   bool loading;
   public Action BeginSelection{get;set;}
-  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){
-   this.service=service;this.constraintsOnly=constraintsOnly;jointOwners=joints;draft=service.Project;
+  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){try{
+   this.service=service;service.BeginPage();ownsPage=true;this.constraintsOnly=constraintsOnly;jointOwners=joints;draft=service.Project;
    draft.NormalizeSiteReferences();preview=new CollisionPreview(service);Dock=DockStyle.Fill;
    configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
    var tabs=new TabControl{Dock=DockStyle.Fill};Controls.Add(tabs);tabs.SelectedIndexChanged+=(s,e)=>{armed=null;};
@@ -50,8 +50,8 @@ namespace SWSimTool.UI {
    link.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;link.SelectedItem=displayedLink;loading=false;status.Text="请先修正无效数字。";return;}displayedLink=Owner;armed=null;Refresh();Schedule();};
    timer.Tick+=(s,e)=>{timer.Stop();Preview();};
    cadTimer.Tick+=(s,e)=>Guard(()=>{if(!CheckSession())return;if(service.Model.ConfigurationManager.ActiveConfiguration.Name!=configuration){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text="Configuration 已切换，请重新进入。";return;}string next=service.CollisionRevision;if(next!=revision){revision=next;Schedule();}});
-   service.Editing.Register(FlushDraft);Refresh();cadTimer.Start();Schedule();
-  }
+   service.PageDraft.Flush=FlushDraft;Refresh();cadTimer.Start();Schedule();
+  }catch{Dispose();throw;}}
   void Section(TableLayoutPanel parent,Func<bool> visible,Action<TableLayoutPanel> build){var host=Layout(parent);Add(parent,host);build(host);conditions.Add(()=>{bool enabled=visible();host.Visible=host.Enabled=enabled;foreach(var box in Descendants(host).OfType<TextBox>()){if(!enabled)invalid.Remove(box);else (box.Tag as Action)?.Invoke();}});}
   void SiteChoice(TableLayoutPanel p,object item,string key,string title,Func<bool> allowPoint){
    var name=item.GetType().GetProperty(key);var id=item.GetType().GetProperty(key+"_id");var box=new CollisionComboBox();Field(p,title,box);var owner=new Label{AutoSize=true};Add(p,owner);
@@ -161,6 +161,6 @@ namespace SWSimTool.UI {
   }
   bool CheckSession(){try{service.RequireCurrentDocument();return true;}catch(System.IO.InvalidDataException e){timer.Stop();cadTimer.Stop();preview.Clear();Enabled=false;status.Text=e.Message;return false;}}
         void FlushDraft(){ValidateChildren();if(invalid.Count>0)throw new InvalidOperationException("请修正仿真配置中的无效数字。");}
-  protected override void Dispose(bool disposing){if(disposing){service.Editing.Unregister(FlushDraft);timer.Dispose();cadTimer.Dispose();preview.Dispose();}base.Dispose(disposing);}
+  protected override void Dispose(bool disposing){if(disposing){if(ownsPage){ownsPage=false;service.EndPage();}timer.Dispose();cadTimer.Dispose();preview?.Dispose();}base.Dispose(disposing);}
  }
 }

@@ -114,10 +114,13 @@ namespace SWSimTool.URDFExport
 
         #endregion class variables
 
+        bool retryClose,confirmedClose,ownsPage;
+        readonly SWSimTool.UI.PropertyManagerTransition closeTransition=new SWSimTool.UI.PropertyManagerTransition();
         public void Show()
         {
-            PMPage.Show2(0);
+            try{PMPage.Show2(0);}catch{ReleasePage();throw;}
         }
+        public void ReleasePage(){if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();}
 
         public void Close(bool ok)
         {
@@ -126,7 +129,7 @@ namespace SWSimTool.URDFExport
 
         //The following runs when a new instance of the class is created
         public ExportPropertyManager(SldWorks swAppPtr)
-        {
+        {try{
             swApp = swAppPtr;
             ActiveSWModel = swApp.ActiveDoc;
             Exporter = new ExportHelper(swApp);
@@ -143,7 +146,7 @@ namespace SWSimTool.URDFExport
             int alignment = 0;
 
 
-            Exporter.GetSimulation().Editing.Register(FlushEditingDraft);
+            Exporter.GetSimulation().BeginPage();ownsPage=true;Exporter.GetSimulation().PageDraft.Flush=FlushEditingDraft;Exporter.GetSimulation().PageDraft.Close=()=>Close(false);
 
             #region Create and instantiate components of PM page
 
@@ -167,12 +170,11 @@ namespace SWSimTool.URDFExport
             {
                 //If the page is not created
                 logger.Error("An error occurred while attempting to create the PropertyManager Page\nError: " + longerrors);
-                MessageBox.Show("There was a problem setting up the property manager: " +
-                    "\nEmail your maintainer with the log file found at " + Logger.GetFileName());
+                throw new InvalidOperationException("无法创建 URDF 配置页面："+longerrors);
             }
 
             #endregion Create and instantiate components of PM page
-        }
+        }catch{if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();throw;}}
 
         private void ExceptionHandler(object sender, ThreadExceptionEventArgs e)
         {
@@ -210,7 +212,8 @@ namespace SWSimTool.URDFExport
             if (CheckIfNamesAreUnique((LinkNode)Tree.Nodes[0]) && CheckNodesComplete(Tree))
             {
                 //It saves automatically when sending Okay as true;
-                PMPage.Close(true); 
+                var exportNode=new LinkNode(((LinkNode)Tree.Nodes[0]).Snapshot());
+                confirmedClose=false;PMPage.Close(true);if(!confirmedClose)return;
                 AssemblyDoc assy = (AssemblyDoc)ActiveSWModel;
 
                 //This call can be a real sink of processing time if the model is large.
@@ -222,7 +225,7 @@ namespace SWSimTool.URDFExport
                 if (result == (int)swComponentResolveStatus_e.swResolveOk)
                 {
                     List<string> unresolvedComponents = new List<string>();
-                    CheckModelDocsExist((LinkNode)Tree.Nodes[0], unresolvedComponents);
+                    CheckModelDocsExist(exportNode, unresolvedComponents);
                     if (unresolvedComponents.Count > 0)
                     {
                         string componentNames = string.Join("\r\n", unresolvedComponents);
@@ -234,9 +237,8 @@ namespace SWSimTool.URDFExport
                     }
 
                     // Builds the links and joints from the PMPage configuration
-                    LinkNode BaseNode = (LinkNode)Tree.Nodes[0];
+                    LinkNode BaseNode = exportNode;
                     automaticallySwitched = true;
-                    Tree.Nodes.Remove(BaseNode);
 
                     bool exportSuccess = Exporter.CreateRobotFromTreeView(BaseNode);
                     if (exportSuccess)
@@ -336,7 +338,7 @@ namespace SWSimTool.URDFExport
                 logger.Warn("Loading a configuration with an incomplete export");
                 if (MessageBox.Show(
                     "This model has not been fully exported and saved. Merging may result in an incomplete URDF, " +
-                    "would you like to continue?", "Continue with incomplete export?", MessageBoxButtons.YesNo) == 
+                    "would you like to continue?", "Continue with incomplete export?", MessageBoxButtons.YesNo) ==
                         DialogResult.No) {
                     return;
                 }
@@ -410,7 +412,7 @@ namespace SWSimTool.URDFExport
 
         void FlushEditingDraft(){
             Exporter.GetSimulation().RequireCurrentDocument();SaveActiveNode();
-            if(Tree.Nodes.Count>0){var root=(LinkNode)Tree.Nodes[0];CommonSwOperations.RetrieveSWComponentPIDs(ActiveSWModel,root);Exporter.GetSimulation().Editing.Tree=root;}
+            if(Tree.Nodes.Count>0){var root=(LinkNode)Tree.Nodes[0];CommonSwOperations.RetrieveSWComponentPIDs(ActiveSWModel,root);Exporter.GetSimulation().DraftTree=root.Snapshot();}
         }
         void IPropertyManagerPage2Handler9.OnClose(int Reason)
         {
@@ -420,7 +422,6 @@ namespace SWSimTool.URDFExport
                     (int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Cancel)
                 {
                     logger.Info("Configuration canceled");
-                    SaveActiveNode();
                 }
                 else if (Reason ==
                     (int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay)
@@ -428,15 +429,16 @@ namespace SWSimTool.URDFExport
                     logger.Info("Configuration saved");
                     SaveActiveNode();
                     SaveConfigTree(ActiveSWModel, (LinkNode)Tree.Nodes[0], false);
+                    confirmedClose=true;
                 }
             }
             catch (Exception e)
             {
-                logger.Error("Exception caught on close ", e);
+                retryClose=true;logger.Error("Exception caught on close ", e);
                 MessageBox.Show("There was a problem closing the property manager: \n\"" +
                     e.Message + "\"\nEmail your maintainer with the log file found at " + Logger.GetFileName());
             }
-            finally{Exporter.GetSimulation().Editing.Unregister(FlushEditingDraft);}
+
         }
 
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id)
@@ -692,9 +694,8 @@ namespace SWSimTool.URDFExport
             // If the it was dropped into the box itself, but not onto an actual node
             targetNode = targetNode ?? (LinkNode)Tree.TopNode;
 
-            draggedNode.Remove();
-            targetNode.Nodes.Add(draggedNode);
-            targetNode.ExpandAll();
+            if(!LinkNode.CanMove(draggedNode,targetNode))return;
+            LinkNode.Move(draggedNode,targetNode);targetNode.ExpandAll();
         }
 
         private void TreeDragDrop(object sender, DragEventArgs e)
@@ -747,7 +748,7 @@ namespace SWSimTool.URDFExport
             alignment = (int)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge;
             options = (int)swAddControlOptions_e.swControlOptions_Visible +
                 (int)swAddControlOptions_e.swControlOptions_Enabled;
-            
+
             //Create the link name text box
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Textbox;
             caption = "base_link";
@@ -865,7 +866,7 @@ namespace SWSimTool.URDFExport
             alignment = (int)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge;
             options = (int)swAddControlOptions_e.swControlOptions_Visible +
                 (int)swAddControlOptions_e.swControlOptions_Enabled;
-            
+
             //Create selection box
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Selectionbox;
             caption = "Link Components";
@@ -894,7 +895,7 @@ namespace SWSimTool.URDFExport
             alignment = (int)swPropertyManagerPageControlLeftAlign_e.swControlAlign_LeftEdge;
             options = (int)swAddControlOptions_e.swControlOptions_Visible +
                 (int)swAddControlOptions_e.swControlOptions_Enabled;
-            
+
             //Create the number box
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Numberbox;
             caption = "";
@@ -1159,8 +1160,9 @@ namespace SWSimTool.URDFExport
 
         void IPropertyManagerPage2Handler9.AfterClose()
         {
-            logger.Info("AfterClose called. This method no longer throws an Exception. It just " +
-                "silently does nothing. Ok, except for this logging message");
+            if(retryClose){retryClose=false;closeTransition.Post(()=>PMPage.Show2(0));return;}
+            ReleasePage();
+
         }
 
         int IPropertyManagerPage2Handler9.OnActiveXControlCreated(int Id, bool Status)

@@ -15,9 +15,14 @@ namespace SWSimTool.Simulation
     {
         private readonly ExportHelper exporter;
         public ConfigurationEditingContext Editing {get;private set;}
-        public SimulationProject Project { get=>Editing.Project; set=>Editing.Project=value; }
+        public SWSimTool.UI.ConfigurationPageDraft PageDraft {get;private set;}
+        public SimulationProject Project { get=>PageDraft==null?Editing.Project:PageDraft.Project; set{if(PageDraft==null)Editing.Project=value;else PageDraft.Project=value;} }
+        public Link DraftTree {get=>PageDraft==null?Editing.Tree:PageDraft.Tree;set{if(PageDraft==null)Editing.Tree=value;else PageDraft.Tree=value;} }
+        public void BeginPage(){if(PageDraft!=null)throw new InvalidOperationException("此服务已被活动配置页面使用。");PageDraft=SWSimTool.UI.ConfigurationPageDraft.Open(Model,Editing);}
+        public void EndPage(){PageDraft?.Dispose();PageDraft=null;}
+        public void FlushPage(){PageDraft?.Collect();}
         ConfigurationSession session=>Editing.Session;
-        public void RequireCurrentDocument(){session?.RequireCurrent();}
+        public void RequireCurrentDocument(){session?.RequireCurrent();PageDraft?.RequireCurrent();}
         public void ReloadSavedProject(){session.Refresh();}
         public string ProjectPath => exporter.ActiveSWModel.GetPathName() + ".swsimtool.json";
         public AttachmentService(ExportHelper exporter,bool isolated=false)
@@ -28,15 +33,27 @@ namespace SWSimTool.Simulation
         public void Save()
         {
             RequireCurrentDocument();
-            Project.NormalizeSiteReferences();
-            Project.ValidateSolver();
+            FlushPage();
+            var candidate=ConfigurationEditingContext.CopyProject(Project);
+            var tree=DraftTree?.Clone();
+            candidate.NormalizeSiteReferences();
+            candidate.ValidateSolver();
             if (string.IsNullOrEmpty(exporter.ActiveSWModel.GetPathName())) throw new InvalidOperationException("Save the assembly first.");
-            Project.assembly = exporter.ActiveSWModel.GetPathName();
-            Project.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
-            Editing.Flush();
-            if(Editing.Tree!=null)SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteTree(Editing.Tree),1.4,Project);
-            else SimulationStorage.Save(App,Model,Project);
+            candidate.assembly = exporter.ActiveSWModel.GetPathName();
+            candidate.configuration = exporter.ActiveSWModel.ConfigurationManager.ActiveConfiguration.Name;
+            if(tree!=null)SimulationStorage.SaveTree(App,Model,ConfigurationSerialization.WriteBusinessTree(tree),1.4,candidate);
+            else SimulationStorage.Save(App,Model,candidate);
             session?.Refresh();
+            Editing.Commit(candidate,tree);
+            if(PageDraft!=null)SyncSavedReferences(PageDraft.Project,candidate);
+        }
+        static void SyncSavedReferences(SimulationProject target,SimulationProject saved){
+            foreach(string group in new[]{"attachments","sensors","actuators","equalities","site_forces","joints","joint_force_limits"}){
+                var property=typeof(SimulationProject).GetProperty(group);
+                var a=(System.Collections.IList)property.GetValue(target);var b=(System.Collections.IList)property.GetValue(saved);
+                if(a.Count!=b.Count)throw new InvalidDataException("保存结果的对象数量与候选草稿不同。");
+                for(int i=0;i<a.Count;i++)foreach(var field in a[i].GetType().GetProperties())if(field.CanWrite&&(field.Name=="id"||field.Name.EndsWith("_id",StringComparison.Ordinal)))field.SetValue(a[i],field.GetValue(b[i]));
+            }
         }
         public sealed class Source
         {
