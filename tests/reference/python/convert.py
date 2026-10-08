@@ -1,6 +1,6 @@
 """Convert an unchanged SWSimTool URDF and its simulation sidecar to MJCF.
 
-CLI exports only MJCF XML and preprocessed STL copies under meshes/.
+Reference exports only MJCF XML and preprocessed STL copies under meshes/.
 Intermediate URDF and simulation snapshots remain in a temporary workspace.
 The original URDF, sidecar and meshes are never rewritten.
 """

@@ -19,6 +19,7 @@ class LayoutTests(unittest.TestCase):
   payload = ROOT / 'build/runtime-release'
   self.assertEqual({p.name.lower() for p in payload.glob('*.dll')}, {'swsimtool.dll','swsimtool.core.dll','swsimtool.application.dll','swsimtool.infrastructure.dll','csvhelper.dll','mathnet.numerics.dll','log4net.dll','solidworkstools.dll'})
   self.assertEqual({p.name for p in (payload/'mujoco_backend').glob('*.py')}, {'native_support.py','simplify_stl.py','mesh_cache.py','incremental.py','solver.py'})
+  self.assertFalse(any(p.suffix.lower()=='.exe' or p.name.lower().startswith('swsimtool.candidate') or p.name.lower().startswith('swsimtool.cli') for p in payload.rglob('*') if p.is_file()))
  def test_source_roots_and_test_split(self):
   self.assertFalse((ROOT/'scripts').exists())
   self.assertFalse((ROOT/'TestRunner').exists())

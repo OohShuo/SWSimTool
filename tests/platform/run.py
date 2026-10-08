@@ -26,9 +26,9 @@ def run(name,command,environment=env):
         raise SystemExit(result.returncode)
     print('PASS:',name,flush=True)
 if not args.no_build:
-    for name,path in [('candidate','tests/parity/CandidateRunner.csproj'),('cli','src/SWSimTool.Cli/SWSimTool.Cli.csproj')]:
+    for name,path in [('candidate','tests/parity/CandidateRunner.csproj')]:
         command=['dotnet','build',path,'-c','Release']
-        if name!='candidate' or os.name!='nt':command+=['-f','net8.0']
+        if os.name!='nt':command+=['-f','net8.0']
         run('build-'+name,command)
 run('modern-host',[sys.executable,'tests/targets/Test-ModernHost.py'])
 run('platform-paths',[sys.executable,'tests/platform/test_paths.py'])

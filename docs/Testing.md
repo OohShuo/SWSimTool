@@ -27,13 +27,15 @@ On Windows or Linux with a .NET SDK, Python/MuJoCo, fast-simplification and PyMe
 python -B tests/platform/run.py
 ```
 
-This builds the actual net8 CLI and reusable layers, exercises frozen storage, Unicode CLI paths, typed tool faults, backend regressions and all 14 native parity suites under en-US, zh-CN and de-DE. Windows additionally compares net48 storage; Linux checks case-distinct mesh mutation detection, unrelated case-distinct package files and symlink refusal. Timeout, cancellation and normal root exit with a pipe-owning child all require owned-tree termination. A Linux zombie is non-executing and is reported as terminated; live children are never accepted.
+This builds the actual net8 reusable layers through the test-only CandidateRunner, exercises frozen storage, Unicode local-file API paths, typed tool faults, backend regressions and all 14 native parity suites under en-US, zh-CN and de-DE. Windows additionally compares net48 storage; Linux checks case-distinct mesh mutation detection, unrelated case-distinct package files and symlink refusal. Timeout, cancellation and normal root exit with a pipe-owning child all require owned-tree termination. A Linux zombie is non-executing and is reported as terminated; live children are never accepted.
 
 Output is isolated below `build/reports/platform/<system>/`. Repeated runs must archive or remove their own previous culture output first; stale evidence cannot silently pass. Copy both OS output sets to the same platform directory, then run:
 
 ```sh
 python -B tests/platform/compare.py
 ```
+
+Local-file API coverage runs through `tests/parity/LocalBackendFixture.cs` inside the existing CandidateRunner test project. It calls the production `NativeBackend.LoadLocal`, `NativeBackend.RunAsync` and `PythonToolBackend.ValidateAsync` directly. Unicode paths, malformed inputs, missing runtime, compile failure, previous-package preservation, case-sensitive paths and symlink refusal remain covered. This adapter is not published or installed, creates no model file protocol and contains no MJCF generation implementation. Product-only argument parsing/help tests were removed with the standalone host; cancellation, timeout and child cleanup remain in the tool contract suite.
 
 The comparator requires all six OS/culture sets and exact frozen raw/typed storage equality. It compiles every captured candidate fixture and applies the existing 1e-9 structural/physical tolerance and 2e-7 dynamic tolerance at 1/10/100 steps. XML structure, ordering and reference names must match; numeric attributes use the existing 1e-9 bound. Within each OS, all three cultures must produce identical XML after newline normalization. Cross-OS text differences are recorded: actual Linux/Windows runs showed last-bit trigonometric and inertia rounding differences (for example 0.7071067811865475 versus 0.7071067811865476). Compiled semantics and dynamics are the acceptance gates, rather than cross-OS byte equality. No physical tolerance is widened for Linux. CI uses the same MuJoCo/numpy versions on both platforms; these are test environment pins, not runtime restrictions.
 

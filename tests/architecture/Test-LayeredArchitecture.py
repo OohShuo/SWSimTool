@@ -40,11 +40,10 @@ class Architecture(unittest.TestCase):
             self.assertEqual(project.findtext('.//TargetFrameworks'), 'net48;net8.0')
         _, host = self.project('SolidWorks')
         self.assertEqual(host.findtext('.//TargetFramework'), 'net48')
-        _, cli = self.project('Cli')
-        self.assertEqual(cli.findtext('.//TargetFramework'), 'net8.0')
-        source = (ROOT / 'src/SWSimTool.Cli/Program.cs').read_text(encoding='utf-8-sig')
-        self.assertIn('NativeBackend.RunAsync', source)
-        self.assertNotRegex(source, r'SolidWorks\.Interop|MjcfExporter\.Generate|BuildReference')
+        self.assertEqual({p.name for p in (ROOT/'src').iterdir() if p.is_dir()}, {'SWSimTool.Core','SWSimTool.Application','SWSimTool.Infrastructure','SWSimTool.SolidWorks'})
+        source=(ROOT/'tests/parity/LocalBackendFixture.cs').read_text(encoding='utf-8')
+        self.assertIn('NativeBackend.RunAsync',source)
+        self.assertNotRegex(source,r'SolidWorks\.Interop|MjcfExporter\.Generate|BuildReference')
 
     def test_production_contract_is_native_only(self):
         source = (ROOT / 'src/SWSimTool.Application/Simulation/ProjectSourceCoordinator.cs').read_text(encoding='utf-8')

@@ -1,4 +1,4 @@
-"""Portable CLI contract and old storage cross-target equality; no CAD access."""
+"""Portable API fixture contract and old storage cross-target equality; no CAD access."""
 from pathlib import Path
 import json
 import os
@@ -9,7 +9,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tests/backend'))
 from test_convert import URDF
-CLI=['dotnet',str(ROOT/'build/bin/SWSimTool.Cli/Release/net8.0/SWSimTool.Cli.dll')]
 NET8=['dotnet',str(ROOT/'build/bin/CandidateRunner/Release/net8.0/SWSimTool.CandidateRunner.dll')]
 NET48=[str(ROOT/'build/bin/CandidateRunner/Release/net48/SWSimTool.CandidateRunner.exe')]
 
@@ -32,30 +31,27 @@ class ModernHost(unittest.TestCase):
             artifact=os.getenv('SWSIMTOOL_STORAGE_ARTIFACT')
             if artifact:Path(artifact).write_text(json.dumps(outputs[-1],ensure_ascii=False),encoding='utf-8')
 
-    def test_cli_failure_contract_and_unicode_export(self):
-        self.assertEqual(self.run_command(CLI,'--help').returncode,0)
-        for args in ([],['unknown'],['export','--urdf'],['inspect','--oops','x'],['inspect','--urdf','a','--urdf','b']):
-            self.assertEqual(self.run_command(CLI,*args).returncode,2,args)
+    def test_native_api_failure_contract_and_unicode_export(self):
         with tempfile.TemporaryDirectory(prefix='SWSimTool 中文 空格-',dir=ROOT/'build/test-work') as name:
             folder=Path(name);urdf=folder/'机器人.urdf';urdf.write_text(URDF,encoding='utf-8')
-            result=self.run_command(CLI,'inspect','--urdf',urdf)
+            result=self.run_command(NET8,'--local-load',urdf)
             self.assertEqual(result.returncode,0,result.stderr)
-            self.assertEqual(json.loads(result.stdout)['links'],3)
+            self.assertEqual(int(result.stdout.strip()),3)
             requested=folder/'out'/'机器人.xml'
-            result=self.run_command(CLI,'export','--urdf',urdf,'--output',requested,'--python',sys.executable)
+            result=self.run_command(NET8,'--local-export',sys.executable,urdf,requested)
             self.assertEqual(result.returncode,0,result.stderr)
             outputs=list((folder/'out').rglob('*.xml'))
             self.assertEqual(len(outputs),1)
             output=outputs[0];before=output.read_bytes()
-            result=self.run_command(CLI,'validate','--mjcf',output,'--python',sys.executable)
+            result=self.run_command(NET8,'--local-validate',sys.executable,output)
             self.assertEqual(result.returncode,0,result.stderr)
-            result=self.run_command(CLI,'export','--urdf',urdf,'--output',requested,'--python',folder/'missing-python.exe')
+            result=self.run_command(NET8,'--local-export',folder/'missing-python.exe',urdf,requested)
             self.assertNotEqual(result.returncode,0)
             self.assertEqual(output.read_bytes(),before)
             self.assertTrue(all(p.suffix in ('.xml','.stl') for p in output.parent.rglob('*') if p.is_file()))
             invalid=folder/'invalid.xml';invalid.write_text('<broken>',encoding='utf-8')
-            self.assertNotEqual(self.run_command(CLI,'validate','--mjcf',invalid,'--python',sys.executable).returncode,0)
-            self.assertNotEqual(self.run_command(CLI,'inspect','--urdf',folder/'missing.urdf').returncode,0)
+            self.assertNotEqual(self.run_command(NET8,'--local-validate',sys.executable,invalid).returncode,0)
+            self.assertNotEqual(self.run_command(NET8,'--local-load',folder/'missing.urdf').returncode,0)
 
     def test_net8_domain_and_tool_faults(self):
         for args in (['--selftest'],['--tooltest',sys.executable,ROOT/'tests/tools/fake_tool.py']):

@@ -59,6 +59,6 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 
 构建验证与 CI 的分层入口见 [测试说明](docs/Testing.md)。
 
-独立的 .NET 8 命令行宿主见 [CLI 使用方法](docs/CLI.md)。SolidWorks 插件继续使用 net48。
+产品仅提供 SolidWorks 插件入口（net48）；Core、Application 和 Infrastructure 保留 net48/net8.0 双目标，现代 .NET 测试宿主仅用于自动化验证，不对外发布。
 
-可复用层及 CLI 已在 Windows 和实际 Linux 环境通过三种语言区域的验证：31 个模型、155 次跨平台编译语义与动力学比较，保持原有容差。架构见 [Architecture](docs/Architecture.md)，运行方法及验收范围见 [Testing](docs/Testing.md)。GitHub 工作流已配置，本地等价验证已执行；远程工作流与 GUI 视觉验收尚未执行。
+可复用层已在 Windows 和实际 Linux 环境通过三种语言区域的验证：31 个模型、155 次跨平台编译语义与动力学比较，保持原有容差。架构见 [Architecture](docs/Architecture.md)，运行方法及验收范围见 [Testing](docs/Testing.md)。GitHub 工作流已配置，本地等价验证已执行；远程工作流与 GUI 视觉验收尚未执行。

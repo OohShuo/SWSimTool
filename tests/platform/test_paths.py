@@ -8,11 +8,11 @@ import unittest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tests/backend'))
 from test_convert import URDF
-CLI=['dotnet',str(ROOT/'build/bin/SWSimTool.Cli/Release/net8.0/SWSimTool.Cli.dll')]
+FIXTURE=['dotnet',str(ROOT/'build/bin/CandidateRunner/Release/net8.0/SWSimTool.CandidateRunner.dll')]
 
 class Paths(unittest.TestCase):
     def export(self,urdf,output):
-        return subprocess.run(CLI+['export','--urdf',str(urdf),'--output',str(output),'--python',sys.executable],capture_output=True,text=True,encoding='utf-8')
+        return subprocess.run(FIXTURE+['--local-export',sys.executable,str(urdf),str(output)],capture_output=True,text=True,encoding='utf-8')
 
     @unittest.skipIf(os.name=='nt','Case-sensitive filesystem identity is a Linux gate')
     def test_same_casefold_unrelated_file_is_never_deleted(self):

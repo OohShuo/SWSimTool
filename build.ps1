@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$Test,[switch]$Package,[switch]$Installer,[switch]$Clean,
     [string]$Configuration='Release',
     [string]$SolidWorksDir=$env:SOLIDWORKS_DIR,
@@ -50,7 +50,7 @@ function Invoke-Gate([string]$Name,[scriptblock]$Action) {
 Push-Location $root
 try {
     Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /v:minimal }
-    $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj','src/SWSimTool.Cli/SWSimTool.Cli.csproj')
+    $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
     if($Test -or $Package -or $Installer) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
     foreach($project in $projects) {
         $name=[IO.Path]::GetFileNameWithoutExtension($project)
@@ -61,7 +61,6 @@ try {
     }
     if($Package -or $Installer) {
         & "$root/tools/build/AssembleRelease.ps1" -Configuration $Configuration -Python $Python
-        & "$root/tools/build/AssemblePortable.ps1" -Configuration $Configuration
         Invoke-Gate 'payload-validation' { & $Python -B tests/architecture/Test-ReleaseLayout.py }
     }
     if($Installer) {

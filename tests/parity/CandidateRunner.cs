@@ -12,6 +12,7 @@ public static class CandidateRunner
         try {
             var culture=Environment.GetEnvironmentVariable("SWSIMTOOL_TEST_CULTURE");
             if(!String.IsNullOrEmpty(culture))System.Globalization.CultureInfo.CurrentCulture=System.Globalization.CultureInfo.CurrentUICulture=System.Globalization.CultureInfo.GetCultureInfo(culture);
+            if(args.Length>0&&args[0].StartsWith("--local-",StringComparison.Ordinal))return LocalBackendFixture.Run(args);
             if(args.Length==3&&args[0]=="--storage"){
                 var serializer=SWSimTool.Persistence.DocumentEnvelopeSerializer.Serializer();
                 var raw=SWSimTool.Persistence.DocumentEnvelopeSerializer.Deserialize<Dictionary<string,object>>(File.ReadAllText(args[1]),2);

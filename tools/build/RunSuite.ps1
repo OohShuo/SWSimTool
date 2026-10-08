@@ -1,4 +1,4 @@
-﻿param([ValidateSet('Fast','Medium','SolidWorksIntegration','Release')][string]$Tier='Fast',
+param([ValidateSet('Fast','Medium','SolidWorksIntegration','Release')][string]$Tier='Fast',
       [string]$Python='python',[string]$SolidWorksDir=$env:SOLIDWORKS_DIR,
       [string]$Configuration='Release',[int[]]$OwnedStaleProcessIds=@())
 $ErrorActionPreference='Stop'
@@ -8,6 +8,8 @@ try {
     New-Item -ItemType Directory -Path build/logs,build/reports,build/test-work -Force | Out-Null
     $env:PYTHONDONTWRITEBYTECODE='1';$env:SWSIMTOOL_TEST_CONFIGURATION=$Configuration
     $env:TEMP=Join-Path $root 'build/test-work';$env:TMP=$env:TEMP
+    $env:SWSIMTOOL_CACHE=Join-Path $root 'build/test-work/suite-backend-cache'
+    $env:SWSIMTOOL_MESH_CACHE=Join-Path $root 'build/test-work/suite-backend-mesh-cache'
     function Gate([string]$name,[scriptblock]$run) {
         Write-Host "Testing $Tier/$name"
         $saved=$ErrorActionPreference
@@ -23,7 +25,6 @@ try {
         Gate 'sdk' { & $Python -B tests/architecture/Test-SdkBuild.py }
         Gate 'publication-receipt' { & $Python -B tests/architecture/Test-ValidationReceipt.py }
         if($Tier -eq 'Medium') {
-            Gate 'cli-build' { & dotnet build src/SWSimTool.Cli/SWSimTool.Cli.csproj -c $Configuration -f net8.0 }
             Gate 'modern-host' { & $Python -B tests/targets/Test-ModernHost.py }
             Gate 'cross-target-parity' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call([sys.executable,'-B','tests/parity/run.py'],env=dict(os.environ,SWSIMTOOL_TEST_FRAMEWORK='net8.0',SWSIMTOOL_CROSS_TARGET='1')))" }
             Gate 'backend' { & $Python -B -m unittest discover -s tests/backend -v }

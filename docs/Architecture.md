@@ -1,6 +1,6 @@
 # Project boundaries
 
-Core, Application and Infrastructure target net48 and net8.0. SolidWorks remains net48; CLI targets net8.0. The SolidWorks COM assembly remains `SWSimTool.dll`; its CLSID and on-document v2 schema are unchanged by extraction.
+Core, Application and Infrastructure target net48 and net8.0. SolidWorks remains the only product host, on net48. The SolidWorks COM assembly remains `SWSimTool.dll`; its CLSID and on-document v2 schema are unchanged by extraction.
 
 - **Core** owns immutable robot and simulation snapshots, SI transforms/full inertia, editable configuration records, scalar validation and stable-ID mode semantics. It has no CAD, UI, serializer, process or filesystem implementation.
 - **Application** owns typed tool contracts, simulation assembly, native CAD source coordination, export planning and the stage/prepare/write/validate/publish workflow. Its native CAD source interface cannot select reference generation. File and package operations are supplied through `IAssetStore` / `IPackageStore`; export generation uses `IMjcfWriter`.
@@ -15,8 +15,8 @@ The projects use SDK-style MSBuild and pinned PackageReference dependencies. `Ve
 
 The compatibility audit found no reusable-layer COM/UI dependence. The remaining framework-specific pieces were System.Web JSON, Windows process ownership and platform filesystem comparisons. Dual net48/net8 targets avoid changing the existing CAD host ABI and preserve its exact on-document JavaScriptSerializer implementation; only the portable target uses a bounded System.Text.Json adapter that returns CLR dictionaries/arrays and preserves integer envelope versions. Frozen old JSON and typed simulation fields are compared across targets.
 
-The CLI consumes existing local URDF/sidecar adapters and the shared NativeBackend composition root. It has no CAD access, mesh model implementation or independent XML generator. Local sidecars require the current SWSimTool product identity; retained on-document v2 compatibility does not imply importing old external preferences or sidecars.
+Local URDF/sidecar adapters and the shared NativeBackend composition root remain available to the SolidWorks local-file workflow. Test-only CandidateRunner fixtures call these same APIs directly, without another product host or model file protocol. Local sidecars require the current SWSimTool product identity; on-document v2 compatibility does not import old external preferences or sidecars.
 
 Windows owns Python descendants with a kill-on-close Job; Linux starts Python in a dedicated POSIX session and terminates that process group. Both also terminate remaining descendants after normal root exit, before draining redirected pipes. This avoids an orphan holding the operation open. Missing ownership is a visible startup failure. No persistent Python service is used.
 
-Filesystem comparisons use Windows case folding and Unix ordinal identity. Export names/hash policies remain separate. A Linux file whose name only differs in case is unrelated data and must never be deleted during package replacement. Linked package roots/contents remain rejected. Both platforms use the same complete MJCF generation, official compile gate and package swap; the Linux CLI has no SolidWorks/COM dependency.
+Filesystem comparisons use Windows case folding and Unix ordinal identity. Export names/hash policies remain separate. A Linux file whose name only differs in case is unrelated data and must never be deleted during package replacement. Linked package roots/contents remain rejected. Both platforms use the same complete MJCF generation, official compile gate and package swap; the Linux reusable-layer test host has no SolidWorks/COM dependency.
