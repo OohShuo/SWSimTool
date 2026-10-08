@@ -87,6 +87,12 @@ public static class CollisionNavigationProbe {
    var link=(ComboBox)Get(editor,"link");var tabs=All(editor).OfType<TabControl>().Single();Check(tabs.TabPages.Count==5&&!tabs.TabPages.Cast<TabPage>().Any(p=>p.Text=="闭链约束"),"simulation keeps all tabs except constraints");
    var sites=All(tabs.TabPages[0]).OfType<ListBox>().Single();
    Check(sites.Items.Count==1&&((Attachment)sites.Items[0]).name=="yaw_site","simulation page filters attachments by link");
+   var siteRepair=Find(tabs.TabPages[0],"重新绑定到所选 link");Check(!LocalVisible(siteRepair)&&!siteRepair.Enabled,"normal simulation attachment hides repair action");
+   var lostSite=new Attachment{name="lost_site",link="yaw",link_id="deleted-link",type="point"};service.Project.attachments.Add(lostSite);
+   typeof(SimulationEditorControl).GetMethod("Refresh",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(editor,null);sites.SelectedItem=lostSite;
+   Check(sites.Items.Contains(lostSite)&&LocalVisible(siteRepair)&&siteRepair.Enabled,"unresolved site remains selectable and enables explicit replacement");
+   link.SelectedIndex=-1;Check(!siteRepair.Enabled,"site rebind disabled without legal replacement link");
+   service.Project.attachments.Remove(lostSite);link.SelectedItem="yaw";
    link.SelectedItem="pitch";
    Check(sites.Items.Count==1&&((Attachment)sites.Items[0]).name=="pitch_site","simulation link change refreshes its own attachment");
    link.SelectedItem="base";Check(sites.Items.Count==0,"empty simulation link clears attachment list");
