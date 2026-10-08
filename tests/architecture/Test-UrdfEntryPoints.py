@@ -12,6 +12,7 @@ page = (host / "URDFExport/ExportPropertyManager.cs").read_text(encoding="utf-8-
 button = page.split("private void ExportButtonPress()", 1)[1].split("private void EnableControl", 1)[0]
 assert "AssemblyExportPreparation.Prepare" in button
 assert "confirmedClose" in button
+assert button.index("FlushEditingDraft()") < button.index("DraftTree.Clone()") < button.index("PMPage.Close(true)")
 service = (host / "URDFExport/AssemblyExportPreparation.cs").read_text(encoding="utf-8-sig")
 assert "PMCompute" not in service and "PropertyManager" not in service
 assert "project?.urdf_export" in service and "tree.Clone()" in service

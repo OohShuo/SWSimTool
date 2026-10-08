@@ -208,7 +208,8 @@ namespace SWSimTool.URDFExport
             SaveActiveNode();
 
             try{
-                var exportTree=((LinkNode)Tree.Nodes[0]).Snapshot();
+                FlushEditingDraft();
+                var exportTree=Exporter.GetSimulation().DraftTree.Clone();
                 confirmedClose=false;PMPage.Close(true);if(!confirmedClose)return;
                 var prepared=AssemblyExportPreparation.Prepare(swApp,exportTree,Exporter.GetSimulation().Editing.Project);
                 automaticallySwitched=true;
