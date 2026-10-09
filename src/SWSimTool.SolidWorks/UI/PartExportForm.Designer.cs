@@ -1,4 +1,4 @@
-﻿namespace SWSimTool.UI
+namespace SWSimTool.UI
 {
     partial class PartExportForm
     {
@@ -79,7 +79,7 @@
             this.label21 = new System.Windows.Forms.Label();
             this.label29 = new System.Windows.Forms.Label();
             this.label20 = new System.Windows.Forms.Label();
-            this.comboBox_materials = new System.Windows.Forms.ComboBox();
+            this.comboBox_materials = new SWSimTool.UI.NoWheelComboBox();
             this.textBox_visual_origin_roll = new System.Windows.Forms.TextBox();
             this.label28 = new System.Windows.Forms.Label();
             this.textBox_visual_origin_pitch = new System.Windows.Forms.TextBox();

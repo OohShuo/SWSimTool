@@ -15,20 +15,9 @@ namespace SWSimTool.UI
         // Native PropertyManager focus must not snap the scroller back after a wheel event.
         protected override Point ScrollToControl(Control activeControl){return DisplayRectangle.Location;}
     }
-    public sealed class CollisionComboBox : ComboBox
+    public sealed class CollisionComboBox : NoWheelComboBox
     {
         public CollisionComboBox(){DropDownStyle=ComboBoxStyle.DropDownList;DropDownWidth=320;}
-        protected override void WndProc(ref Message m)
-        {
-            if(m.Msg==0x020A){
-                int delta=unchecked((short)((m.WParam.ToInt64()>>16)&0xffff));
-                for(Control p=Parent;p!=null;p=p.Parent){var scroll=p as ScrollableControl;if(scroll!=null&&scroll.AutoScroll){
-                    scroll.AutoScrollPosition=new Point(0,Math.Max(0,-scroll.AutoScrollPosition.Y-delta/120*60));break;
-                }}
-                m.Result=IntPtr.Zero;return;
-            }
-            base.WndProc(ref m);
-        }
     }
     public sealed class CollisionEditorControl : UserControl
     {

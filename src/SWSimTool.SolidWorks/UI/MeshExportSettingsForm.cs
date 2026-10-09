@@ -16,7 +16,7 @@ namespace SWSimTool.UI
             var enabled = new CheckBox { Text = "仅对超限的 STL 启用减面", AutoSize = true };
             table.Controls.Add(enabled, 0, 0); table.SetColumnSpan(enabled, 3);
             var maximum = new NumericUpDown { Minimum = 4, Maximum = 200000, Increment = 1000, ThousandsSeparator = true, Dock = DockStyle.Fill };
-            var backend = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            var backend = new NoWheelComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
             backend.Items.AddRange(new object[] { "pymeshlab", "fast-simplification", "blender" });
             var python = new TextBox { Dock = DockStyle.Fill }; var blender = new TextBox { Dock = DockStyle.Fill };
             AddRow(table, 1, "每个 STL 三角形上限", maximum);

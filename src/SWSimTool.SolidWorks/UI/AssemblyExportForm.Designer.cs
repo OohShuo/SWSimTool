@@ -1,4 +1,4 @@
-﻿namespace SWSimTool.UI
+namespace SWSimTool.UI
 {
     partial class AssemblyExportForm
     {
@@ -82,7 +82,7 @@
             this.buttonTextureBrowse = new System.Windows.Forms.Button();
             this.label28 = new System.Windows.Forms.Label();
             this.textBoxVisualOriginRoll = new System.Windows.Forms.TextBox();
-            this.comboBoxMaterials = new System.Windows.Forms.ComboBox();
+            this.comboBoxMaterials = new SWSimTool.UI.NoWheelComboBox();
             this.label26 = new System.Windows.Forms.Label();
             this.label20 = new System.Windows.Forms.Label();
             this.domainUpDownAlpha = new System.Windows.Forms.DomainUpDown();
@@ -141,7 +141,7 @@
             this.label63 = new System.Windows.Forms.Label();
             this.textBoxJointName = new System.Windows.Forms.TextBox();
             this.label62 = new System.Windows.Forms.Label();
-            this.comboBoxJointType = new System.Windows.Forms.ComboBox();
+            this.comboBoxJointType = new SWSimTool.UI.NoWheelComboBox();
             this.textBoxAxisX = new System.Windows.Forms.TextBox();
             this.label58 = new System.Windows.Forms.Label();
             this.textBoxAxisY = new System.Windows.Forms.TextBox();
@@ -165,8 +165,8 @@
             this.labelChild = new System.Windows.Forms.Label();
             this.labelParent = new System.Windows.Forms.Label();
             this.treeViewJointTree = new System.Windows.Forms.TreeView();
-            this.comboBoxAxis = new System.Windows.Forms.ComboBox();
-            this.comboBoxOrigin = new System.Windows.Forms.ComboBox();
+            this.comboBoxAxis = new SWSimTool.UI.NoWheelComboBox();
+            this.comboBoxOrigin = new SWSimTool.UI.NoWheelComboBox();
             this.label66 = new System.Windows.Forms.Label();
             this.label67 = new System.Windows.Forms.Label();
             this.label69 = new System.Windows.Forms.Label();
@@ -176,7 +176,7 @@
             this.LimitRequiredLabel = new System.Windows.Forms.Label();
             this.label27 = new System.Windows.Forms.Label();
             this.MimicCheckBox = new System.Windows.Forms.CheckBox();
-            this.MimicJointComboBox = new System.Windows.Forms.ComboBox();
+            this.MimicJointComboBox = new SWSimTool.UI.NoWheelComboBox();
             this.MimicJointLabel = new System.Windows.Forms.Label();
             this.textBoxMimicMultiplier = new System.Windows.Forms.TextBox();
             this.textBoxMimicOffset = new System.Windows.Forms.TextBox();

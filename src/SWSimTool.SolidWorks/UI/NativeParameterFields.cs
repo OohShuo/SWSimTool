@@ -56,7 +56,7 @@ namespace SWSimTool.UI {
         public void Refresh(){if(disposed)return;bool previous=loading;loading=true;try{foreach(var f in fields){bool visible=f.Visible();f.Control.Visible=visible;f.Control.Enabled=visible;if(f.Label!=null){f.Label.Visible=visible;((IPropertyManagerPageLabel)f.Label).Caption=f.Caption();}else if(f.Control is IPropertyManagerPageLabel)((IPropertyManagerPageLabel)f.Control).Caption=f.Caption();else if(f.Control is IPropertyManagerPageCheckbox)((IPropertyManagerPageCheckbox)f.Control).Caption=f.Caption();}}finally{loading=previous;}}
         void Dispatch(int id,Action<Field> action){if(loading||disposed)return;Require();Field f;if(!byId.TryGetValue(id,out f))return;if(!f.Visible())return;loading=true;try{action(f);}finally{loading=false;}Refresh();Changed?.Invoke();}
         public void OnText(int id,string value)=>Dispatch(id,f=>f.Text?.Invoke(value));
-        public void OnChoice(int id,int value)=>Dispatch(id,f=>f.Choice?.Invoke(value));
+        public void OnChoice(int id,int value)=>Dispatch(id,f=>{if(DropdownWheelGuard.IsWheelInput)f.Load?.Invoke();else f.Choice?.Invoke(value);});
         public void OnCheck(int id,bool value)=>Dispatch(id,f=>f.Check?.Invoke(value));
         public void OnButton(int id)=>Dispatch(id,f=>f.Click?.Invoke());
         public void Dispose(){disposed=true;Changed=null;byId.Clear();fields.Clear();}

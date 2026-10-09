@@ -44,7 +44,7 @@ namespace SWSimTool.UI
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
             page.Controls.Add(layout);
             layout.Controls.Add(new Label { Dock = DockStyle.Fill, Text = "选择 SolidWorks 参考点或参考坐标系（包括已加载的子装配体）。\n点仅导出 xyz；坐标系导出 xyz 和 rpy，均相对最终 URDF link。" });
-            var sources = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            var sources = new NoWheelComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             foreach (var source in service.Sources()) sources.Items.Add(source);
             layout.Controls.Add(sources);
             var row = new FlowLayoutPanel { Dock = DockStyle.Fill };
