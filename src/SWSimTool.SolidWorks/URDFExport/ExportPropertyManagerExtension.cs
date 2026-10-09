@@ -74,23 +74,26 @@ namespace SWSimTool.URDFExport
         // the current number of items in the menu
         private void SelectComboBox(PropertyManagerPageCombobox box, string item)
         {
-            short i = 0;
-            string itemtext = "nothing";
-            box.CurrentSelection = 0;
+            bool wasLoading=loadingSelections;loadingSelections=true;
+            try{
+                short i = 0;
+                string itemtext = "nothing";
+                box.CurrentSelection = 0;
 
-            // Cycles through the menu items until it finds what its looking for, it finds
-            // blank strings, or itemtext is null
-            while (!string.IsNullOrWhiteSpace(itemtext) && itemtext != item)
-            {
-                // Gets the item text at index in a pull-down menu. No way to now how many
-                // items are in the combobox
-                itemtext = box.get_ItemText(i);
-                if (itemtext == item)
+                // Cycles through the menu items until it finds what its looking for, it finds
+                // blank strings, or itemtext is null
+                while (!string.IsNullOrWhiteSpace(itemtext) && itemtext != item)
                 {
-                    box.CurrentSelection = i;
+                    // Gets the item text at index in a pull-down menu. No way to now how many
+                    // items are in the combobox
+                    itemtext = box.get_ItemText(i);
+                    if (itemtext == item)
+                    {
+                        box.CurrentSelection = i;
+                    }
+                    i++;
                 }
-                i++;
-            }
+            }finally{loadingSelections=wasLoading;}
         }
 
         // Adds an asterix to the node text if it is incomplete (not currently used)

@@ -17,7 +17,7 @@ namespace SWSimTool.UI
         SimulationEditorControl editor;
         bool retry;
         NativeEditorPresenter presenter;
-        DropdownWheelGuard wheelGuard;
+
         readonly PropertyManagerTransition transition=new PropertyManagerTransition();
         public Action Closed { get; set; }
         public SimulationPropertyManager(AttachmentService service, string selectedLink, System.Collections.Generic.Dictionary<string,string> joints,bool constraintsOnly=false)
@@ -38,7 +38,7 @@ namespace SWSimTool.UI
             presenter.Error=e=>MessageBox.Show(e.Message,title);
             service.PageDraft.Close=()=>page.Close(false);
         }catch{presenter?.Dispose();editor?.Dispose();transition.Dispose();throw;}}
-        public void Show(){try{wheelGuard=wheelGuard??new DropdownWheelGuard();page.Show2(0);}catch{wheelGuard?.Dispose();presenter?.Dispose();editor.Dispose();transition.Dispose();throw;}}
+        public void Show(){try{page.Show2(0);}catch{presenter?.Dispose();editor.Dispose();transition.Dispose();throw;}}
         void IPropertyManagerPage2Handler9.AfterActivation() {  }
         void IPropertyManagerPage2Handler9.OnButtonPress(int Id) { presenter?.Guard(()=>presenter.OnButton(Id)); }
         void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{var result=editor.Save();if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败");}catch(Exception e){retry=true;MessageBox.Show(e.Message,title+"未保存");} }
@@ -75,7 +75,7 @@ namespace SWSimTool.UI
         void IPropertyManagerPage2Handler9.OnWhatsNew() {  }
         void IPropertyManagerPage2Handler9.OnListboxRMBUp(int Id, int PosX, int PosY) {  }
         void IPropertyManagerPage2Handler9.OnNumberBoxTrackingCompleted(int Id, double Value) {  }
-        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;transition.Post(()=>page.Show2(0));}else {wheelGuard?.Dispose();wheelGuard=null;presenter?.Dispose();presenter=null;editor.Dispose();editor=null;page=null;selection=null;var closed=Closed;Closed=null;transition.Post(()=>{try{closed?.Invoke();}finally{transition.Dispose();}});} }
+        void IPropertyManagerPage2Handler9.AfterClose() { if(retry){retry=false;transition.Post(()=>page.Show2(0));}else {presenter?.Dispose();presenter=null;editor.Dispose();editor=null;page=null;selection=null;var closed=Closed;Closed=null;transition.Post(()=>{try{closed?.Invoke();}finally{transition.Dispose();}});} }
         int IPropertyManagerPage2Handler9.OnActiveXControlCreated(int Id, bool Status) { return 0; }
     }
 }

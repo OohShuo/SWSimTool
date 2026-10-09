@@ -13,7 +13,7 @@ namespace SWSimTool.UI {
     public sealed class NativeEditorPresenter : IDisposable {
         sealed class Slot {
             public int Id; public IPropertyManagerPageControl Native;
-            public Control Source; public string[] Items; public bool Active;
+            public Control Source; public string[] Items; public bool Active,Seen; public int Selection=-2;
         }
         readonly Control editor;
         readonly Action requireCurrent;
@@ -75,18 +75,23 @@ namespace SWSimTool.UI {
                     if(source is ComboBox)((IPropertyManagerPageCombobox)native).Style=(int)swPropMgrPageComboBoxStyle_e.swPropMgrPageComboBoxStyle_EditBoxReadOnly;
                     if(source is ListBox)((IPropertyManagerPageListbox)native).Height=55;
                 }
-                slot.Source=source;slot.Active=visible&&InSelectedTab(source);
+                bool bindingChanged=!ReferenceEquals(slot.Source,source);
+                slot.Source=source;slot.Seen=true;slot.Active=visible&&InSelectedTab(source);
                 if(source is TextBox) {var box=(IPropertyManagerPageTextbox)slot.Native;if(box.Text!=source.Text)box.Text=source.Text;}
                 else if(source is ComboBox) {
                     var box=(ComboBox)source;var native=(IPropertyManagerPageCombobox)slot.Native;
                     var items=box.Items.Cast<object>().Select(x=>box.GetItemText(x)).ToArray();
-                    if(slot.Items==null||!slot.Items.SequenceEqual(items)){native.Clear();if(items.Length>0)native.AddItems(items);slot.Items=items;}
-                    if(native.CurrentSelection!=box.SelectedIndex)native.CurrentSelection=(short)box.SelectedIndex;
+                    bool itemsChanged=slot.Items==null||!slot.Items.SequenceEqual(items);
+                    if(itemsChanged){native.Clear();if(items.Length>0)native.AddItems(items);slot.Items=items;}
+                    // Load a new binding or a business-side change, not a native/user-side difference.
+                    if(bindingChanged||itemsChanged||slot.Selection!=box.SelectedIndex){if(native.CurrentSelection!=box.SelectedIndex)native.CurrentSelection=(short)box.SelectedIndex;slot.Selection=box.SelectedIndex;}
                 } else if(source is ListBox) {
                     var box=(ListBox)source;var native=(IPropertyManagerPageListbox)slot.Native;
                     var items=box.Items.Cast<object>().Select(x=>box.GetItemText(x)).ToArray();
-                    if(slot.Items==null||!slot.Items.SequenceEqual(items)){native.Clear();if(items.Length>0)native.AddItems(items);slot.Items=items;}
-                    if(native.CurrentSelection!=box.SelectedIndex)native.CurrentSelection=(short)box.SelectedIndex;
+                    bool itemsChanged=slot.Items==null||!slot.Items.SequenceEqual(items);
+                    if(itemsChanged){native.Clear();if(items.Length>0)native.AddItems(items);slot.Items=items;}
+                    // Load a new binding or a business-side change, not a native/user-side difference.
+                    if(bindingChanged||itemsChanged||slot.Selection!=box.SelectedIndex){if(native.CurrentSelection!=box.SelectedIndex)native.CurrentSelection=(short)box.SelectedIndex;slot.Selection=box.SelectedIndex;}
                 } else if(source is CheckBox) {var native=(IPropertyManagerPageCheckbox)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;if(native.Checked!=((CheckBox)source).Checked)native.Checked=((CheckBox)source).Checked;}
                 else if(source is Button){var native=(IPropertyManagerPageButton)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;}
                 else {var native=(IPropertyManagerPageLabel)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;}
@@ -100,13 +105,13 @@ namespace SWSimTool.UI {
             if(disposed||syncing)return;
             syncing=true;
             try {
-                foreach(var slot in slots.Values){slot.Active=false;slot.Source=null;}
+                foreach(var slot in slots.Values){slot.Active=false;slot.Seen=false;}
                 foreach(var region in regions) {
                     bool visible=region.Item1 is TabPage||LocalVisible(region.Item1);
                     if(region.Item2.Visible!=visible)region.Item2.Visible=visible;
                     Visit(region.Item1,region.Item2,region.Item3,visible,editor.Enabled);
                 }
-                foreach(var slot in slots.Values.Where(s=>s.Source==null)){if(slot.Native.Visible)slot.Native.Visible=false;if(slot.Native.Enabled)slot.Native.Enabled=false;}
+                foreach(var slot in slots.Values.Where(s=>!s.Seen)){slot.Source=null;if(slot.Native.Visible)slot.Native.Visible=false;if(slot.Native.Enabled)slot.Native.Enabled=false;}
             } finally {syncing=false;}
         }
         void Dispatch(int id,Action<Control> action) {
@@ -121,7 +126,6 @@ namespace SWSimTool.UI {
         public void OnList(int id,int value)=>Dispatch(id,c=>{var box=(ListBox)c;if(value>=-1&&value<box.Items.Count)box.SelectedIndex=value;});
         public void OnChoice(int id,int value) {
             if(syncing||disposed)return;
-            if(DropdownWheelGuard.IsWheelInput){Synchronize();return;}
             Dispatch(id,c=>{var box=(ComboBox)c;if(value>=-1&&value<box.Items.Count)box.SelectedIndex=value;});
         }
         public bool OnTab(int id){if(disposed||!editor.Enabled)return false;requireCurrent();int index=id-100;if(index<0||index>=tabs.TabPages.Count)return true;tabs.SelectedIndex=index;Synchronize();return true;}

@@ -6,7 +6,7 @@ for name in ("CollisionPropertyManager.cs", "SimulationPropertyManager.cs", "Joi
     source = (ui / name).read_text(encoding="utf-8-sig")
     assert "swControlType_WindowFromHandle" not in source, name
     assert "SetWindowHandle" not in source and "window.Height" not in source, name
-    assert "DropdownWheelGuard" in source and "wheelGuard?.Dispose()" in source, name
+    assert "DropdownWheelGuard" not in source and "wheelGuard" not in source, name
 for name in ("CollisionPropertyManager.cs", "SimulationPropertyManager.cs"):
     source = (ui / name).read_text(encoding="utf-8-sig")
     assert "page.AddTab(100+tab" in source and "presenter.OnTab(Id)" in source
@@ -16,9 +16,9 @@ for name in ("CollisionPropertyManager.cs", "SimulationPropertyManager.cs"):
     assert "presenter?.Dispose()" in source or "presenter.Dispose()" in source
 presenter = (ui / "NativeEditorPresenter.cs").read_text(encoding="utf-8-sig")
 assert "sealedControls=true" in presenter and "if(sealedControls)throw" in presenter
-assert "DropdownWheelGuard.IsWheelInput" in presenter
+assert "DropdownWheelGuard" not in presenter and "IsWheelInput" not in presenter
 assert "timer.Stop();timer.Dispose()" in presenter
 assert "Save(" not in presenter and "SimulationStorage" not in presenter
 urdf = (root / "src/SWSimTool.SolidWorks/URDFExport/ExportPropertyManager.cs").read_text(encoding="utf-8-sig")
 assert "new UrdfJointLimitFields" in urdf
-print("PASS: native parameters/tabs, no embedded editor HWND, wheel/lifecycle guards, no persistence in presentation adapter")
+print("PASS: native parameters/tabs, no embedded editor HWND, standard selection callbacks/lifecycle guards, no persistence in presentation adapter")

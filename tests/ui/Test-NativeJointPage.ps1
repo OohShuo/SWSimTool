@@ -21,7 +21,7 @@ public static class NativeJointPageTest {
  static int Id(NativeParameterFields fields,string key){var f=Field(fields,key);return (int)f.GetType().GetField("Id").GetValue(f);}
  static IPropertyManagerPageControl Control(NativeParameterFields fields,string key){var f=Field(fields,key);return (IPropertyManagerPageControl)f.GetType().GetField("Control").GetValue(f);}
  static void Text(NativeParameterFields fields,string key,string value){fields.OnText(Id(fields,key),value);}
- static void Choice(NativeParameterFields fields,string key,int value){fields.OnChoice(Id(fields,key),value);}
+ static void Choice(NativeParameterFields fields,string key,int value){((IPropertyManagerPageCombobox)Control(fields,key)).CurrentSelection=(short)value;fields.OnChoice(Id(fields,key),value);}
  static void Toggle(NativeParameterFields fields,string key,bool value){fields.OnCheck(Id(fields,key),value);}
  static Mock<IPropertyManagerPageGroup> Group(out HashSet<int> ids){var allocated=new HashSet<int>();ids=allocated;var group=new Mock<IPropertyManagerPageGroup>();group.Setup(g=>g.AddControl2(It.IsAny<int>(),It.IsAny<short>(),It.IsAny<string>(),It.IsAny<short>(),It.IsAny<int>(),It.IsAny<string>())).Returns((int id,short type,string caption,short align,int options,string tip)=>{
   Check(allocated.Add(id),"Native IDs must be unique");
@@ -63,14 +63,16 @@ public static class NativeJointPageTest {
    Choice(fields,"joint",0);Check(((IPropertyManagerPageTextbox)Control(fields,"damping")).Text=="0.02","Switch back lost independent edits");
    Check(ids.Count==count&&Object.ReferenceEquals(savedControl,Control(fields,"damping")),"Type/entity changes must not recreate native controls");
    Check(service.Project.joints[0].stiffness==15&&service.Project.joints[0].springref==.3,"Spring fields lost model values");
+   Choice(fields,"type",1);fields.Refresh();Check(service.Project.joints[0].type=="hinge"&&((IPropertyManagerPageCombobox)Control(fields,"type")).CurrentSelection==1,"Second native type did not persist in draft");
+   Choice(fields,"type",2);fields.Refresh();Check(service.Project.joints[0].type=="slide"&&((IPropertyManagerPageCombobox)Control(fields,"type")).CurrentSelection==2,"Third native type snapped to first");
    service.PageDraft.Collect();Check(raw==baseline,"Collect wrote persistent data");
    fail=true;bool saveFailed=false;try{editor.Save();}catch{saveFailed=true;}Check(saveFailed&&raw==baseline&&service.Project.joints[0].damping==.02,"Failed save changed old storage or lost input");
    var result=editor.Save();Check(result.Committed&&raw!=baseline,"Valid native page save failed");
-   string committed=raw;Text(fields,"damping","0.03");Check(raw==committed,"Unconfirmed input leaked to persistence");
+   string committed=raw;Choice(fields,"type",1);Text(fields,"damping","0.03");Check(raw==committed,"Unconfirmed input leaked to persistence");
   }
-  Check(service.Editing.Project.joints.First(j=>j.joint=="yaw_joint").damping==.02,"Cancel after saved edit changed confirmed draft");
+  Check(service.Editing.Project.joints.First(j=>j.joint=="yaw_joint").damping==.02&&service.Editing.Project.joints.First(j=>j.joint=="yaw_joint").type=="slide","Cancel after saved edit changed confirmed draft");
   service=new AttachmentService(helper);using(var editor=new NativeJointEditor(service,descriptors,Group(out ids).Object)){
-   Check(service.Project.joints.First(j=>j.joint=="yaw_joint").damping==.02,"Reopen lost saved native fields");
+   Check(service.Project.joints.First(j=>j.joint=="yaw_joint").damping==.02&&service.Project.joints.First(j=>j.joint=="yaw_joint").type=="slide"&&((IPropertyManagerPageCombobox)Control(editor.Fields,"type")).CurrentSelection==2,"Reopen lost saved third-item native selection");
    Choice(editor.Fields,"joint",2);Check(!Control(editor.Fields,"damping").Visible,"Fixed joint must hide physical overrides");
    ConfigurationSession.Invalidate(model.Object);bool stale=false;try{Text(editor.Fields,"damping","1");}catch{stale=true;}Check(stale,"Stale native callbacks accepted input");
   }

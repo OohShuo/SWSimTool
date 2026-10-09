@@ -1,4 +1,4 @@
-﻿using System;using System.Collections;using System.Collections.Generic;using System.Linq;using System.Reflection;using System.Windows.Forms;using Moq;using SolidWorks.Interop.sldworks;using SolidWorks.Interop.swconst;using SWSimTool.UI;
+using System;using System.Collections;using System.Collections.Generic;using System.Linq;using System.Reflection;using System.Windows.Forms;using Moq;using SolidWorks.Interop.sldworks;using SolidWorks.Interop.swconst;using SWSimTool.UI;
 public static class NativePresentationTest {
  static void Check(bool ok,string reason){if(!ok)throw new Exception(reason);}
  static BindingFlags flags=BindingFlags.NonPublic|BindingFlags.Instance;
@@ -41,10 +41,15 @@ public static class NativePresentationTest {
  public static void Run(){
   using(var root=new UserControl()){
    var tabs=new TabControl();root.Controls.Add(tabs);TabPage first=new TabPage("parameters"),second=new TabPage("constraints");tabs.TabPages.Add(first);tabs.TabPages.Add(second);
-   var box=new TextBox{Text="7"};first.Controls.Add(box);var choices=new ComboBox();choices.Items.AddRange(new[]{"motor","position"});choices.SelectedIndex=0;first.Controls.Add(choices);var optional=new TextBox{Text="12",Visible=false};first.Controls.Add(optional);choices.SelectedIndexChanged+=(s,e)=>optional.Visible=choices.SelectedIndex==1;
+   var box=new TextBox{Text="7"};first.Controls.Add(box);var choices=new ComboBox();choices.Items.AddRange(new[]{"motor","position","velocity"});choices.SelectedIndex=0;first.Controls.Add(choices);var optional=new TextBox{Text="12",Visible=false};first.Controls.Add(optional);choices.SelectedIndexChanged+=(s,e)=>optional.Visible=choices.SelectedIndex==1;
    var list=new ListBox();list.Items.AddRange(new[]{"A","B"});list.SelectedIndex=0;first.Controls.Add(list);var check=new CheckBox();first.Controls.Add(check);var button=new Button{Text="add"};first.Controls.Add(button);int clicked=0;button.Click+=(s,e)=>clicked++;var dynamic=new Panel();second.Controls.Add(dynamic);var template=new TextBox{Text="template",Visible=false};dynamic.Controls.Add(template);
    bool stale=false;using(var p=Create(root,()=>{if(stale)throw new InvalidOperationException("stale");})){
     Exercise(p,root);var steady=Native(p,box);Mock.Get(steady).Invocations.Clear();p.Synchronize();Check(!Mock.Get(steady).Invocations.Any(x=>x.Method.Name.StartsWith("set_")),"Unchanged synchronization must not reset native control state");var original=Native(p,optional);Check(!original.Visible,"Conditional field visible initially");
+    var nativeChoice=(IPropertyManagerPageCombobox)Native(p,choices);
+    nativeChoice.CurrentSelection=1;p.Synchronize();Check(nativeChoice.CurrentSelection==1&&choices.SelectedIndex==0,"Timer overwrote pending second-item native input");
+    p.OnChoice(Id(p,choices),1);Check(choices.SelectedIndex==1&&original.Visible,"Second item did not write through/update dependent field");
+    nativeChoice.CurrentSelection=2;p.Synchronize();Check(nativeChoice.CurrentSelection==2&&choices.SelectedIndex==1,"Timer overwrote pending third-item native input");
+    p.OnChoice(Id(p,choices),2);p.Synchronize();p.Synchronize();Check(choices.SelectedIndex==2&&nativeChoice.CurrentSelection==2&&!original.Visible,"Third-item selection snapped back or failed dependent visibility");
     p.OnChoice(Id(p,choices),1);Check(original.Visible,"Conditional native field failed to appear");p.OnText(Id(p,optional),"24");p.OnChoice(Id(p,choices),0);p.OnChoice(Id(p,choices),1);Check(optional.Text=="24"&&Object.ReferenceEquals(original,Native(p,optional)),"Toggle lost input/recreated native controls");
     p.OnList(Id(p,list),1);Check(list.SelectedIndex==1,"Native list did not select object");p.OnCheck(Id(p,check),true);Check(check.Checked,"Native check did not update");p.OnButton(Id(p,button));Check(clicked==1,"Native button did not dispatch");
     var nativeBox=(IPropertyManagerPageTextbox)Native(p,box);string nativeText=nativeBox.Text;int calls=0;Mock.Get(nativeBox).SetupGet(x=>x.Text).Returns(()=>nativeText);Mock.Get(nativeBox).SetupSet(x=>x.Text=It.IsAny<string>()).Callback<string>(v=>{nativeText=v;calls++;p.OnText(Id(p,box),v);});box.Text="8";p.Synchronize();Check(calls==1&&box.Text=="8","Synchronous native callback recursion");

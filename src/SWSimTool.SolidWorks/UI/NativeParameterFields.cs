@@ -65,7 +65,7 @@ namespace SWSimTool.UI {
         }
         void Dispatch(int id,Action<Field> action){if(loading||disposed)return;Require();Field f;if(!byId.TryGetValue(id,out f))return;if(!f.Visible())return;loading=true;try{action(f);}finally{loading=false;}Refresh();Changed?.Invoke();}
         public void OnText(int id,string value)=>Dispatch(id,f=>f.Text?.Invoke(value));
-        public void OnChoice(int id,int value)=>Dispatch(id,f=>{if(DropdownWheelGuard.IsWheelInput)f.Load?.Invoke();else f.Choice?.Invoke(value);});
+        public void OnChoice(int id,int value)=>Dispatch(id,f=>f.Choice?.Invoke(value));
         public void OnCheck(int id,bool value)=>Dispatch(id,f=>f.Check?.Invoke(value));
         public void OnButton(int id)=>Dispatch(id,f=>f.Click?.Invoke());
         public void Dispose(){disposed=true;Changed=null;byId.Clear();fields.Clear();}

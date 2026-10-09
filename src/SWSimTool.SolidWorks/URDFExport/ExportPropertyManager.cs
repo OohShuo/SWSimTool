@@ -87,7 +87,6 @@ namespace SWSimTool.URDFExport
         private UrdfJointLimitFields jointLimits;
         const int JointTypeID=111;
         const int ComboBoxAxesID=113;
-        DropdownWheelGuard wheelGuard;
 
         public TreeView Tree
         { get; set; }
@@ -118,16 +117,15 @@ namespace SWSimTool.URDFExport
 
         #endregion class variables
 
-        bool retryClose,confirmedClose,ownsPage;
+        bool retryClose,confirmedClose,ownsPage,loadingSelections;
         readonly SWSimTool.UI.PropertyManagerTransition closeTransition=new SWSimTool.UI.PropertyManagerTransition();
         public void Show()
         {
             try{
-                if(wheelGuard==null){wheelGuard=new DropdownWheelGuard();wheelGuard.Register(JointTypeID,PMComboBoxJointType);wheelGuard.Register(ComboBoxCoordSysID,PMComboBoxCoordSys);wheelGuard.Register(ComboBoxAxesID,PMComboBoxAxes);wheelGuard.Register(IDGlobalCoordsys,PMComboBoxGlobalCoordsys);}
                 PMPage.Show2(0);
             }catch{ReleasePage();throw;}
         }
-        public void ReleasePage(){wheelGuard?.Dispose();wheelGuard=null;if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();}
+        public void ReleasePage(){if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();}
 
         public void Close(bool ok)
         {
@@ -994,7 +992,7 @@ namespace SWSimTool.URDFExport
 
         void IPropertyManagerPage2Handler9.OnComboboxSelectionChanged(int Id, int Item)
         {
-            if(wheelGuard!=null&&wheelGuard.RejectSelection(Id))return;
+            if(loadingSelections)return;
             if(Id==JointTypeID&&jointLimits!=null)jointLimits.SetType(PMComboBoxJointType.get_ItemText(-1));
             logger.Info("OnComboboxSelectionChanged called. This method no longer throws an " +
                 "Exception. It just silently does nothing. Ok, except for this logging message");
