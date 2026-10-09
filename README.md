@@ -29,20 +29,29 @@ Windows 上安装 SolidWorks 2025 x64 和 .NET Framework 4.8。关闭 SolidWorks
 
 ## 从源码构建
 
-在 Windows 上准备 VS2022 MSBuild/.NET 桌面开发工具、.NET Framework 4.8 targeting pack、支持 .NET 8 的 SDK 和 SolidWorks 2025 API 程序集。构建会恢复 NuGet 依赖；测试需要 Python/MuJoCo，安装器需要 Inno Setup 6.5+。
+本项目需要以下依赖：
+
+| 环境 | 用途 |
+|---|---|
+| Visual Studio 2022 或 Build Tools 2022，包含 .NET 桌面开发构建工具 | MSBuild、C#、WinForms/WPF 编译 |
+| .NET Framework 4.8 targeting pack / Developer Pack | 编译 net48 插件 |
+| .NET 8 SDK | 编译可复用类库的现代 .NET 目标；不是只安装 Runtime |
+| SolidWorks 2025 x64 API 程序集 | 插件编译引用及实际运行宿主 |
+| Python 及运行时依赖 | 指南生成、载荷检查、MuJoCo 工具和测试 |
+| Inno Setup 6.5+ | 生成 Windows 安装包 |
+
+使用下列命令：
 
 ```powershell
-.\build.ps1 -SolidWorksDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS'
-.\build.ps1 -Test -SolidWorksDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS' -Python 'C:\Python\python.exe'
-.\build.ps1 -Package -SolidWorksDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS' -Python 'C:\Python\python.exe'
-.\build.ps1 -Installer -SolidWorksDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS' -Python 'C:\Python\python.exe' -ISCC 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+.\build.ps1 -SolidWorksDir 'your-SOLIDWORKS_PATH'
+.\build.ps1 -Test -SolidWorksDir 'your-SOLIDWORKS_PATH' -Python 'your-python-PATH'
+.\build.ps1 -Package -SolidWorksDir 'your-SOLIDWORKS_PATH' -Python 'your-python-PATH'
+.\build.ps1 -Installer -SolidWorksDir 'your-SOLIDWORKS_PATH' -Python 'your-python-PATH' -ISCC 'your-ISCC-PATH'
 .\build.ps1 -Clean
 ```
 
-默认 restore/build；`-Test` 增加回归；`-Package` 在测试后组装并校验 `build/runtime-release/`；`-Installer` 再生成安装包，不运行安装。也可设置 `SOLIDWORKS_DIR` 或指定 `-MSBuild`。
-
-明确跳过回归时使用 `-Package -SkipTests` 或 `-Installer -SkipTests`，仅构建生产工程，保留载荷检查并记录测试 `NOT RUN`。`-SkipTests` 不能与 `-Test` 或 `-Clean` 同用。
+跳过回归时使用 `-Package -SkipTests` 或 `-Installer -SkipTests`，仅构建生产工程，保留载荷检查并记录测试 `NOT RUN`。`-SkipTests` 不能与 `-Test` 或 `-Clean` 同用。
 
 编译/中间文件位于 `build/bin/<project>/<configuration>/<framework>/` 和 `build/obj/<project>/<configuration>/<framework>/`，日志在 `build/logs/`。`-Clean` 只清理指定输出目录，保留 `build/tools/`、worktrees 和未分类文件，不穿越链接或内嵌 Git 工作区；不要用删除整个 `build/` 代替它。
 
-测试环境、分层入口及 Linux 可复用层运行方法集中在 [tests/README.md](tests/README.md)。仓库没有 GitHub Actions 工作流。
+测试环境、分层入口及 Linux 可复用层运行方法集中在 [tests/README.md](tests/README.md)。
