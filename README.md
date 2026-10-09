@@ -23,7 +23,6 @@ Windows 上安装 SolidWorks 2025 x64 和 .NET Framework 4.8。关闭 SolidWorks
 | `tools/` | 构建、注册和指南生成工具 |
 | `tests/` | 单元、兼容、差分、UI 与隔离 CAD 测试及 fixture |
 | `docs/` | 使用、安装、架构、后端契约和源码来源 |
-| `examples/` | 官方示例 |
 | `build/` | 编译、中间文件、日志、测试输出和交付载荷，不进入 Git |
 
 产品入口只有 SolidWorks 插件（net48）。Core、Application 和 Infrastructure 同时面向 net48/net8.0；net8 测试宿主用于 Windows/Linux 可复用 API 验证，不是独立产品。架构见 [Architecture](docs/Architecture.md)。
