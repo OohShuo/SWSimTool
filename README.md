@@ -2,13 +2,13 @@
 
 SolidWorks 2025 插件：配置机器人 URDF 树、碰撞几何、关节、site、传感器、执行器、闭链约束、恒力和弹簧，导出 URDF / MJCF，并使用本地 MuJoCo 预览。
 
-源码版本为 **3.2.1**，基于 ROS SolidWorks URDF Exporter。原作者署名、官方基线见 [源码来源](docs/SOURCE_PROVENANCE.md)，许可证见 [LICENSE](LICENSE)。版本号不能证明已有安装包包含当前源码的全部修改。
+源码版本为 **3.2.1**，基于 ROS SolidWorks URDF Exporter。原作者署名、官方基线见 [源码来源](docs/SOURCE_PROVENANCE.md)，许可证见 [LICENSE](LICENSE)。安装包由源码构建生成。
 
 ## 安装与使用
 
 Windows 上安装 SolidWorks 2025 x64 和 .NET Framework 4.8。关闭 SolidWorks 后运行安装包，在加载项中启用 SWSimTool。MJCF 工具使用用户提供的 Python、MuJoCo 及可选减面工具。
 
-- [安装、升级与环境准备](docs/INSTALL.md)
+- [安装与环境准备](docs/INSTALL.md)
 - [当前使用指南](docs/SWSimTool_3.2.1_使用指南.md)
 - [文档导航](docs/README.md)
 

@@ -4,7 +4,7 @@
 
 ## 1 安装与入口
 
-保存工作并关闭 SolidWorks，运行 `SWSimTool_3.2.1_SW2025_x64_Setup.exe`。升级可以直接安装，不必先卸载。重新打开 SolidWorks，在加载项中启用 SWSimTool。
+保存工作并关闭 SolidWorks，运行从源码构建的 `SWSimTool_3.2.1_SW2025_x64_Setup.exe`。重新打开 SolidWorks，在加载项中启用 SWSimTool。
 
 MJCF 导出与预览需要本地 Python 和 MuJoCo。在导出窗口填写已安装依赖的 `python.exe`，例如 `C:\Python\python.exe`。减面工具可选择 fast-simplification、PyMeshLab 或 Blender；前两者需要对应 Python 包，Blender 需要本地 `blender.exe`。按需选择一种。
 
@@ -172,7 +172,7 @@ spring 为双向弹簧，填写刚度 N/m、阻尼 N·s/m。自然长度 initial
 
 **工具 → SWSimTool → 重建配置** 使用完整当前草稿，包括活动页面尚未确认的输入，替换当前 Configuration 条目。执行前自动备份，保留合法 ID、CAD 引用和其他 Configuration 条目，不从旧保存内容补回已经删除的设置。校验或写入失败时保留原数据与草稿；成功后旧页面、任务和缓存失效。
 
-旧工程的 `SW2MuJoCo Configuration` v2 节点可读取，显式保存或重建时迁移为新节点；迁移前先保存装配。发现多个配置节点或悬空引用时先按提示修复，不要用重建隐藏错误。
+发现多个配置节点或悬空引用时，先按提示修复引用或清理依赖，再重建配置。
 
 出现“配置已保存，刷新失败”等提示表示写入已完成。关闭旧页面，重新进入并检查已保存内容，不在失效页面重复保存。另存、替换零件后也应检查参考。
 
@@ -231,10 +231,3 @@ balance2026_gimbal_mjcf/
 | 预览未体现新配置 | 保存配置后重新导出；已有 MJCF 预览只读旧 XML |
 
 导出错误在窗口日志查看，需要保留时点击“保存诊断信息”。先修正明确指出的参考、名称或参数，再重新导出。
-
-
-## 从 SW2MuJoCo 切换
-
-关闭 SolidWorks 后安装 SWSimTool。新旧产品允许并存安装，新安装器不卸载旧产品；建议仅启用一个插件编辑同一工程配置。已保存到工程内的 `SW2MuJoCo Configuration` v2 配置可继续使用，显式保存或重建时迁移为新节点。更早的配置节点和旧外部附加配置不支持。首次导出会重新建立缓存，并需在新插件中重新设置 Python、Blender 等工具路径。
-
-环境和安装步骤见安装目录的 `docs/INSTALL.md`；本指南只保留 MuJoCo 模型示意，插件操作以当前菜单和文字说明为准。

@@ -20,7 +20,7 @@ Windows 下使用 `tools/build/RunSuite.ps1 -Tier <层级> -Python <Python路径
 |---|---|
 | Fast | .NET SDK、net48 runtime、Python；可复用工程、领域自检、架构与构建/凭据边界 |
 | Medium | Fast 加 MuJoCo/网格工具；跨目标与物理差分、后端缓存、工具协议/进程故障 |
-| SolidWorksIntegration | 独立空闲 Windows/SW2025；完整回归、隔离 CAD、增量与冻结 v2 保存重开 |
+| SolidWorksIntegration | 独立空闲 Windows/SW2025；完整回归、隔离 CAD、增量与配置保存重开 |
 | Release | 上述环境及管理员权限、Inno Setup；交付载荷、安装/COM 加载/保存/卸载 |
 
 Fast/Medium 是子集，不包含全部当前 UI/身份测试。后两层可能启动 SolidWorks 或执行安装/卸载，需要明确授权。已有 SolidWorks 会话应先退出，只使用新建或复制的自有 fixture；不能通过杀进程绕过保护。
@@ -58,12 +58,6 @@ python -B tests/architecture/Test-ReleaseLayout.py
 .\build\bin\CandidateRunner\Release\net48\SWSimTool.CandidateRunner.exe --tooltest 'C:\Python\python.exe' tests/tools/fake_tool.py
 ```
 
-冻结 v2 CAD 兼容入口仅在隔离空闲 SW 会话下运行：
-
-```powershell
-powershell.exe -NoProfile -File tests/compatibility/Test-V2Cad.ps1 -OwnedLegacyFixture tests/fixtures/sw2mujoco-v2/cad
-```
-
 ## Windows/Linux 可复用层
 
 在具备 .NET SDK、Python/MuJoCo 和网格依赖的任一平台运行：
@@ -89,7 +83,7 @@ python -B tests/platform/compare.py
 | 目录 | 内容 |
 |---|---|
 | `core/`、`upstream/` | 数学、配置、序列化和保留的上游测试；CAD runner 独立 |
-| `identity/`、`compatibility/`、`fixtures/` | 稳定引用、生命周期和不可变旧格式输入 |
+| `identity/`、`compatibility/`、`fixtures/` | 稳定引用、生命周期和冻结输入 |
 | `model/`、`ui/` | 模型组装、编辑/取消/重试、原生回调与页面生命周期 |
 | `backend/`、`tools/` | 网格、缓存、依赖/预算/协议故障、取消/超时/进程清理 |
 | `parity/`、`reference/` | 官方 MuJoCo 编译语义/动力学与显式测试参考生成器 |
