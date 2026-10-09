@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using SolidWorks.Interop.sldworks;
 
 namespace SWSimTool.Simulation {
@@ -26,9 +27,17 @@ namespace SWSimTool.Simulation {
             state.identity=identity;
             if(state.observation!=next){state.observation=next;state.generation++;}
         }
+        // Compare COM identity, not the managed wrapper or a reusable document path/title.
+        internal static bool SameDocument(object left,object right){
+            if(ReferenceEquals(left,right))return true;
+            if(left==null||right==null||!Marshal.IsComObject(left)||!Marshal.IsComObject(right))return false;
+            IntPtr a=IntPtr.Zero,b=IntPtr.Zero;
+            try{a=Marshal.GetIUnknownForObject(left);b=Marshal.GetIUnknownForObject(right);return a==b;}
+            finally{if(b!=IntPtr.Zero)Marshal.Release(b);if(a!=IntPtr.Zero)Marshal.Release(a);}
+        }
         public void RequireCurrent(){
             if(state.closed)throw new InvalidDataException("文档已关闭，此配置页面或导出任务已失效。");
-            if(app!=null&&!ReferenceEquals(app.ActiveDoc,model))throw new InvalidDataException("活动文档已切换，请重新进入配置。");
+            if(app!=null&&!SameDocument(app.ActiveDoc,model))throw new InvalidDataException("活动文档已切换，请重新进入配置。");
             CheckObservation();
             if(configuration!=model.ConfigurationManager.ActiveConfiguration.Name||generation!=state.generation)
                 throw new InvalidDataException("配置节点已删除、重建、切换或被其他页面修改。旧草稿/任务已失效，请重新进入；不会向新配置写回旧引用。");

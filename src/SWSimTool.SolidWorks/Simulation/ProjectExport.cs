@@ -6,6 +6,7 @@ namespace SWSimTool.Simulation {
  public sealed class ProjectExport : IDisposable {
   readonly string temporary;
   readonly ModelDoc2 document;
+  readonly string configuration;
   readonly ConfigurationSession session;
   readonly string draftFingerprint;
   public void RequireCurrent(){session.RequireCurrent();if(draftFingerprint!=ConfigurationEditingContext.Fingerprint(document))throw new InvalidDataException("编辑草稿已改变，本次导出失效；保留上次正式产物。");}
@@ -19,8 +20,8 @@ namespace SWSimTool.Simulation {
   public ProjectExport(SldWorks app,ModelDoc2 expected,string configuration):this(app,expected,configuration,true){}
   public static ProjectExport ForReferenceTests(SldWorks app,ModelDoc2 expected,string configuration)=>new ProjectExport(app,expected,configuration,false);
   private ProjectExport(SldWorks app,ModelDoc2 expected,string configuration,bool nativeOnly){
-   if(!ReferenceEquals(app.ActiveDoc,expected)||expected.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("当前装配或 Configuration 已切换，请重新打开工程导出。");
-   document=expected;session=ConfigurationSession.Capture(app,expected);draftFingerprint=ConfigurationEditingContext.Fingerprint(expected);temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+   if(!ConfigurationSession.SameDocument(app.ActiveDoc,expected)||expected.ConfigurationManager.ActiveConfiguration.Name!=configuration)throw new InvalidOperationException("当前装配或 Configuration 已切换，请重新打开工程导出。");
+   document=expected;this.configuration=configuration;session=ConfigurationSession.Capture(app,expected);draftFingerprint=ConfigurationEditingContext.Fingerprint(expected);temporary=Path.Combine(Path.GetTempPath(),"SWSimTool-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
    try{
     var current=SimulationStorage.Load(expected)??new SimulationProject();current.NormalizeSiteReferences();current.ValidateSolver();current.collision=current.collision??new CollisionConfiguration();
     var entry=SimulationStorage.LoadEntry(expected);string treeData=entry?.urdf_xml;
@@ -59,6 +60,7 @@ namespace SWSimTool.Simulation {
     var stored=ProjectSourceCache.Find(expected,source,geometry);if(stored!=null){Urdf=stored.urdf==null?null:Path.Combine(stored.folder,stored.urdf);Core=stored.core;}
    }catch{Dispose();throw;}
   }
+  public void InvalidateSuccessRegistration(){SimulationSession.InvalidateExport(document,configuration);ProjectSourceCache.Clear(document);CadSnapshotCache.Clear(document);}
   public void MarkSucceeded(){RequireCurrent();SimulationSession.ExportSucceeded(document);}
   public void Dispose(){if(Directory.Exists(temporary)&&Path.GetDirectoryName(Path.GetFullPath(temporary))==Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)&&Path.GetFileName(temporary).StartsWith("SWSimTool-",StringComparison.Ordinal))Directory.Delete(temporary,true);}
  }

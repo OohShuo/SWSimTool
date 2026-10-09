@@ -276,7 +276,7 @@ namespace SWSimTool.SW
                 var service=new ExportHelper((SldWorks)SwApp).GetSimulation();service.RequireCurrentDocument();
                 if(MessageBox.Show("将使用当前完整编辑草稿（包含尚未保存的修改），全量替换当前 SolidWorks 配置条目，并保存为 SWSimTool Configuration。\n旧保存内容不会合并或补回；其他 SW 配置条目保留。执行前自动备份。零件、配合、草图和参考几何体不变。", "重建配置",MessageBoxButtons.OKCancel,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.OK)return;
                 var reopen=lastConfigurationPage??(Action)OpenUrdfConfiguration;var result=service.RebuildCurrentDraft();if(!result.RefreshSucceeded){MessageBox.Show(result.Message+"\n备份："+result.BackupPath,"SWSimTool 重建已提交");return;}
-                result.Run(()=>{var transition=new PropertyManagerTransition();transition.Post(()=>{try{if(ReferenceEquals(SwApp.ActiveDoc,model))result.Run(reopen);if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"SWSimTool 重建已提交");}finally{transition.Dispose();}});});
+                result.Run(()=>{var transition=new PropertyManagerTransition();transition.Post(()=>{try{if(ConfigurationSession.SameDocument(SwApp.ActiveDoc,model))result.Run(reopen);if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"SWSimTool 重建已提交");}finally{transition.Dispose();}});});
                 MessageBox.Show(result.RefreshSucceeded?"重建完成。配置页面将重新加载，请保存装配。下一次导出会重新构建模型。\n备份："+result.BackupPath:result.Message,"SWSimTool");
             }catch(Exception e){logger.Error("Configuration rebuild failed",e);MessageBox.Show(e.Message,"SWSimTool 重建配置",MessageBoxButtons.OK,MessageBoxIcon.Error);}
         }
@@ -647,7 +647,7 @@ namespace SWSimTool.SW
         //Events
         public int OnDocChange()
         {
-            foreach(ModelDoc2 model in OpenDocs.Keys)if(!ReferenceEquals(model,SwApp.ActiveDoc))ConfigurationSession.Invalidate(model);
+            foreach(ModelDoc2 model in OpenDocs.Keys)if(!ConfigurationSession.SameDocument(model,SwApp.ActiveDoc))ConfigurationSession.Invalidate(model);
             return 0;
         }
 
