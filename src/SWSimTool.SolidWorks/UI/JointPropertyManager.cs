@@ -12,7 +12,7 @@ namespace SWSimTool.UI
     public sealed class JointPropertyManager : PropertyManagerPage2Handler9
     {
         PropertyManagerPage2 page;
-        JointEditorControl editor;
+        NativeJointEditor editor;
         bool retry;
         readonly PropertyManagerTransition transition=new PropertyManagerTransition();
         public Action Closed { get; set; }
@@ -24,14 +24,13 @@ namespace SWSimTool.UI
             int error=0;
             page=(PropertyManagerPage2)service.App.CreatePropertyManagerPage("SWSimTool 关节配置",(int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_OkayButton | (int)swPropertyManagerPageOptions_e.swPropertyManagerOptions_CancelButton,this,ref error);
             if(page==null||error!=0)throw new InvalidOperationException("无法创建左侧关节配置页面："+error);
-            var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"关节参数配置",0,3,"");
-            window.Height=270;
-            editor=new JointEditorControl(service,joints);
-            window.SetWindowHandlex64(editor.Handle.ToInt64());service.PageDraft.Close=()=>page.Close(false);
+            var group=(IPropertyManagerPageGroup)page.AddGroupBox(10,"关节参数",(int)(swAddGroupBoxOptions_e.swGroupBoxOptions_Visible|swAddGroupBoxOptions_e.swGroupBoxOptions_Expanded));
+            editor=new NativeJointEditor(service,joints,group);
+            service.PageDraft.Close=()=>page.Close(false);
         }catch{editor?.Dispose();transition.Dispose();throw;}}
         public void Show(){try{page.Show2(0);}catch{editor.Dispose();transition.Dispose();throw;}}
         void IPropertyManagerPage2Handler9.AfterActivation() {  }
-        void IPropertyManagerPage2Handler9.OnButtonPress(int Id) {  }
+        void IPropertyManagerPage2Handler9.OnButtonPress(int Id) { editor?.Guard(()=>editor.Fields.OnButton(Id)); }
         void IPropertyManagerPage2Handler9.OnClose(int Reason) { if(Reason==(int)swPropertyManagerPageCloseReasons_e.swPropertyManagerPageClose_Okay) try{var result=editor.Save();if(!result.RefreshSucceeded)MessageBox.Show(result.Message,"配置已保存，刷新失败");}catch(Exception e){retry=true;MessageBox.Show(e.Message,"关节配置未保存");} }
         void IPropertyManagerPage2Handler9.OnGainedFocus(int Id) {  }
         bool IPropertyManagerPage2Handler9.OnHelp() { return true; }
@@ -42,11 +41,11 @@ namespace SWSimTool.UI
         void IPropertyManagerPage2Handler9.OnSelectionboxListChanged(int Id, int Count) {  }
         bool IPropertyManagerPage2Handler9.OnSubmitSelection(
             int Id, object Selection, int SelType, ref string ItemText) { return true; }
-        void IPropertyManagerPage2Handler9.OnTextboxChanged(int Id, string Text) {  }
+        void IPropertyManagerPage2Handler9.OnTextboxChanged(int Id, string Text) { editor?.Guard(()=>editor.Fields.OnText(Id,Text)); }
         int IPropertyManagerPage2Handler9.OnWindowFromHandleControlCreated(int Id, bool Status) { return 0; }
-        void IPropertyManagerPage2Handler9.OnCheckboxCheck(int Id, bool Checked) {  }
+        void IPropertyManagerPage2Handler9.OnCheckboxCheck(int Id, bool Checked) { editor?.Guard(()=>editor.Fields.OnCheck(Id,Checked)); }
         void IPropertyManagerPage2Handler9.OnComboboxEditChanged(int Id, string Text) {  }
-        void IPropertyManagerPage2Handler9.OnComboboxSelectionChanged(int Id, int Item) {  }
+        void IPropertyManagerPage2Handler9.OnComboboxSelectionChanged(int Id, int Item) { editor?.Guard(()=>editor.Fields.OnChoice(Id,Item)); }
         void IPropertyManagerPage2Handler9.OnGroupCheck(int Id, bool Checked) {  }
         void IPropertyManagerPage2Handler9.OnGroupExpand(int Id, bool Expanded) {  }
         void IPropertyManagerPage2Handler9.OnListboxSelectionChanged(int Id, int Item) {  }
