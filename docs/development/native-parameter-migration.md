@@ -37,9 +37,8 @@ Verification on 2026-10-09:
 The user's earlier GUI verification concerned the URDF joint limit fields,
 not this independent joint configuration page. Do not reuse that result here.
 
-Remaining stages: collision parameter region, simulation parameter regions,
-and constraints. Migrate and commit each page independently; preserve custom
-complex trees and previews. Native PropertyManager is not a WinForms flow layout:
+Subsequent collision, simulation and constraint implementation stages are
+recorded below. Each page retains custom complex trees and previews. Native PropertyManager is not a WinForms flow layout:
 creation order, alignment, grouping and visibility remain explicit.
 ## Stage 2: collision presentation
 
@@ -80,3 +79,30 @@ constraint controller regressions including conditional kp/kv/fovy, disabled
 solver settings, references, spring input retention, complete draft collection,
 persistence failure/retry and actual timestep-only page save classification.
 NOT RUN: actual SolidWorks visual layout, tabs, CAD and DPI acceptance.
+
+## Stage 4: constraints and final code audit
+
+The constraints-only production route uses the same native presentation seam;
+it no longer creates a WindowFromHandle. Its native tab contains connect/weld/
+joint type-dependent inputs, existing site/joint choices and local solver inputs.
+No owner selector or CAD picker is added to constraints. Legacy body-to-site
+conversion remains explicit. URDF tree display remains its own custom region;
+its parameters and limit inputs were already native.
+
+All parameter surfaces now use native display controls. Existing collision and
+simulation WinForms input controllers are deliberately retained as page-local,
+non-displayed adapters, not shared drafts or embedded display windows. Removing
+that adapter layer is outside this presentation-only change. No physical rules,
+Stable ID policy, schema or solver comparison tolerances changed.
+
+Verification: PASS Release build; native presentation callbacks/slots; synchronized
+page controller regressions; native source-surface audit. The audit confirms all
+three independent production PropertyManagers have no embedded editor HWND,
+route input and native tab callbacks, and install/dispose wheel guards. Control
+allocation is sealed before Show2; a missing template produces a diagnostic.
+
+NOT RUN: real SolidWorks narrow-side-panel layout, 100%/125%/150% DPI, native
+scrolling to the bottom, fold/unfold and repeat-open visual acceptance; real CAD
+export/preview and installer/install acceptance. Legacy WinForms scroll checks
+remain regression checks for the adapter only and do not prove native scrolling.
+No SolidWorks process or user CAD was opened; no installer was updated.

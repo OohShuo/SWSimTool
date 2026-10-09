@@ -17,6 +17,7 @@ Run 'publication-receipt' { & $Python -B tests/architecture/Test-ValidationRecei
 Run 'build-options' { & $Python -B tests/architecture/Test-BuildOptions.py }
 Run 'sdk-build' { & $Python -B tests/architecture/Test-SdkBuild.py }
 Run 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
+Run 'native-parameter-surface' { & $Python -B tests/architecture/Test-NativeParameterSurface.py }
 Run 'urdf-entry-points' { & $Python -B tests/architecture/Test-UrdfEntryPoints.py }
 Run 'urdf-limit-mapping' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/model/Test-UrdfLimitMapping.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" -Python $Python }
 Run 'urdf-limit-layout' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/ui/Test-UrdfLimitLayout.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }

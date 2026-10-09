@@ -32,15 +32,10 @@ namespace SWSimTool.UI
             if(!constraintsOnly){selection=(PropertyManagerPageSelectionbox)page.AddControl2(1,(short)swPropertyManagerPageControlType_e.swControlType_Selectionbox,"模型参考拾取",0,3,"点击下方拾取按钮，再选择模型几何对象");
             selection.SingleEntityOnly=true;
             selection.SetSelectionFilters(new[]{(int)swSelectType_e.swSelVERTICES,(int)swSelectType_e.swSelDATUMPOINTS,(int)swSelectType_e.swSelSKETCHPOINTS,(int)swSelectType_e.swSelCOORDSYS,(int)swSelectType_e.swSelFACES,(int)swSelectType_e.swSelEDGES});}
-            editor=new SimulationEditorControl(service,selectedLink,joints,constraintsOnly,!constraintsOnly);
-            if(!constraintsOnly){
-                editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
-                presenter=new NativeEditorPresenter(editor,(id,caption,tab)=>tab<0?page.AddGroupBox(id,caption,3):page.AddTab(100+tab,caption,"",0).AddGroupBox(id,caption,3),service.RequireCurrentDocument);
-                presenter.Error=e=>MessageBox.Show(e.Message,title);
-            }else{
-                var window=(PropertyManagerPageWindowFromHandle)page.AddControl2(2,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,title,0,3,"");
-                window.Height=270;window.SetWindowHandlex64(editor.Handle.ToInt64());
-            }
+            editor=new SimulationEditorControl(service,selectedLink,joints,constraintsOnly,true);
+            if(!constraintsOnly)editor.BeginSelection=()=>{service.Model.ClearSelection2(true);selection.SetSelectionFocus();};
+            presenter=new NativeEditorPresenter(editor,(id,caption,tab)=>tab<0?page.AddGroupBox(id,caption,3):page.AddTab(100+tab,caption,"",0).AddGroupBox(id,caption,3),service.RequireCurrentDocument);
+            presenter.Error=e=>MessageBox.Show(e.Message,title);
             service.PageDraft.Close=()=>page.Close(false);
         }catch{presenter?.Dispose();editor?.Dispose();transition.Dispose();throw;}}
         public void Show(){try{wheelGuard=wheelGuard??new DropdownWheelGuard();page.Show2(0);}catch{wheelGuard?.Dispose();presenter?.Dispose();editor.Dispose();transition.Dispose();throw;}}
