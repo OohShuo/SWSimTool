@@ -1,4 +1,4 @@
-using SWSimTool.Simulation;
+﻿using SWSimTool.Simulation;
 using SWSimTool.Utilities;
 using System;
 using System.Collections;
@@ -24,11 +24,11 @@ namespace SWSimTool.UI {
   readonly Dictionary<string,string> jointOwners;
   readonly string configuration;
   string revision,displayedLink,previewKey;
-  Attachment armed;readonly bool constraintsOnly;EqualityConfig selectedEquality;SiteForceConfig selectedForce;
+  Attachment armed;readonly bool constraintsOnly,nativePresentation;EqualityConfig selectedEquality;SiteForceConfig selectedForce;
   bool loading;
   public Action BeginSelection{get;set;}
-  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false){try{
-   this.service=service;service.BeginPage();ownsPage=true;this.constraintsOnly=constraintsOnly;jointOwners=joints;draft=service.Project;
+  public SimulationEditorControl(AttachmentService service,string selectedLink,Dictionary<string,string> joints,bool constraintsOnly=false,bool nativePresentation=false){try{
+   this.service=service;service.BeginPage();ownsPage=true;this.constraintsOnly=constraintsOnly;this.nativePresentation=nativePresentation;jointOwners=joints;draft=service.Project;
    draft.NormalizeSiteReferences();preview=new CollisionPreview(service);Dock=DockStyle.Fill;
    configuration=service.Model.ConfigurationManager.ActiveConfiguration.Name;revision=service.CollisionRevision;
    var tabs=new TabControl{Dock=DockStyle.Fill};Controls.Add(tabs);tabs.SelectedIndexChanged+=(s,e)=>{armed=null;};
@@ -120,7 +120,7 @@ namespace SWSimTool.UI {
   void Rules<T>(TabControl tabs,string title,List<T> items,Func<T> create,Func<T,bool> filter,string[] kinds,string hint,Action<TableLayoutPanel,T> fields)where T:class{
    var page=new CollisionTabPage(title);tabs.TabPages.Add(page);var panel=Layout(page);Note(panel,hint);var list=new ListBox{Height=80};Add(panel,list);
    var buttons=new FlowLayoutPanel{AutoSize=true};var add=new Button{Text="添加"};var remove=new Button{Text="删除"};buttons.Controls.Add(add);buttons.Controls.Add(remove);Add(panel,buttons);var details=Layout(panel);Add(panel,details);T current=null;T displayed=null;List<Action> updates=null;
-   Action load=null;load=()=>{if(ReferenceEquals(current,displayed)&&updates!=null){JointEditorControl.PreserveScroll(details,()=>{foreach(var update in updates)update();});return;}displayed=current;armed=null;foreach(var box in Descendants(details).OfType<TextBox>())invalid.Remove(box);foreach(Control child in details.Controls.Cast<Control>().ToArray())child.Dispose();details.Controls.Clear();updates=null;if(current==null){if(typeof(T)==typeof(SiteForceConfig))selectedForce=null;if(constraintsOnly){selectedEquality=null;Schedule();}return;}loading=true;details.RowCount=0;details.RowStyles.Clear();var p=details;conditions=updates=new List<Action>();p.Tag=updates;StringField(p,current,"name","名称",()=>RefreshListDisplay(list));var type=Combo(p,current,"type","类型",kinds);fields(p,current);foreach(var update in updates)update();loading=false;
+   Action load=null;load=()=>{if(ReferenceEquals(current,displayed)&&updates!=null){JointEditorControl.PreserveScroll(details,()=>{foreach(var update in updates)update();});return;}displayed=current;armed=null;foreach(var box in Descendants(details).OfType<TextBox>())invalid.Remove(box);foreach(Control child in details.Controls.Cast<Control>().ToArray())child.Dispose();details.Controls.Clear();updates=null;if(current==null){if(nativePresentation){loading=true;details.RowCount=0;details.RowStyles.Clear();conditions=new List<Action>();details.Tag=conditions;var template=create();StringField(details,template,"name","名称");Combo(details,template,"type","类型",kinds);fields(details,template);foreach(var update in conditions)update();details.Visible=false;loading=false;}if(typeof(T)==typeof(SiteForceConfig))selectedForce=null;if(constraintsOnly){selectedEquality=null;Schedule();}return;}details.Visible=true;loading=true;details.RowCount=0;details.RowStyles.Clear();var p=details;conditions=updates=new List<Action>();p.Tag=updates;StringField(p,current,"name","名称",()=>RefreshListDisplay(list));var type=Combo(p,current,"type","类型",kinds);fields(p,current);foreach(var update in updates)update();loading=false;
     type.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;type.SelectedItem=typeof(T).GetProperty("type").GetValue(current);loading=false;status.Text="请先修正无效数字。";return;}typeof(T).GetProperty("type").SetValue(current,type.SelectedItem);RefreshListDisplay(list);JointEditorControl.PreserveScroll(details,()=>{foreach(var update in updates)update();});Schedule();};};
    Action refresh=()=>{loading=true;list.Items.Clear();foreach(var item in items.Where(filter))list.Items.Add(item);if(current!=null&&list.Items.Contains(current))list.SelectedItem=current;else list.SelectedIndex=list.Items.Count>0?0:-1;current=list.SelectedItem as T;load();loading=false;};refreshers.Add(refresh);
    list.SelectedIndexChanged+=(s,e)=>{if(loading)return;if(invalid.Count>0){loading=true;list.SelectedItem=current;loading=false;status.Text="请先修正无效数字。";return;}current=list.SelectedItem as T;load();};

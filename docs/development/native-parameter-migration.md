@@ -60,3 +60,23 @@ PASS: Release build; native presentation callbacks, reentry, hidden field
 retention, tab routing, stale-page rejection and disposal tests; collision
 navigation, references and persistence regression with the native presenter.
 NOT RUN: real SolidWorks tabs/layout, scroll position and DPI acceptance.
+
+## Stage 3: simulation presentation
+
+The simulation route now uses native PropertyManager tabs for attachments,
+sensors, actuators, global solver settings and two-site force/spring settings.
+The upper owner selector and footer actions remain independent groups; the
+force tab hides the owner group as before. Native tab callbacks synchronize
+only the page-local selected section and cancel an armed CAD picker.
+
+Empty rule categories prepare detached, hidden field templates before Show2;
+the placeholder objects are never inserted into the business draft. Real rule
+selection/new rules bind to the same native controls. This preserves complete
+unsaved draft collection and avoids AddControl2 while a page is displayed.
+Existing input controllers remain page local and unattached, as in stage 2.
+
+PASS: build, native presentation test, synchronized collision/simulation/
+constraint controller regressions including conditional kp/kv/fovy, disabled
+solver settings, references, spring input retention, complete draft collection,
+persistence failure/retry and actual timestep-only page save classification.
+NOT RUN: actual SolidWorks visual layout, tabs, CAD and DPI acceptance.

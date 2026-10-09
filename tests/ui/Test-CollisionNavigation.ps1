@@ -9,6 +9,12 @@ $refs=@("$interop\SolidWorks.Interop.sldworks.dll","$interop\SolidWorks.Interop.
 $refs | Where-Object {$_ -like '*.dll'} | ForEach-Object {[Reflection.Assembly]::LoadFrom($_)|Out-Null}
 # This test uses mocked CAD interfaces only. It never connects to SolidWorks.
 [SWSimTool.Utilities.Logger].GetField('Initialized',[Reflection.BindingFlags]'NonPublic,Static').SetValue($null,$true)
+$nativeFixture=Join-Path $root 'build/test-work/native-presentation-fixture.dll'
+New-Item -ItemType Directory -Force (Split-Path $nativeFixture -Parent) | Out-Null
+Remove-Item -LiteralPath $nativeFixture -Force -ErrorAction SilentlyContinue
+Add-Type -ReferencedAssemblies $refs -OutputAssembly $nativeFixture -TypeDefinition (Get-Content (Join-Path $PSScriptRoot 'NativePresentationFixture.cs') -Raw)
+[Reflection.Assembly]::LoadFrom($nativeFixture)|Out-Null
+$refs+=$nativeFixture
 Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -26,7 +32,7 @@ using SWSimTool.URDFExport;
 public static class CollisionNavigationProbe {
  static object Get(object o,string n){return o.GetType().GetField(n,BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public).GetValue(o);}
  static void Set(object o,string n,object v){o.GetType().GetField(n,BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public).SetValue(o,v);}
- static void Check(bool ok,string text){if(!ok)throw new Exception(text);Console.WriteLine("PASS: "+text);}
+ static void Check(bool ok,string text){NativePresentationTest.CheckAll();if(!ok)throw new Exception(text);Console.WriteLine("PASS: "+text);}
  public static void Run(){
   var config=new Mock<Configuration>();config.SetupGet(c=>c.Name).Returns("test");
   var manager=new Mock<ConfigurationManager>();manager.SetupGet(c=>c.ActiveConfiguration).Returns(config.Object);
@@ -43,7 +49,8 @@ public static class CollisionNavigationProbe {
   foreach(var n in new[]{"pitch","base"}){var l=new SWSimTool.URDF.Link(identityRoot);l.Name=n;identityRoot.Children.Add(l);}
   Set(service,"collisionTree",new SWSimTool.URDF.LinkNode(identityRoot));
   Set(service,"cachedRevision",service.CollisionRevision);Set(service,"cachedFrames",new Dictionary<string,Matrix<double>>{{"yaw",DenseMatrix.CreateIdentity(4)},{"pitch",DenseMatrix.CreateIdentity(4)},{"base",DenseMatrix.CreateIdentity(4)}});
-  using(var editor=new CollisionEditorControl(service,"yaw")){
+  using(var editor=new CollisionEditorControl(service,"yaw",true)) using(var native=NativePresentationTest.Create(editor)){
+   NativePresentationTest.Exercise(native,editor);
    first=service.Project.collision.geometries[0];second=service.Project.collision.geometries[1];other=service.Project.collision.geometries[2];
    ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
    var link=(ComboBox)Get(editor,"link");var list=(ListBox)Get(editor,"list");var name=(TextBox)Get(editor,"name");var sizes=(TextBox[])Get(editor,"size");
@@ -82,7 +89,8 @@ public static class CollisionNavigationProbe {
    Check(!values.Visible,"inherited solver fields are hidden");toggle.Checked=true;Check(values.Visible,"local override displays solver fields");toggle.Checked=false;Check(!values.Visible,"disabling override hides solver fields again");
   }
   service.Project.attachments.AddRange(new[]{new Attachment{name="yaw_site",link="yaw",type="frame"},new Attachment{name="pitch_site",link="pitch",type="point"}});
-  using(var editor=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}})){
+  using(var editor=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}},false,true)) using(var native=NativePresentationTest.Create(editor)){
+   NativePresentationTest.Exercise(native,editor);
    ((Timer)Get(editor,"timer")).Stop();((Timer)Get(editor,"cadTimer")).Stop();
    var link=(ComboBox)Get(editor,"link");var tabs=All(editor).OfType<TabControl>().Single();Check(tabs.TabPages.Count==5&&!tabs.TabPages.Cast<TabPage>().Any(p=>p.Text=="闭链约束"),"simulation keeps all tabs except constraints");
    var sites=All(tabs.TabPages[0]).OfType<ListBox>().Single();
@@ -142,7 +150,8 @@ public static class CollisionNavigationProbe {
 
   }
   service.Project.actuators.Clear();service.Project.site_forces.Clear();service.Project.sensors.Clear();service.Project.equalities.Clear();service.Project.joint_force_limits.Clear();service.Project.solver=null;
-  using(var constraints=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}},true)){
+  using(var constraints=new SimulationEditorControl(service,"yaw",new Dictionary<string,string>{{"yaw_joint","yaw"},{"pitch_joint","pitch"}},true,true)) using(var native=NativePresentationTest.Create(constraints)){
+   NativePresentationTest.Exercise(native,constraints);
    ((Timer)Get(constraints,"timer")).Stop();((Timer)Get(constraints,"cadTimer")).Stop();var tabs=All(constraints).OfType<TabControl>().Single();Check(tabs.TabPages.Count==1&&tabs.TabPages[0].Text=="约束","constraint entry is separate from simulation tabs");typeof(Button).GetMethod("OnClick",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(Find(constraints,"添加"),new object[]{EventArgs.Empty});var kinds=All(constraints).OfType<ComboBox>().Single(c=>c.Items.Contains("connect"));kinds.SelectedItem="joint";Check(All(constraints).OfType<Label>().Count(c=>c.Text.StartsWith("多项式系数"))==5&&!All(constraints).OfType<ComboBox>().Any(c=>c.Items.Contains("site")),"joint constraint shows five independent coefficients and no site binding");var draft=(SimulationProject)Get(constraints,"draft");Check(draft.equalities[0].polycoef[1]==1&&draft.equalities[0].active,"new joint constraint defaults to active identity coupling");kinds=All(constraints).OfType<ComboBox>().Single(c=>c.Items.Contains("connect"));kinds.SelectedItem="weld";Check(All(constraints).OfType<Label>().Any(c=>c.Text.Contains("torquescale")),"weld shows torque scale");Check(!All(constraints).OfType<Label>().Any(c=>c.Text=="所属 link")&&!All(constraints).OfType<Button>().Any(c=>c.Text.Contains("拾取")),"constraint page has no link selector or pickup");Check(!All(constraints).OfType<ComboBox>().Any(c=>c.Items.Contains("body")),"new constraints choose sites or joints only");Check(Object.ReferenceEquals(service.Project,draft)&&service.Project.equalities.Count==1,"constraints share complete unsaved draft");using(var form=new Form()){form.ClientSize=new System.Drawing.Size(230,400);form.Controls.Add(constraints);form.Show();Application.DoEvents();((Timer)Get(constraints,"timer")).Stop();((Timer)Get(constraints,"cadTimer")).Stop();var local=All(constraints).OfType<CheckBox>().Single(c=>c.Text.StartsWith("单独设置求解参数"));local.Checked=true;Application.DoEvents();var scroll=tabs.TabPages[0];Check(scroll.VerticalScroll.Visible&&!scroll.HorizontalScroll.Visible,"narrow constraint page scrolls vertically without horizontal clipping");scroll.AutoScrollPosition=new System.Drawing.Point(0,100000);Application.DoEvents();var last=All(constraints).OfType<TextBox>().Last();Check(scroll.PointToClient(last.PointToScreen(new System.Drawing.Point(0,last.Height))).Y<=scroll.ClientSize.Height,"constraint bottom solver fields are reachable");using(var bitmap=new System.Drawing.Bitmap(form.Width,form.Height)){form.DrawToBitmap(bitmap,new System.Drawing.Rectangle(0,0,form.Width,form.Height));bitmap.Save(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(),"build","constraints-bottom.png"));}form.Controls.Remove(constraints);form.Close();}
   }
   var storageData=new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new SimulationStorage.Document{configurations=new Dictionary<string,SimulationStorage.Entry>{{"test",new SimulationStorage.Entry{simulation=new SimulationProject()}}}});var parameter=new Mock<Parameter>();parameter.Setup(p=>p.GetStringValue()).Returns(()=>storageData);bool rejectWrite=false;parameter.Setup(p=>p.SetStringValue2(It.IsAny<string>(),It.IsAny<int>(),It.IsAny<string>())).Returns((string data,int option,string name)=>{if(rejectWrite){rejectWrite=false;return false;}storageData=data;return true;});var attribute=new Mock<SolidWorks.Interop.sldworks.Attribute>();attribute.Setup(a=>a.GetName()).Returns(SimulationStorage.NodeName);attribute.Setup(a=>a.GetParameter("data")).Returns(parameter.Object);var feature=new Mock<Feature>();feature.Setup(f=>f.GetTypeName2()).Returns("Attribute");feature.Setup(f=>f.GetSpecificFeature2()).Returns(attribute.Object);var fm=new Mock<FeatureManager>();fm.Setup(f=>f.GetFeatures(true)).Returns(new object[]{feature.Object});model.SetupGet(m=>m.FeatureManager).Returns(fm.Object);int parses=SimulationStorage.ParseCount;var stored=SimulationStorage.Load(model.Object);stored.base_mode="floating";Check(SimulationStorage.Load(model.Object).base_mode=="inherit"&&SimulationStorage.ParseCount==parses+1,"storage cache skips repeated tree validation and isolates mutable drafts");SimulationStorage.Save(null,model.Object,stored);Check(SimulationStorage.Load(model.Object).base_mode=="floating"&&SimulationStorage.ParseCount==parses+1,"storage save preserves verified cache without serialize-parse loops");string previousStorage=storageData;stored.base_mode="fixed";rejectWrite=true;bool saveRejected=false;try{SimulationStorage.Save(null,model.Object,stored);}catch{saveRejected=true;}Check(saveRejected&&storageData==previousStorage&&SimulationStorage.Load(model.Object).base_mode=="floating","failed storage write rolls back and preserves cache");storageData=storageData.Replace("floating","fixed");Check(SimulationStorage.Load(model.Object).base_mode=="fixed"&&SimulationStorage.ParseCount==parses+2,"external attribute edits invalidate storage validation cache");
