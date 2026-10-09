@@ -351,3 +351,15 @@ ASALocalRun/
 
 # Local workspace archive; historical documentation remains tracked in docs/history.
 /_archive/
+
+# Local agent settings, credentials and environment files
+/.aws/
+/.codex/
+/.agents/
+.env
+.env.*
+!.env.example
+
+# Understand Anything analysis artifacts
+/.ua/
+/.understand-anything/
