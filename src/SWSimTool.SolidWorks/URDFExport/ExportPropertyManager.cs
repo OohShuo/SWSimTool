@@ -84,9 +84,7 @@ namespace SWSimTool.URDFExport
         private PropertyManagerPageLabel PMLabelCSVFilename;
 
         private PropertyManagerPageWindowFromHandle PMTree;
-        private PropertyManagerPageWindowFromHandle PMLimits;
-        private UrdfJointLimitControl jointLimits;
-        const int JointLimitsID=110;
+        private UrdfJointLimitFields jointLimits;
         const int JointTypeID=111;
 
         public TreeView Tree
@@ -124,7 +122,7 @@ namespace SWSimTool.URDFExport
         {
             try{PMPage.Show2(0);}catch{ReleasePage();throw;}
         }
-        public void ReleasePage(){if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();jointLimits?.Dispose();docMenu?.Dispose();closeTransition.Dispose();}
+        public void ReleasePage(){if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();}
 
         public void Close(bool ok)
         {
@@ -178,7 +176,7 @@ namespace SWSimTool.URDFExport
             }
 
             #endregion Create and instantiate components of PM page
-        }catch{if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();jointLimits?.Dispose();docMenu?.Dispose();closeTransition.Dispose();throw;}}
+        }catch{if(ownsPage){ownsPage=false;Exporter.GetSimulation().EndPage();}Tree?.Dispose();docMenu?.Dispose();closeTransition.Dispose();throw;}}
 
         private void ExceptionHandler(object sender, ThreadExceptionEventArgs e)
         {
@@ -811,13 +809,7 @@ namespace SWSimTool.URDFExport
             PMComboBoxJointType.AddItems(new string[] {
                 "Automatically Detect", "continuous", "revolute", "prismatic", "fixed" });
 
-            jointLimits=new UrdfJointLimitControl();
-            PMLimits=(PropertyManagerPageWindowFromHandle)PMGroup.AddControl2(JointLimitsID,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"关节限位",0,(int)swAddControlOptions_e.swControlOptions_Visible,"使用 SI 单位");
-            jointLimits.ContentHeightChanged+=(sender,args)=>{
-                PMLimits.Height=jointLimits.PageHeight;
-                ((IPropertyManagerPageControl)PMLimits).Visible=jointLimits.HasParameters;
-            };
-            PMLimits.Height=jointLimits.PageHeight;PMLimits.SetWindowHandlex64(jointLimits.Handle.ToInt64());
+            jointLimits=new UrdfJointLimitFields(PMGroup);
             //Create the selection box label
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Label;
             caption = "Link Components";

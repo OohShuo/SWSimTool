@@ -89,7 +89,7 @@
     <Compile Include="UI\SimulationEditorControl.cs" />
     <Compile Include="UI\SolverParametersControl.cs" />
     <Compile Include="UI\JointEditorControl.cs" />
-    <Compile Include="UI\UrdfJointLimitControl.cs" />
+    <Compile Include="UI\UrdfJointLimitFields.cs" />
     <Compile Include="UI\JointPropertyManager.cs" />
     <Compile Include="Simulation\JointConfiguration.cs" />
     <Compile Include="Simulation\JointReferenceService.cs" />

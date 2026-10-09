@@ -1,26 +1,31 @@
-# Compact URDF joint parameter layout
+# Native URDF joint parameter fields
 
-The embedded control and its PropertyManager host previously reserved a fixed
-height of 130 regardless of the fields displayed. The host continued to reserve
-space even when fewer parameters were visible.
+The old WinForms WindowFromHandle parameter host did not reserve enough space
+in the real PropertyManager layout. The component selector overlapped its last
+rows. Control-only size tests could not certify native placement.
 
-The control now positions existing inputs in compact rows, measures wrapped
-labels and preferred textbox heights, and reports its content height to the
-PropertyManager host. Revolute/prismatic display four rows; continuous displays
-two; fixed/root display none. The host reserves the measured content height plus
-a small bottom gap. The original font/dialog-unit conversion underestimated the
-host height and caused the following component list to overlap the last rows;
-that conversion has been removed. Font and width
-changes recalculate row geometry without rebuilding controls or changing values.
+The region now uses four native labels and four native textboxes. SolidWorks
+owns their layout. There is no parameter HWND, manual host height, height event,
+or pixel/dialog-unit conversion. The unrelated URDF tree window is unchanged.
 
-Validation on 2026-10-09:
+UrdfJointLimitFields updates visibility and SI captions without recreating
+controls. Revolute/prismatic show four fields; continuous hides bounds;
+fixed/root hide all fields. Type changes retain hidden input values. Loading
+uses Limit.GetInputTexts and committing retains atomic Limit.SetInputs validation.
+No physics or persistence format is changed.
 
-- PASS: Release plugin build and source workspace cleanliness check.
-- PASS: Test-UrdfLimitLayout.ps1: four/two/zero rows, wrapped labels,
-  width/font changes, height notifications and hidden input retention.
-- PASS: Test-UrdfExportRetry.ps1: repeated failed Next, direct correction,
-  Previous, joint switching and missing editor diagnostics.
+Verification on 2026-10-09:
+- PASS: Release plugin build and workspace cleanliness gate.
+- PASS: Test-UrdfLimitLayout.ps1: native types, unique IDs, type/root visibility,
+  units, hidden edited input retention, optional blanks and atomic validation.
+  This replaces the embedded-control test, retaining relevant input coverage.
+- PASS: Test-ConfigurationRebuild.ps1: lifecycle and parameter persistence.
+- PASS: Test-UrdfExportRetry.ps1: retry, Previous and joint switching.
 - PASS: git diff --check.
-- NOT RUN: real SolidWorks GUI/DPI resizing, CAD export and installation.
+- NOT RUN: real SW GUI/DPI, CAD export and installation.
+  Mock tests do not certify actual GUI placement.
 
-This change does not alter joint limits, persistence or export semantics.
+User verification (2026-10-09): the user reports this round's changes have been
+verified in their environment. This is user-reported verification, not an agent
+GUI run. Specific sidebar widths and 100%/125%/150% scaling coverage were not
+reported; those remain explicit acceptance cases for subsequent page migrations.

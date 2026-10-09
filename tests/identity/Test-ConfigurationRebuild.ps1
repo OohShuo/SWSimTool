@@ -98,10 +98,6 @@ public static class ConfigurationRebuildTest {
     if(child.Parent!=otherNode||child.Link.Parent!=otherNode.Link||child.IsBaseNode)throw new Exception("Legal drag parent state inconsistent");
    }
    var limited=new Joint{Name="limited",Type="revolute"};limited.Parent.Name="base";limited.Child.Name="child";limited.Limit.SetInputs("-1.2","1.4","7","2.5");
-   using(var limits=new UrdfJointLimitControl()){
-    limits.LoadJoint(limited,false);limits.SetType("fixed");limits.Commit(limited);limits.SetType("revolute");limits.Commit(limited);
-    if(limited.Limit.Lower!=-1.2||limited.Limit.Upper!=1.4||limited.Limit.Effort!=7)throw new Exception("Type switch discarded hidden limit inputs");
-   }
    ((LinkNode)newTree.Nodes[0]).Link.Joint.SetElement(limited);
 
    var persistedLimits=ConfigurationSerialization.ReadTree(ConfigurationSerialization.WriteTree(newTree),1.4);

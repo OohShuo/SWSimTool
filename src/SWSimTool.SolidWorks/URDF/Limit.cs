@@ -77,6 +77,10 @@ namespace SWSimTool.URDF
             if(copy.VelocityAttribute.Value==null)copy.VelocityAttribute.Value=0.0;
             copy.WriteForData(writer);
         }
+
+        public string[] GetInputTexts(string format){
+            return new[]{LowerAttribute.GetTextFromDoubleValue(format),UpperAttribute.GetTextFromDoubleValue(format),EffortAttribute.GetTextFromDoubleValue(format),VelocityAttribute.GetTextFromDoubleValue(format)};
+        }
         void WriteForData(System.Xml.XmlWriter writer){base.WriteURDF(writer);}
         public void SetInputs(string lower,string upper,string effort,string velocity){
             Func<string,double?> parse=text=>{if(string.IsNullOrWhiteSpace(text))return null;double value;if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out value)||double.IsNaN(value)||double.IsInfinity(value))throw new System.ArgumentException("关节限位参数必须为有效数字。");return value;};
