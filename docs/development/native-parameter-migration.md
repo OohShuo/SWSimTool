@@ -106,3 +106,36 @@ scrolling to the bottom, fold/unfold and repeat-open visual acceptance; real CAD
 export/preview and installer/install acceptance. Legacy WinForms scroll checks
 remain regression checks for the adapter only and do not prove native scrolling.
 No SolidWorks process or user CAD was opened; no installer was updated.
+
+## Final automated regression (2026-10-09)
+
+PASS: Test-NativeJointPage, Test-DropdownWheel, Test-UrdfLimitLayout,
+Test-UrdfExportRetry, Test-NativePresentation and Test-ToolFormLifecycle.
+PASS: Test-ConfigurationRebuild, Test-ConfigurationReplacement,
+Test-ConfigurationNodeMigration and Test-StableReferenceAudit.
+PASS: Test-CollisionNavigation with a native presenter on each migrated editor.
+Key collision size/list/link actions, actuator and sensor type switches, native
+category tabs, add actions, constraint joint/weld types and spring mode now enter
+through native callbacks. Assertions resynchronize the native view at every
+step, detecting field-template gaps as well as controller-data regressions.
+
+The timestep save fixture now opens the prepared simulation editor, routes the
+native textbox callback, and saves through the real page service. It verifies
+only solver/MJCF dirty flags, no placeholder actuator/sensor/force insertion,
+and zero geometry/STL/source rebuild through the cached export fixture.
+
+PASS: synthetic NativeParity.test_production_package_preparation_incremental_and_rollback
+with local MuJoCo 3.14.0. It checks mesh preparation/simplification 0, generation 1,
+validation 1, warm/cold compiled semantics and dynamics, and publication rollback.
+PASS: 11 backend incremental tests. These do not replace the NOT RUN native CAD
+0/0/0/1/1 fixture, which would open SolidWorks and is excluded from this request.
+
+PASS: native surface and URDF entry-point source contracts, source cleanliness,
+and git diff --check. The native presentation test also verifies that unchanged
+synchronization does not set textbox/visibility/enabled properties, reducing
+unnecessary reflow. This is not a claim of tested real SolidWorks scroll behavior.
+
+No full parity-suite, installation, actual CAD integration or visual DPI checks
+were executed in this presentation-only round. No tolerances or frozen fixtures
+were changed. The production exporter, backend and persistence architecture are
+unchanged.

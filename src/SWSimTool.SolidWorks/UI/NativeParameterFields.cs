@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -53,7 +53,16 @@ namespace SWSimTool.UI {
         public void Validate(){Require();var errors=fields.Where(f=>f.Visible()&&f.Error!=null).Select(f=>f.Error).ToArray();if(errors.Length>0)throw new InvalidOperationException(string.Join("\n",errors));}
         void Require(){if(disposed)throw new ObjectDisposedException(nameof(NativeParameterFields));requireCurrent?.Invoke();}
         public void LoadValues(params string[] keys){Require();bool previous=loading;loading=true;try{foreach(var f in fields)if(keys.Length==0||keys.Contains(f.Key))f.Load?.Invoke();}finally{loading=previous;}Refresh();}
-        public void Refresh(){if(disposed)return;bool previous=loading;loading=true;try{foreach(var f in fields){bool visible=f.Visible();f.Control.Visible=visible;f.Control.Enabled=visible;if(f.Label!=null){f.Label.Visible=visible;((IPropertyManagerPageLabel)f.Label).Caption=f.Caption();}else if(f.Control is IPropertyManagerPageLabel)((IPropertyManagerPageLabel)f.Control).Caption=f.Caption();else if(f.Control is IPropertyManagerPageCheckbox)((IPropertyManagerPageCheckbox)f.Control).Caption=f.Caption();}}finally{loading=previous;}}
+        public void Refresh(){
+            if(disposed)return;bool previous=loading;loading=true;
+            try{foreach(var f in fields){
+                bool visible=f.Visible();if(f.Control.Visible!=visible)f.Control.Visible=visible;if(f.Control.Enabled!=visible)f.Control.Enabled=visible;
+                string caption=f.Caption();
+                if(f.Label!=null){if(f.Label.Visible!=visible)f.Label.Visible=visible;var label=(IPropertyManagerPageLabel)f.Label;if(label.Caption!=caption)label.Caption=caption;}
+                else if(f.Control is IPropertyManagerPageLabel){var label=(IPropertyManagerPageLabel)f.Control;if(label.Caption!=caption)label.Caption=caption;}
+                else if(f.Control is IPropertyManagerPageCheckbox){var check=(IPropertyManagerPageCheckbox)f.Control;if(check.Caption!=caption)check.Caption=caption;}
+            }}finally{loading=previous;}
+        }
         void Dispatch(int id,Action<Field> action){if(loading||disposed)return;Require();Field f;if(!byId.TryGetValue(id,out f))return;if(!f.Visible())return;loading=true;try{action(f);}finally{loading=false;}Refresh();Changed?.Invoke();}
         public void OnText(int id,string value)=>Dispatch(id,f=>f.Text?.Invoke(value));
         public void OnChoice(int id,int value)=>Dispatch(id,f=>{if(DropdownWheelGuard.IsWheelInput)f.Load?.Invoke();else f.Choice?.Invoke(value);});

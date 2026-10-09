@@ -87,10 +87,10 @@ namespace SWSimTool.UI {
                     var items=box.Items.Cast<object>().Select(x=>box.GetItemText(x)).ToArray();
                     if(slot.Items==null||!slot.Items.SequenceEqual(items)){native.Clear();if(items.Length>0)native.AddItems(items);slot.Items=items;}
                     if(native.CurrentSelection!=box.SelectedIndex)native.CurrentSelection=(short)box.SelectedIndex;
-                } else if(source is CheckBox) {var native=(IPropertyManagerPageCheckbox)slot.Native;native.Caption=source.Text;native.Checked=((CheckBox)source).Checked;}
-                else if(source is Button)((IPropertyManagerPageButton)slot.Native).Caption=source.Text;
-                else ((IPropertyManagerPageLabel)slot.Native).Caption=source.Text;
-                slot.Native.Visible=visible;slot.Native.Enabled=visible&&enabled;
+                } else if(source is CheckBox) {var native=(IPropertyManagerPageCheckbox)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;if(native.Checked!=((CheckBox)source).Checked)native.Checked=((CheckBox)source).Checked;}
+                else if(source is Button){var native=(IPropertyManagerPageButton)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;}
+                else {var native=(IPropertyManagerPageLabel)slot.Native;if(native.Caption!=source.Text)native.Caption=source.Text;}
+                if(slot.Native.Visible!=visible)slot.Native.Visible=visible;bool interactive=visible&&enabled;if(slot.Native.Enabled!=interactive)slot.Native.Enabled=interactive;
                 return;
             }
             int index=0;foreach(var child in Ordered(source))Visit(child,group,path+"/"+index++,visible,enabled);
@@ -103,10 +103,10 @@ namespace SWSimTool.UI {
                 foreach(var slot in slots.Values){slot.Active=false;slot.Source=null;}
                 foreach(var region in regions) {
                     bool visible=region.Item1 is TabPage||LocalVisible(region.Item1);
-                    region.Item2.Visible=visible;
+                    if(region.Item2.Visible!=visible)region.Item2.Visible=visible;
                     Visit(region.Item1,region.Item2,region.Item3,visible,editor.Enabled);
                 }
-                foreach(var slot in slots.Values.Where(s=>s.Source==null)){slot.Native.Visible=false;slot.Native.Enabled=false;}
+                foreach(var slot in slots.Values.Where(s=>s.Source==null)){if(slot.Native.Visible)slot.Native.Visible=false;if(slot.Native.Enabled)slot.Native.Enabled=false;}
             } finally {syncing=false;}
         }
         void Dispatch(int id,Action<Control> action) {
