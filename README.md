@@ -49,7 +49,19 @@ Python、MuJoCo 和可选减面工具由本地环境提供，插件不附带 Pyt
 .\build.ps1 -Clean
 ```
 
-默认执行 restore/build；`-Test` 增加回归测试；`-Package` 在测试通过后组装并验证 `build/runtime-release/`；`-Installer` 继续生成 `build/dist/` 的安装包；`-Clean` 删除生成的 `build/`。可指定 `-MSBuild` 或通过 `SOLIDWORKS_DIR` 设置 SDK 位置。
+默认执行 restore/build；`-Test` 增加回归测试；`-Package` 在测试通过后组装并验证 `build/runtime-release/`；`-Installer` 继续生成 `build/dist/` 的安装包。可指定 `-MSBuild` 或通过 `SOLIDWORKS_DIR` 设置 SDK 位置。
+
+本地只构建安装包、不构建测试工程及运行回归测试时，使用 `-Installer -SkipTests`（也支持 `-Package -SkipTests`）。保留载荷结构和源码目录检查，不要求已有测试凭据；`build/reports/package-Release.json` 将测试状态记录为 `NOT RUN`。默认打包路径仍要求完整测试，不生成虚假的 PASS 凭据。`-SkipTests` 不能与 `-Test` 或 `-Clean` 同用。
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build.ps1 \
+  -Installer -SkipTests \
+  -SolidWorksDir 'D:\sw\sw2025\SOLIDWORKS' \
+  -Python 'D:\Softwaves\python\python.exe' \
+  -ISCC 'D:\solidworks_urdf_exporter-master\build\tools\InnoSetup\ISCC.exe'
+```
+
+`-Clean` 只删除 `build/` 下明确的输出目录：`bin`、`obj`、`logs`、`reports`、`test-results`、`test-work`、`native-parity`、`native-parity-obj`、`integration`、`dist`、`runtime-release`、`docs`。保留 `tools`、`worktrees`、未分类的历史缓存和文件；不穿越链接或删除内嵌 Git 工作区。`test-work` 中遇到访问权限或文件占用问题时保留临时文件并警告，不阻止后续构建；主要产物清理失败及安全保护触发仍报错。不提升权限或重置 ACL。
 
 编译与中间文件分别在 `build/bin/<project>/<configuration>/<framework>/` 和 `build/obj/<project>/<configuration>/<framework>/`。日志在 `build/logs/`。安装器 `INSTALL/install.iss` 只读取已组装载荷。HTML 指南从 Markdown 和图片生成，不提交生成文件。
 

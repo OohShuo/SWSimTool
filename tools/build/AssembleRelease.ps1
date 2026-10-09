@@ -1,7 +1,11 @@
-﻿param([string]$Configuration='Release',[string]$Python='python')
+﻿param([string]$Configuration='Release',[string]$Python='python',[switch]$SkipTests)
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-& "$root/tools/build/ValidationReceipt.ps1" -Mode Verify -Configuration $Configuration
+if(!$SkipTests) {
+    & "$root/tools/build/ValidationReceipt.ps1" -Mode Verify -Configuration $Configuration
+} else {
+    Write-Warning 'Regression tests explicitly skipped. This package is not test-validated.'
+}
 $source=Join-Path $root "build/bin/SWSimTool.SolidWorks/$Configuration/net48"
 $version=([xml](Get-Content -LiteralPath (Join-Path $root 'Version.props'))).Project.PropertyGroup.SWSimToolVersion
 $payload=Join-Path $root 'build/runtime-release'
@@ -20,3 +24,6 @@ if($LASTEXITCODE -ne 0) { throw 'Guide generation failed' }
 Copy-Item "$root/build/docs/SWSimTool_${version}_*.html","$root/docs/SWSimTool_${version}_*.md" "$payload/docs"
 Copy-Item -LiteralPath "$root/docs/guide-images" -Destination "$payload/docs" -Recurse
 Write-Host "Release assembled: $payload"
+New-Item -ItemType Directory -Path "$root/build/reports" -Force | Out-Null
+@{configuration=$Configuration;tests=$(if($SkipTests){'NOT RUN'}else{'PASS'});sha256=(& "$root/tools/build/GetSha256.ps1" -Path "$payload/SWSimTool.dll");createdUtc=[DateTime]::UtcNow.ToString('o')} |
+    ConvertTo-Json | Set-Content -LiteralPath "$root/build/reports/package-$Configuration.json"

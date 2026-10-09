@@ -14,6 +14,7 @@ function Run([string]$name,[scriptblock]$command) {
 Run 'backend' { & $Python -B -m unittest discover -s tests/backend -v }
 Run 'parity' { & $Python -B tests/parity/run.py }
 Run 'publication-receipt' { & $Python -B tests/architecture/Test-ValidationReceipt.py }
+Run 'build-options' { & $Python -B tests/architecture/Test-BuildOptions.py }
 Run 'sdk-build' { & $Python -B tests/architecture/Test-SdkBuild.py }
 Run 'architecture' { & $Python -B tests/architecture/Test-LayeredArchitecture.py }
 Run 'urdf-entry-points' { & $Python -B tests/architecture/Test-UrdfEntryPoints.py }

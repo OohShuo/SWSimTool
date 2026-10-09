@@ -1,5 +1,5 @@
 param(
-    [switch]$Test,[switch]$Package,[switch]$Installer,[switch]$Clean,
+    [switch]$Test,[switch]$Package,[switch]$Installer,[switch]$Clean,[switch]$SkipTests,
     [string]$Configuration='Release',
     [string]$SolidWorksDir=$env:SOLIDWORKS_DIR,
     [string]$Python='python', [string]$MSBuild='', [string]$ISCC=''
@@ -7,6 +7,10 @@ param(
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
 $build=Join-Path $root 'build'
+if($SkipTests -and ($Test -or $Clean -or !($Package -or $Installer))) {
+    throw '-SkipTests requires -Package or -Installer and cannot be combined with -Test or -Clean'
+}
+$runTests=($Test -or $Package -or $Installer) -and !$SkipTests
 if($Clean) {
     if($Test -or $Package -or $Installer) { throw '-Clean cannot be combined with build options' }
     if([IO.Path]::GetFullPath($build) -ne [IO.Path]::Combine([IO.Path]::GetFullPath($root),'build')) {throw 'Unsafe clean path'}
@@ -24,7 +28,7 @@ if($Clean) {
                 if($LASTEXITCODE -ne 0){throw 'Cannot release Visual Studio compiler handles before cleaning'}
             }
         }
-        Remove-Item -LiteralPath $build -Recurse -Force
+        & "$root/tools/build/CleanBuild.ps1" -BuildDirectory $build
     }
     return
 }
@@ -51,16 +55,16 @@ Push-Location $root
 try {
     Invoke-Gate 'restore' { & $MSBuild SWSimTool.sln /t:Restore /v:minimal }
     $projects=@('src/SWSimTool.SolidWorks/SWSimTool.SolidWorks.csproj')
-    if($Test -or $Package -or $Installer) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
+    if($runTests) {$projects+=@('tests/core/CoreTests.csproj','tests/parity/CandidateRunner.csproj','tests/upstream/SWSimTool.Tests.csproj','tests/upstream/runner/TestRunner.csproj')}
     foreach($project in $projects) {
         $name=[IO.Path]::GetFileNameWithoutExtension($project)
         Invoke-Gate "build-$name" { & $MSBuild $project /restore /t:Build "/p:Configuration=$Configuration" /p:Platform=x64 "/p:SolidWorksDir=$SolidWorksDir" "/p:SolutionDir=$root\" /v:minimal }
     }
-    if($Test -or $Package -or $Installer) {
+    if($runTests) {
         & "$root/tools/build/RunTests.ps1" -Configuration $Configuration -Python $Python
     }
     if($Package -or $Installer) {
-        & "$root/tools/build/AssembleRelease.ps1" -Configuration $Configuration -Python $Python
+        & "$root/tools/build/AssembleRelease.ps1" -Configuration $Configuration -Python $Python -SkipTests:$SkipTests
         Invoke-Gate 'payload-validation' { & $Python -B tests/architecture/Test-ReleaseLayout.py }
     }
     if($Installer) {
@@ -71,7 +75,7 @@ try {
         Invoke-Gate 'installer' { & $ISCC INSTALL/install.iss }
         foreach($setup in Get-ChildItem "$build/dist/SWSimTool_*_Setup.exe") {
             if($setup.Length -lt 100000) {throw 'Invalid installer output'}
-            $hash=(Get-FileHash -LiteralPath $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $hash=& "$root/tools/build/GetSha256.ps1" -Path $setup.FullName
             "$hash  $($setup.Name)" | Set-Content -LiteralPath ($setup.FullName+'.sha256') -Encoding ASCII
         }
     }
