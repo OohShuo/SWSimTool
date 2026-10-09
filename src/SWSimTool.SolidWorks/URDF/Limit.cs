@@ -46,8 +46,8 @@ namespace SWSimTool.URDF
 
         public Limit() : base("limit", false)
         {
-            EffortAttribute = new URDFAttribute("effort", true, null);
-            VelocityAttribute = new URDFAttribute("velocity", true, null);
+            EffortAttribute = new URDFAttribute("effort", false, null);
+            VelocityAttribute = new URDFAttribute("velocity", false, null);
             LowerAttribute = new URDFAttribute("lower", false, null);
             UpperAttribute = new URDFAttribute("upper", false, null);
 
@@ -67,6 +67,17 @@ namespace SWSimTool.URDF
         }
 
         public void ClearBounds(){LowerAttribute.Value=null;UpperAttribute.Value=null;}
+        // Empty optional effort/velocity means no configured limit in the
+        // plugin. Preserve empty editor values; emit legacy zero placeholders
+        // only when a URDF limit element is actually written.
+        public override void WriteURDF(System.Xml.XmlWriter writer){
+            if(!ElementContainsData())return;
+            var copy=new Limit();copy.SetElement(this);copy.SetRequired(IsRequired());
+            if(copy.EffortAttribute.Value==null)copy.EffortAttribute.Value=0.0;
+            if(copy.VelocityAttribute.Value==null)copy.VelocityAttribute.Value=0.0;
+            copy.WriteForData(writer);
+        }
+        void WriteForData(System.Xml.XmlWriter writer){base.WriteURDF(writer);}
         public void SetInputs(string lower,string upper,string effort,string velocity){
             Func<string,double?> parse=text=>{if(string.IsNullOrWhiteSpace(text))return null;double value;if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out value)||double.IsNaN(value)||double.IsInfinity(value))throw new System.ArgumentException("关节限位参数必须为有效数字。");return value;};
             var l=parse(lower);var u=parse(upper);var e=parse(effort);var v=parse(velocity);
@@ -89,9 +100,6 @@ namespace SWSimTool.URDF
 
         public override bool AreRequiredFieldsSatisfied()
         {
-            // If a limit is required, then these fields should be as well.
-            UpperAttribute.SetRequired(IsRequired());
-            LowerAttribute.SetRequired(IsRequired());
             return base.AreRequiredFieldsSatisfied();
         }
     }

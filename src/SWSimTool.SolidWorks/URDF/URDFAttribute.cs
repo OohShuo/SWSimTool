@@ -20,6 +20,7 @@ namespace SWSimTool.URDF
 
         [DataMember]
         private readonly string AttributeType;
+        internal string Name => AttributeType;
 
         [DataMember]
         public object Value;

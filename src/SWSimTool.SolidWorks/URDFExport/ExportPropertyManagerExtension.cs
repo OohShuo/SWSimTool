@@ -383,7 +383,8 @@ namespace SWSimTool.URDFExport
         public void FillPropertyManager(LinkNode node)
         {
             jointLimits.LoadJoint(node.Link.Joint,node.IsBaseNode);
-            ((IPropertyManagerPageControl)PMLimits).Visible=!node.IsBaseNode;
+            PMLimits.Height=jointLimits.PageHeight;
+            ((IPropertyManagerPageControl)PMLimits).Visible=!node.IsBaseNode&&jointLimits.HasParameters;
             PMTextBoxLinkName.Text = node.Link.Name;
             PMNumberBoxChildCount.Value = node.Nodes.Count;
 

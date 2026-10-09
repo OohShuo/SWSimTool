@@ -813,7 +813,11 @@ namespace SWSimTool.URDFExport
 
             jointLimits=new UrdfJointLimitControl();
             PMLimits=(PropertyManagerPageWindowFromHandle)PMGroup.AddControl2(JointLimitsID,(short)swPropertyManagerPageControlType_e.swControlType_WindowFromHandle,"关节限位",0,(int)swAddControlOptions_e.swControlOptions_Visible,"使用 SI 单位");
-            PMLimits.Height=130;PMLimits.SetWindowHandlex64(jointLimits.Handle.ToInt64());
+            jointLimits.ContentHeightChanged+=(sender,args)=>{
+                PMLimits.Height=jointLimits.PageHeight;
+                ((IPropertyManagerPageControl)PMLimits).Visible=jointLimits.HasParameters;
+            };
+            PMLimits.Height=jointLimits.PageHeight;PMLimits.SetWindowHandlex64(jointLimits.Handle.ToInt64());
             //Create the selection box label
             controlType = (int)swPropertyManagerPageControlType_e.swControlType_Label;
             caption = "Link Components";

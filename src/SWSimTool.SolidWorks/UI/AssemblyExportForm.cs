@@ -46,6 +46,7 @@ namespace SWSimTool.UI
         private readonly SldWorks swApp;
         private readonly ModelDoc2 ActiveSWModel;
         private LinkNode previouslySelectedNode;
+        private LinkNode selectedLinkNode;
         private readonly Control[] jointBoxes;
         private readonly Control[] linkBoxes;
         private readonly LinkNode BaseNode;
@@ -140,20 +141,36 @@ namespace SWSimTool.UI
 
         private void ButtonJointNextClick(object sender, EventArgs e)
         {
-            if (!(previouslySelectedNode == null || previouslySelectedNode.Link.Joint == null))
+            string errors;
+            if (!TryAdvanceJointPage(out errors))
             {
-                SaveJointDataFromPropertyBoxes(previouslySelectedNode.Link.Joint);
+                MessageBox.Show(errors, "URDF Joint Errors");
             }
-            previouslySelectedNode = null; // Need to clear this for the link properties page
+        }
 
-            string errors = CheckJointsForErrors();
-            if (!string.IsNullOrWhiteSpace(errors))
+        private bool TryAdvanceJointPage(out string errors)
+        {
+            errors = null;
+            if (previouslySelectedNode == null)
             {
-                string message = "The following joints are missing required fields, please " +
-                    "address them before continuing\r\n\r\n" + errors;
-                MessageBox.Show(message, "URDF Joint Errors");
-                return;
+                if (treeViewJointTree.SelectedNode != null || !string.IsNullOrWhiteSpace(textBoxJointName.Text))
+                {
+                    errors = "当前关节的编辑状态已丢失。请重新选择该关节后重试；输入尚未写回。";
+                    return false;
+                }
             }
+            else
+            {
+                if (!ReferenceEquals(previouslySelectedNode, treeViewJointTree.SelectedNode))
+                {
+                    errors = "当前关节与编辑对象不一致。请重新选择关节后重试；输入尚未写回。";
+                    return false;
+                }
+                try { SaveJointDataFromPropertyBoxes(previouslySelectedNode.Link.Joint); }
+                catch (ArgumentException ex) { errors = previouslySelectedNode.Link.Joint.Name + "：" + ex.Message; return false; }
+            }
+            errors = CheckJointsForErrors();
+            if (!string.IsNullOrWhiteSpace(errors)) return false;
 
             while (treeViewJointTree.Nodes.Count > 0)
             {
@@ -165,7 +182,11 @@ namespace SWSimTool.UI
 
             FillLinkTree();
             panelLinkProperties.Visible = true;
+            // The joint page stays editable on failure. Clear only after the
+            // successful handoff; link-page selection has its own pointer.
+            previouslySelectedNode = null;
             Focus();
+            return true;
         }
 
         private string CheckJointsForErrors()
@@ -182,7 +203,9 @@ namespace SWSimTool.UI
         {
             if (!node.Link.Joint.AreRequiredFieldsSatisfied())
             {
-                builder.Append(node.Link.Joint.Name).Append("\r\n");
+                var fields = node.Link.Joint.GetMissingRequiredFields();
+                builder.Append(node.Link.Joint.Name).Append("：缺少 ")
+                    .Append(fields.Count == 0 ? "必填参数" : string.Join("、", fields)).Append("\r\n");
             }
 
             foreach (LinkNode child in node.Nodes)
@@ -210,9 +233,9 @@ namespace SWSimTool.UI
 
         private void ButtonLinksCancelClick(object sender, EventArgs e)
         {
-            if (previouslySelectedNode != null)
+            if (selectedLinkNode != null)
             {
-                SaveLinkDataFromPropertyBoxes(previouslySelectedNode.Link);
+                SaveLinkDataFromPropertyBoxes(selectedLinkNode.Link);
             }
 
             Close();
@@ -225,10 +248,13 @@ namespace SWSimTool.UI
             {
                 SaveLinkDataFromPropertyBoxes(node.Link);
             }
-            previouslySelectedNode = null;
             ChangeAllNodeFont(BaseNode, new Font(treeViewJointTree.Font, FontStyle.Regular));
             FillJointTree();
             panelLinkProperties.Visible = false;
+            selectedLinkNode = null;
+            // Select a joint explicitly so the returned page has an editor,
+            // even when TreeView does not select one automatically.
+            if (treeViewJointTree.Nodes.Count > 0) treeViewJointTree.SelectedNode = treeViewJointTree.Nodes[0];
         }
 
         private void ButtonLinksFinishClick(object sender, EventArgs e)
@@ -346,10 +372,10 @@ namespace SWSimTool.UI
         {
             Font fontRegular = new Font(treeViewJointTree.Font, FontStyle.Regular);
             Font fontBold = new Font(treeViewJointTree.Font, FontStyle.Bold);
-            if (previouslySelectedNode != null)
+            if (selectedLinkNode != null)
             {
-                SaveLinkDataFromPropertyBoxes(previouslySelectedNode.Link);
-                previouslySelectedNode.NodeFont = fontRegular;
+                SaveLinkDataFromPropertyBoxes(selectedLinkNode.Link);
+                selectedLinkNode.NodeFont = fontRegular;
             }
             LinkNode node = (LinkNode)e.Node;
             node.NodeFont = fontBold;
@@ -365,7 +391,7 @@ namespace SWSimTool.UI
             }
             FillLinkPropertyBoxes(node.Link);
             treeViewLinkProperties.Focus();
-            previouslySelectedNode = node;
+            selectedLinkNode = node;
         }
 
         /// <summary>

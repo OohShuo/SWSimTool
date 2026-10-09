@@ -154,6 +154,17 @@ namespace SWSimTool.URDF
             return true;
         }
 
+        public virtual List<string> GetMissingRequiredFields()
+        {
+            var missing = new List<string>();
+            foreach (var attribute in Attributes)
+                if (attribute.GetIsRequired() && attribute.Value == null) missing.Add(attribute.Name);
+            foreach (var child in ChildElements)
+                if (child.IsRequired() || child.ElementContainsData())
+                    foreach (var field in child.GetMissingRequiredFields()) missing.Add(child.ElementName + "." + field);
+            return missing;
+        }
+
         public virtual bool ElementContainsData()
         {
             foreach (URDFAttribute attribute in Attributes)
