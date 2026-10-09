@@ -91,6 +91,7 @@
     <Compile Include="UI\JointEditorControl.cs" />
     <Compile Include="UI\UrdfJointLimitFields.cs" />
     <Compile Include="UI\NativeParameterFields.cs" />
+    <Compile Include="UI\NativeEditorPresenter.cs" />
     <Compile Include="UI\DropdownWheelGuard.cs" />
     <Compile Include="UI\NoWheelComboBox.cs" />
     <Compile Include="UI\NativeJointEditor.cs" />

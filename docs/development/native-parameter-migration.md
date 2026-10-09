@@ -1,4 +1,4 @@
-# Native left-side parameter migration
+﻿# Native left-side parameter migration
 
 ## Stage 1: independent joint configuration page
 
@@ -41,3 +41,22 @@ Remaining stages: collision parameter region, simulation parameter regions,
 and constraints. Migrate and commit each page independently; preserve custom
 complex trees and previews. Native PropertyManager is not a WinForms flow layout:
 creation order, alignment, grouping and visibility remain explicit.
+## Stage 2: collision presentation
+
+CollisionPropertyManager now uses native tabs, groups, text/choice/check inputs,
+lists and buttons. Its WindowFromHandle and fixed host height are removed.
+NativeEditorPresenter is a presentation adapter over the existing page-local
+input controller. The controller still uses unattached WinForms controls as
+input bindings; they are not shown or assigned to a native HWND. This is an
+incremental presentation migration, not a rewrite of the domain/persistence layer.
+
+Controls are allocated before Show2. An empty collision pair has a hidden input
+template so selecting/adding a pair reuses those native slots. Field templates
+are keyed by layout path and control type; obsolete source references are
+replaced on synchronization. A missing template raises an explicit diagnostic,
+never adds controls to a displayed page or writes partial configuration.
+
+PASS: Release build; native presentation callbacks, reentry, hidden field
+retention, tab routing, stale-page rejection and disposal tests; collision
+navigation, references and persistence regression with the native presenter.
+NOT RUN: real SolidWorks tabs/layout, scroll position and DPI acceptance.

@@ -1,4 +1,4 @@
-using SWSimTool.Simulation;
+﻿using SWSimTool.Simulation;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -48,7 +48,7 @@ namespace SWSimTool.UI
         string armedDimension,revision,configuration,displayedLink;
         bool refreshReferences=true;
         public Action BeginSelection { get; set; }
-        public CollisionEditorControl(AttachmentService service,string selectedLink)
+        public CollisionEditorControl(AttachmentService service,string selectedLink,bool nativePresentation=false)
         {try{
             this.service=service;service.BeginPage();ownsPage=true;draft=service.Project;draft.collision=draft.collision??new CollisionConfiguration();
             var identities=service.LinkIdentities();StableReferences.MigrateLegacyLinkModesByName(draft,identities);linkIds=identities.ToDictionary(x=>x.Value,x=>x.Key);
@@ -79,7 +79,7 @@ namespace SWSimTool.UI
             Add(geometry,show);
             Add(contacts,disable);Field(contacts,"link 1",pairA);Field(contacts,"link 2",pairB);
             var pairButtons=new FlowLayoutPanel{AutoSize=true};var allow=new Button{Text="允许此对"};var deny=new Button{Text="删除此对"};pairButtons.Controls.Add(allow);pairButtons.Controls.Add(deny);Add(contacts,pairButtons);pairs.Height=110;Add(contacts,pairs);
-            var pairSettings=new Panel{AutoSize=true,Dock=DockStyle.Top};Add(contacts,pairSettings);CollisionPair editingPair=null;bool selectingPair=false;pairs.SelectedIndexChanged+=(s,e)=>{if(selectingPair)return;if(solverInvalid.Count>0&&editingPair!=null&&pairs.Items.Contains(editingPair)){selectingPair=true;pairs.SelectedItem=editingPair;selectingPair=false;status.Text="请先修正当前碰撞对的无效数字。";return;}foreach(Control c in pairSettings.Controls.Cast<Control>().ToArray())c.Dispose();var selected=pairs.SelectedItem as CollisionPair;editingPair=selected;if(selected!=null)pairSettings.Controls.Add(new SolverParametersControl(selected.solver,draft.solver?.contact??ConstraintSettings.Contact(),true,v=>selected.solver=v,solverInvalid));};
+            var pairSettings=new Panel{AutoSize=true,Dock=DockStyle.Top};Add(contacts,pairSettings);CollisionPair editingPair=null;bool selectingPair=false;if(nativePresentation){pairSettings.Visible=false;pairSettings.Controls.Add(new SolverParametersControl(null,draft.solver?.contact??ConstraintSettings.Contact(),true,v=>{},solverInvalid));}pairs.SelectedIndexChanged+=(s,e)=>{if(selectingPair)return;if(solverInvalid.Count>0&&editingPair!=null&&pairs.Items.Contains(editingPair)){selectingPair=true;pairs.SelectedItem=editingPair;selectingPair=false;status.Text="请先修正当前碰撞对的无效数字。";return;}foreach(Control c in pairSettings.Controls.Cast<Control>().ToArray())c.Dispose();var selected=pairs.SelectedItem as CollisionPair;editingPair=selected;pairSettings.Visible=selected!=null;if(selected!=null||nativePresentation)pairSettings.Controls.Add(new SolverParametersControl(selected?.solver,draft.solver?.contact??ConstraintSettings.Contact(),true,v=>{if(selected!=null)selected.solver=v;},solverInvalid));};
             Add(contacts,new Label{Text="添加后保存装配，并重新导出 MJCF。\n无碰撞模式的 link 不能加入允许列表。",AutoSize=true});
             timer.Tick+=(s,e)=>{timer.Stop();UpdatePreview(false);};
             cadTimer.Tick+=(s,e)=>{

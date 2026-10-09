@@ -21,6 +21,7 @@ Run 'urdf-entry-points' { & $Python -B tests/architecture/Test-UrdfEntryPoints.p
 Run 'urdf-limit-mapping' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/model/Test-UrdfLimitMapping.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" -Python $Python }
 Run 'urdf-limit-layout' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/ui/Test-UrdfLimitLayout.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 Run 'native-joint-page' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/ui/Test-NativeJointPage.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
+Run 'native-presentation' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/ui/Test-NativePresentation.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 Run 'dropdown-wheel' { & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/tests/ui/Test-DropdownWheel.ps1" -Payload "bin/SWSimTool.SolidWorks/$Configuration/net48" }
 Run 'core' { & "$root/build/bin/CoreTests/$Configuration/net48/CoreTests.exe" }
 Run 'tools' { & $Python -B -c "import os,subprocess,sys;sys.exit(subprocess.call(sys.argv[1:],env=dict(os.environ)))" "$root/build/bin/CandidateRunner/$Configuration/net48/SWSimTool.CandidateRunner.exe" --tooltest $Python "$root/tests/tools/fake_tool.py" }
