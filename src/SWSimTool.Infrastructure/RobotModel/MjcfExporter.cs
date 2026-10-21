@@ -16,13 +16,26 @@ namespace SWSimTool.RobotModel
             RobotModelValidator.Validate(model.Core);
             var root=new XElement("mujoco",new XAttribute("model",context.ModelName));
             root.Add(new XElement("compiler",new XAttribute("angle","radian"),new XAttribute("fusestatic","false"),new XAttribute("inertiafromgeom","auto")));
+            root.Add(new XElement("visual",
+                new XElement("global",new XAttribute("offwidth","3840"),new XAttribute("offheight","2160")),
+                new XElement("rgba",new XAttribute("haze","0.15 0.25 0.35 1"))));
             var group=new XElement("asset");var meshNames=new Dictionary<string,string>();var number=0;
+            group.Add(new XElement("texture",new XAttribute("type","2d"),new XAttribute("name","swsimtool_groundplane"),
+                new XAttribute("builtin","checker"),new XAttribute("mark","edge"),new XAttribute("rgb1","0.2 0.3 0.4"),
+                new XAttribute("rgb2","0.1 0.2 0.3"),new XAttribute("markrgb","0.8 0.8 0.8"),new XAttribute("width","300"),new XAttribute("height","300")));
+            group.Add(new XElement("material",new XAttribute("name","swsimtool_groundplane"),new XAttribute("texture","swsimtool_groundplane"),
+                new XAttribute("texuniform","true"),new XAttribute("texrepeat","5 5"),new XAttribute("reflectance","0.2")));
+            group.Add(new XElement("texture",new XAttribute("type","skybox"),new XAttribute("builtin","gradient"),
+                new XAttribute("rgb1","0.3 0.5 0.7"),new XAttribute("rgb2","0 0 0"),new XAttribute("width","512"),new XAttribute("height","3072")));
             foreach(var mesh in model.Core.Links.SelectMany(l=>l.Geometries).Where(g=>g.Mesh!=null).Select(g=>g.Mesh).GroupBy(m=>m.Id+"|"+m.Scale.ToString()).Select(g=>g.First())){
                 var prepared=assets.Meshes.SingleOrDefault(m=>m.SourceId==mesh.Id);if(prepared==null)throw new InvalidDataException("Unprepared mesh: "+mesh.Id);
                 var name=prepared.Name+"_"+number++;meshNames[mesh.Id+"|"+mesh.Scale.ToString()]=name;
                 group.Add(new XElement("mesh",new XAttribute("name",name),new XAttribute("file",prepared.RelativePath),new XAttribute("scale",mesh.Scale.ToString())));
             }if(group.HasElements)root.Add(group);
             var config=model.Simulation;var world=new XElement("worldbody");root.Add(world);var bodies=new Dictionary<string,XElement>();var joints=new Dictionary<string,XElement>();
+            world.Add(new XElement("light",new XAttribute("pos","0 0 2"),new XAttribute("dir","0 0 -1"),new XAttribute("directional","true")));
+            world.Add(new XElement("geom",new XAttribute("name","swsimtool_floor"),new XAttribute("type","plane"),
+                new XAttribute("pos","0 0 0"),new XAttribute("size","0 0 0.05"),new XAttribute("material","swsimtool_groundplane")));
             var core=model.Core;
             Action<LinkSnapshot,XElement,JointSnapshot> build=null;
             build=(link,parent,incoming)=>{
